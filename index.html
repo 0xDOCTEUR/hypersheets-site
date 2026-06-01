@@ -11770,11 +11770,6 @@ async function loadData() {
     const btn = document.getElementById('connectBtn');
     if (btn) { btn.disabled = false; btn.textContent = typeof t === 'function' ? t('btn.load') : 'Load'; }
     if (typeof setXyzPageLoading === 'function') setXyzPageLoading(false);
-    // Show onboarding on first wallet load if not done yet
-    if (!localStorage.getItem('hs-onboarding-done')) {
-      localStorage.setItem('hs-onboarding-done', '1')
-      setTimeout(() => showOnboarding(), 800)
-    }
   }
 }
 
@@ -13642,7 +13637,7 @@ document.getElementById('newWalletInput').addEventListener('keydown', e => {
 // ║  CONFIG UI                                                                ║
 // ╚═══════════════════════════════════════════════════════════════════════════╝
 function setupConfig() {
-  // referralBanner and donationSection removed — handled by onboarding & unlock modal
+  // referralBanner and donationSection removed — support banner / info bubble
   const refLink = document.getElementById('referralLink');
   if (refLink && CONFIG.hyperliquidReferral?.startsWith('http')) {
     refLink.href = CONFIG.hyperliquidReferral;
@@ -19155,10 +19150,6 @@ async function initXAuth() {
     client.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
         applyXProfileFromUser(session.user)
-        const onb = document.getElementById('onboardingProfilee')
-        if (onb && onb.style.display === 'flex' && typeof finishOnboardingProfileStep === 'function') {
-          finishOnboardingProfileStep()
-        }
       } else if (event === 'SIGNED_OUT') {
         _profile = { pseudo: '', handle: '', xId: '' }
         try { localStorage.removeItem('hs-profile') } catch {}
@@ -19401,10 +19392,6 @@ window.addEventListener('load', () => {
   // Bandeau watchlist (prix temps réel)
   buildAndRenderTicker([])
   loadStoredData()
-  // Show onboarding on very first visit
-  if (!localStorage.getItem('hs-onboarding-done') && !localStorage.getItem('hs-profile')) {
-    setTimeout(() => showOnboarding(), 600)
-  }
 });
 </script>
 
@@ -19594,60 +19581,6 @@ function toggleTheme() {
     applySupportTopBannerTheme(document.body.dataset.page || currentPage || 'dashboard')
   }
   try { if(typeof renderAll === 'function') renderAll() } catch {}
-}
-
-</script>
-
-<!-- ═══════════════════════════════════════════════════════════════ -->
-<!-- ONBOARDING STEP 1 : PROFIL                                       -->
-<!-- ═══════════════════════════════════════════════════════════════ -->
-<div id="onboardingProfilee" class="modal-bg" style="display:none;z-index:600">
-  <div class="modal" style="max-width:420px">
-    <div style="text-align:center;margin-bottom:24px">
-      <div style="font-size:2rem;margin-bottom:10px">👋</div>
-      <div style="font-family:'Bricolage Grotesque',sans-serif;font-size:1.3rem;font-weight:800;margin-bottom:6px">Welcome to Hypersheets</div>
-      <p style="font-size:.82rem;color:var(--muted);line-height:1.5">Connecte ton compte X pour récupérer ton @ automatiquement.</p>
-    </div>
-    <button type="button" class="profile-x-connect-btn" onclick="connectXAccountFromOnboarding()" style="margin-bottom:12px">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.75l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-      Se connecter avec X
-    </button>
-    <p style="font-size:.65rem;color:var(--muted-2);margin:0 0 12px;line-height:1.5">
-      🏅 Si tu deviens <strong style="color:var(--text)">Top Tipper</strong>, ton @ sera affiché dans le bandeau.
-    </p>
-    <div id="onbProfErr" style="font-size:.75rem;color:var(--danger);margin-bottom:8px;min-height:14px"></div>
-    <div style="display:flex;gap:8px">
-      <button onclick="skipOnboarding()" style="flex:1;padding:11px;background:var(--accent);border:none;border-radius:9px;color:var(--on-accent);font-weight:700;font-size:.88rem;cursor:pointer">
-        Continuer sans X →
-      </button>
-      <button onclick="skipOnboarding()" style="padding:11px 16px;background:transparent;border:1px solid var(--border);border-radius:9px;color:var(--muted);font-size:.82rem;cursor:pointer;font-family:inherit">
-        Skip
-      </button>
-    </div>
-  </div>
-</div>
-
-<script>
-// ─── ONBOARDING ─────────────────────────────────────────────────────────────
-function showOnboarding() {
-  const hasProfilee = localStorage.getItem('hs-profile')
-  if (hasProfilee) return
-  document.getElementById('onboardingProfilee').style.display = 'flex'
-}
-
-async function connectXAccountFromOnboarding() {
-  const err = document.getElementById('onbProfErr')
-  if (err) err.textContent = ''
-  await connectXAccount()
-  if (err && err.textContent) return
-}
-
-function finishOnboardingProfileStep() {
-  document.getElementById('onboardingProfilee').style.display = 'none'
-}
-
-function skipOnboarding() {
-  document.getElementById('onboardingProfilee').style.display = 'none'
 }
 
 </script>
