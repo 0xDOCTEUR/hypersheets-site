@@ -71,8 +71,6 @@ const HS_CONFIG = {
   showLeaderboardImport: false,
   /** Volume max ($) pour le classement « retail » (exclut les mega-wallets) */
   leaderboardRetailMaxUsd: 500000000,
-  /** OAuth X via Supabase (activer le provider Twitter dans le dashboard Supabase) */
-  xOAuthRedirect: '', // vide = page courante (origin + pathname)
 }
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -19091,186 +19089,6 @@ function buildAndRenderTicker(_tippersIgnored) {
   if (typeof sigWatchStartPricePoll === 'function') sigWatchStartPricePoll()
 }
 
-// ─── PROFILE / CONNEXION X (Supabase OAuth) ─────────────────────────────────
-let _profile = { pseudo: '', handle: '', xId: '' }
-let _supaClient = null
-
-function normalizeXHandle(raw) {
-  const h = String(raw || '').trim().replace(/^@+/, '')
-  if (!h || !/^[A-Za-z0-9_]{1,15}$/.test(h)) return null
-  return '@' + h
-}
-
-function getSupaClient() {
-  if (_supaClient) return _supaClient
-  if (typeof supabase === 'undefined' || !SB_URL || !SB_KEY) return null
-  _supaClient = supabase.createClient(SB_URL, SB_KEY, {
-    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
-  })
-  return _supaClient
-}
-
-function getXOAuthRedirectUrl() {
-  if (HS_CONFIG.xOAuthRedirect) return HS_CONFIG.xOAuthRedirect
-  if (window.location.protocol === 'file:') return null
-  return window.location.origin + window.location.pathname
-}
-
-function applyXProfileFromUser(user) {
-  if (!user) return false
-  const m = user.user_metadata || {}
-  const handle = normalizeXHandle(m.user_name || m.preferred_username || m.screen_name || m.username || '')
-  if (!handle) return false
-  const pseudo = (m.full_name || m.name || handle.replace(/^@/, '')).slice(0, 24)
-  _profile = { pseudo, handle, xId: user.id || '' }
-  try { localStorage.setItem('hs-profile', JSON.stringify(_profile)) } catch {}
-  updateProfileeUI()
-  renderProfileModalState()
-  return true
-}
-
-function loadProfilee() {
-  try {
-    const raw = localStorage.getItem('hs-profile')
-    if (raw) {
-      const p = JSON.parse(raw)
-      const handle = normalizeXHandle(p.handle) || (String(p.handle || '').startsWith('@') ? p.handle : '')
-      _profile = { pseudo: p.pseudo || '', handle: handle || '', xId: p.xId || '' }
-    }
-  } catch {}
-  updateProfileeUI()
-}
-
-async function initXAuth() {
-  const client = getSupaClient()
-  if (!client) return
-  try {
-    const { data: { session } } = await client.auth.getSession()
-    if (session?.user) applyXProfileFromUser(session.user)
-    client.auth.onAuthStateChange((event, session) => {
-      if (session?.user) {
-        applyXProfileFromUser(session.user)
-      } else if (event === 'SIGNED_OUT') {
-        _profile = { pseudo: '', handle: '', xId: '' }
-        try { localStorage.removeItem('hs-profile') } catch {}
-        updateProfileeUI()
-        renderProfileModalState()
-      }
-    })
-  } catch (e) {
-    console.warn('X auth init:', e.message)
-  }
-}
-
-async function connectXAccount() {
-  const errEl = document.getElementById('profileError')
-  const isFr = typeof currentLang !== 'undefined' && currentLang === 'fr'
-  if (errEl) errEl.textContent = ''
-
-  if (window.location.protocol === 'file:') {
-    if (errEl) errEl.textContent = isFr
-      ? 'Ouvre le site en https:// (GitHub Pages ou serveur local), pas en fichier .html.'
-      : 'Open the site over https:// (not as a local .html file).'
-    return
-  }
-
-  const client = getSupaClient()
-  if (!client) {
-    if (errEl) errEl.textContent = isFr ? 'Client Supabase indisponible.' : 'Supabase client unavailable.'
-    return
-  }
-
-  const redirectTo = getXOAuthRedirectUrl()
-  if (!redirectTo) {
-    if (errEl) errEl.textContent = isFr ? 'URL de redirection invalide.' : 'Invalid redirect URL.'
-    return
-  }
-
-  const btn = document.getElementById('profileConnectXBtn')
-  if (btn) btn.disabled = true
-
-  try {
-    let error = null
-    const tryProviders = ['twitter', 'x']
-    for (const provider of tryProviders) {
-      const res = await client.auth.signInWithOAuth({
-        provider,
-        options: { redirectTo, skipBrowserRedirect: false },
-      })
-      error = res.error
-      if (!error) return
-      if (!/provider|invalid|unsupported/i.test(error.message || '')) break
-    }
-    if (error) throw error
-  } catch (e) {
-    if (errEl) {
-      errEl.textContent = (isFr ? 'Connexion X impossible : ' : 'X sign-in failed: ')
-        + (e.message || String(e))
-        + (isFr ? ' — active le provider Twitter dans Supabase.' : ' — enable Twitter provider in Supabase.')
-    }
-    if (btn) btn.disabled = false
-  }
-}
-
-async function disconnectXAccount() {
-  const client = getSupaClient()
-  if (client) {
-    try { await client.auth.signOut() } catch {}
-  }
-  _profile = { pseudo: '', handle: '', xId: '' }
-  try { localStorage.removeItem('hs-profile') } catch {}
-  updateProfileeUI()
-  renderProfileModalState()
-}
-
-function updateProfileeUI() {
-  const ps = document.getElementById('headerUsername')
-  const ph = document.getElementById('headerProfileHandle')
-  const connected = !!_profile.handle
-  if (ps) ps.textContent = connected ? _profile.pseudo : (typeof t === 'function' ? t('btn.profile') : 'Profile')
-  if (ph) {
-    if (connected) {
-      ph.textContent = _profile.handle
-      ph.style.display = 'block'
-    } else {
-      ph.textContent = ''
-      ph.style.display = 'none'
-    }
-  }
-}
-
-function renderProfileModalState() {
-  const connected = !!_profile.handle
-  const boxOn = document.getElementById('profileConnectedBox')
-  const boxOff = document.getElementById('profileDisconnectedBox')
-  const discBtn = document.getElementById('profileDisconnectBtn')
-  const nameEl = document.getElementById('profileConnectedName')
-  const handleEl = document.getElementById('profileConnectedHandle')
-  if (boxOn) boxOn.style.display = connected ? 'block' : 'none'
-  if (boxOff) boxOff.style.display = connected ? 'none' : 'block'
-  if (discBtn) discBtn.style.display = connected ? 'block' : 'none'
-  if (nameEl) nameEl.textContent = _profile.pseudo || ''
-  if (handleEl) handleEl.textContent = _profile.handle || ''
-}
-
-function openProfileeModal() {
-  const modal = document.getElementById('profileModal')
-  if (!modal) return
-  modal.classList.add('open')
-  const warn = document.getElementById('profileFileProtocolWarn')
-  if (warn) warn.style.display = window.location.protocol === 'file:' ? 'block' : 'none'
-  const errEl = document.getElementById('profileError')
-  if (errEl) errEl.textContent = ''
-  renderProfileModalState()
-  const btn = document.getElementById('profileConnectXBtn')
-  if (btn) btn.disabled = false
-}
-
-function closeProfileeModal() {
-  const modal = document.getElementById('profileModal')
-  if (modal) modal.classList.remove('open')
-}
-
 // ─── X HANDLE TRACKING ─────────────────────────────────────────────────────
 function saveXHandle(){
   const handle=document.getElementById('xHandleInput')?.value?.trim()
@@ -19291,9 +19109,6 @@ async function loadStoredData(){
     const h=localStorage.getItem('hs-xhandles');if(h)_xHandles=JSON.parse(h)
     const c=localStorage.getItem('hs-connected');if(c)_connectedUsers=JSON.parse(c)
   }catch{}
-  loadProfilee()
-  await initXAuth()
-  // Load tippers from Supabase — only update banner if real tippers found
   const tippers = await loadTippersFromSupabase()
   if(tippers.length) buildAndRenderTicker(tippers)
 }
@@ -19450,47 +19265,6 @@ window.addEventListener('load', () => {
       <button class="btn" style="flex:1" onclick="applyTicker();closeTickerModal()">Appliquer & Fermer</button>
       <button class="btn btn-ghost" onclick="closeTickerModal()">Cancel</button>
     </div>
-  </div>
-</div>
-
-<!-- PROFILE / CONNEXION X -->
-<div id="profileModal" class="profile-modal-overlay" onclick="if(event.target===this)closeProfileeModal()">
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:18px;width:100%;max-width:420px;padding:28px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
-      <div>
-        <div id="profileModalTitle" style="font-family:'Bricolage Grotesque',sans-serif;font-size:1.2rem;font-weight:800;margin-bottom:3px">Connexion X</div>
-        <p id="profileModalSub" style="font-size:.75rem;color:var(--muted)">Connecte ton compte pour récupérer ton @ automatiquement</p>
-      </div>
-      <button type="button" onclick="closeProfileeModal()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.4rem;line-height:1">✕</button>
-    </div>
-
-    <div id="profileConnectedBox" class="profile-x-connected" style="display:none">
-      <div style="font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px" id="profileConnectedLabel">Connecté</div>
-      <div id="profileConnectedName" style="font-weight:700;font-size:.95rem;margin-bottom:2px"></div>
-      <div id="profileConnectedHandle" style="font-family:'JetBrains Mono',monospace;font-size:.8rem;color:#1DA1F2"></div>
-    </div>
-
-    <div id="profileDisconnectedBox">
-      <p id="profileConnectHint" style="font-size:.78rem;color:var(--muted);line-height:1.5;margin:0 0 14px">Utilisé pour le bandeau Top Tippers et ton identité sur le dashboard.</p>
-      <button type="button" id="profileConnectXBtn" class="profile-x-connect-btn" onclick="connectXAccount()">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.75l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-        <span id="profileConnectXLabel">Se connecter avec X</span>
-      </button>
-    </div>
-
-    <div id="profileError" style="font-size:.75rem;color:var(--danger);margin:14px 0 0;min-height:16px"></div>
-
-    <div style="display:flex;gap:8px;margin-top:16px">
-      <button type="button" id="profileDisconnectBtn" onclick="disconnectXAccount()" style="display:none;flex:1;padding:11px;background:transparent;border:1px solid rgba(239,68,68,.4);border-radius:9px;color:var(--danger);font-weight:600;font-size:.85rem;cursor:pointer;font-family:inherit">
-        Se déconnecter
-      </button>
-      <button type="button" id="profileCancelBtn" onclick="closeProfileeModal()" style="flex:1;padding:11px;background:transparent;border:1px solid var(--border);border-radius:9px;color:var(--muted);font-size:.88rem;cursor:pointer;font-family:inherit">
-        Fermer
-      </button>
-    </div>
-
-    <p id="profileFooterNote" style="font-size:.68rem;color:var(--muted-2);text-align:center;margin-top:12px;line-height:1.45">Connexion sécurisée via Supabase · Données profil en local</p>
-    <p id="profileFileProtocolWarn" style="display:none;font-size:.65rem;color:#f59e0b;text-align:center;margin-top:8px">Ouvre le dashboard via https:// (pas en fichier local) pour activer la connexion X.</p>
   </div>
 </div>
 
