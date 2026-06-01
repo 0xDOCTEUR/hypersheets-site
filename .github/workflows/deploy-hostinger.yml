@@ -1,0 +1,30 @@
+# Déploiement FTP vers Hostinger (public_html)
+# Secrets requis dans GitHub → Settings → Secrets → Actions :
+#   FTP_HOST, FTP_USER, FTP_PASSWORD
+name: Deploy to Hostinger
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  ftp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USER }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./
+          server-dir: /public_html/
+          exclude: |
+            **/.git*
+            **/.github/**
+            **/README.md
+            **/DEPLOY-HOSTINGER.md
+            **/.gitignore
