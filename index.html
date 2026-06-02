@@ -13780,6 +13780,21 @@ function selectCard(key, el) {
   redrawShareCard();
 }
 
+let _shareLeaderboardWarmupPromise = null;
+async function ensureShareLeaderboardReady() {
+  if (_leaderboardAllRows?.length) return true;
+  if (typeof loadLeaderboardFromStorage === 'function') {
+    loadLeaderboardFromStorage();
+    if (_leaderboardAllRows?.length) return true;
+  }
+  if (typeof loadHip3Leaderboard === 'function') {
+    try {
+      await loadHip3Leaderboard(false);
+    } catch (_) {}
+  }
+  return !!_leaderboardAllRows?.length;
+}
+
 function openShareModal() {
   if (!wallets.length) {
     showError(t('share.noWallet'));
@@ -13788,9 +13803,6 @@ function openShareModal() {
   if (!allFills.length && !xyzFills.length && !bridgeOps.length) {
     showError(t('share.noData'));
     return;
-  }
-  if (!_leaderboardAllRows?.length && typeof loadLeaderboardFromStorage === 'function') {
-    loadLeaderboardFromStorage();
   }
   document.getElementById('shareModalBg').classList.add('active');
   initShareCardPicker();
@@ -13819,6 +13831,15 @@ function openShareModal() {
   shareRankModeLoad();
   syncShareRankModePillsUI();
   redrawShareCard();
+  if (!_leaderboardAllRows?.length) {
+    if (!_shareLeaderboardWarmupPromise) {
+      _shareLeaderboardWarmupPromise = ensureShareLeaderboardReady()
+        .finally(() => { _shareLeaderboardWarmupPromise = null; });
+    }
+    _shareLeaderboardWarmupPromise.then((ok) => {
+      if (ok && document.getElementById('shareModalBg')?.classList.contains('active')) redrawShareCard();
+    });
+  }
 }
 function closeShareModal() {
   document.getElementById('shareModalBg').classList.remove('active');
