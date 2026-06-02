@@ -13260,7 +13260,7 @@ function ensureTradeFilterBar(tableId) {
     <label><span>${t('trades.filter.direction')}</span>
       <select data-f="dir">${dirOpts}</select>
     </label>
-    <label class="hs-trade-filter-twap"><input type="checkbox" data-f="twap" /> ${t('trades.filter.twap')}</label>
+    ${!isXyz ? `<label class="hs-trade-filter-twap"><input type="checkbox" data-f="twap" /> ${t('trades.filter.twap')}</label>` : ''}
     ${!isXyz ? `<label class="hs-trade-filter-twap"><input type="checkbox" data-f="hideSpotDust" /> ${t('trades.filter.hideSpotDust')}</label>` : ''}
     <div class="hs-trade-filter-actions">
       <span class="hs-trade-filter-count" data-f="count"></span>
