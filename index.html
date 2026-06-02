@@ -8172,6 +8172,7 @@ const HS_CONFIG = {
               <div class="sig-toolbar-group" id="sigScanConfGroup">
                 <span class="sig-toolbar-label" data-i18n="sig.scanConf">Confiance</span>
                 <select id="sigScanConfSelect" class="sig-scan-conf-select" onchange="sigScanSetMinConfidence(this.value)" title="Confiance minimum" aria-label="Confiance minimum">
+                  <option value="-1" data-i18n="sig.scanConfNone">Aucune</option>
                   <option value="0" data-i18n="sig.scanConfAll">Toutes</option>
                   <option value="50">≥ 50%</option>
                   <option value="60">≥ 60%</option>
@@ -8553,6 +8554,7 @@ const I18N = {
     'sig.scanMove': 'Move',
     'sig.scanTop': 'Top',
     'sig.scanConf': 'Confidence',
+    'sig.scanConfNone': 'None',
     'sig.scanConfAll': 'All',
     'sig.scanColConf': 'Conf.',
     'sig.scanConfHint': 'Live market scan (24h) · confidence from MTF analysis on scan',
@@ -9042,6 +9044,7 @@ const I18N = {
     'sig.scanMove': 'Mouvement',
     'sig.scanTop': 'Top',
     'sig.scanConf': 'Confiance',
+    'sig.scanConfNone': 'Aucune',
     'sig.scanConfAll': 'Toutes',
     'sig.scanColConf': 'Conf.',
     'sig.scanConfHint': 'Scan marché live (24h) · confiance via analyse MTF au scan',
@@ -21261,10 +21264,10 @@ function sigScanCfgLoad() {
       moveUnit: raw.moveUnit === 'usd' ? 'usd' : 'pct',
       limit: [15, 25, 40].includes(Number(raw.limit)) ? Number(raw.limit) : 25,
       minVolUsd: Math.max(0, Number(raw.minVolUsd) || 0),
-      minConfidence: [0, 50, 60, 70, 80].includes(conf) ? conf : 0,
+      minConfidence: [-1, 0, 50, 60, 70, 80].includes(conf) ? conf : -1,
     }
   } catch {
-    _sigScanCfg = { moveDir: 'up', moveUnit: 'pct', limit: 25, minVolUsd: 0, minConfidence: 0 }
+    _sigScanCfg = { moveDir: 'up', moveUnit: 'pct', limit: 25, minVolUsd: 0, minConfidence: -1 }
   }
 }
 function sigScanCfgSave() {
@@ -21285,12 +21288,12 @@ function sigScanUiSync() {
   const lim = document.getElementById('sigScanLimitSelect')
   if (lim) lim.value = String(_sigScanCfg.limit)
   const confSel = document.getElementById('sigScanConfSelect')
-  if (confSel) confSel.value = String(_sigScanCfg.minConfidence ?? 0)
+  if (confSel) confSel.value = String(_sigScanCfg.minConfidence ?? -1)
   sigScanConfUiVisible()
 }
 function sigScanSetMinConfidence(val) {
   const n = Number(val)
-  _sigScanCfg.minConfidence = [0, 50, 60, 70, 80].includes(n) ? n : 0
+  _sigScanCfg.minConfidence = [-1, 0, 50, 60, 70, 80].includes(n) ? n : -1
   sigScanCfgSave()
   sigScanUiSync()
   const raw = _sigScanByMode[_sigMode]
@@ -21299,6 +21302,7 @@ function sigScanSetMinConfidence(val) {
 function sigFilterScanByConfidence(rows) {
   if (_sigMode === 'spot') return rows || []
   const min = Number(_sigScanCfg.minConfidence) || 0
+  if (Number(_sigScanCfg.minConfidence) === -1) return rows
   if (!min) return rows
   return rows
     .filter(r => !r.conflict && (r.confidence ?? 0) >= min)
@@ -25637,7 +25641,7 @@ async function runSigScan() {
       return
     }
     let enriched = movers
-    if (_sigMode !== 'spot') {
+    if (_sigMode !== 'spot' && Number(_sigScanCfg.minConfidence) !== -1) {
       const progress = (done, total) => {
         if (!scanZone) return
         scanZone.innerHTML = `<div class="sig-inline-loader"><div class="sig-inline-spinner"></div><span>${isFr ? `Confiance… ${done}/${total}` : `Confidence… ${done}/${total}`}</span></div>`
