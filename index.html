@@ -7876,6 +7876,7 @@ const HS_CONFIG = {
           <div class="hl-vol-rows" id="hlVolBreakdown"></div>
         </div>
         <p class="hl-vol-hint" data-i18n="hl.volHint">Click a row to filter trades and performance metrics.</p>
+        <p class="hl-vol-hint" style="margin-top:6px" data-i18n="vol.apiNotice">For very high-activity accounts (e.g. MM bots), displayed volume may be partial due to public API limits.</p>
       </div>
       <div class="hl-perf-panel" id="hlPerfPanel">
         <div class="hl-perf-title">
@@ -7953,6 +7954,7 @@ const HS_CONFIG = {
       <div class="kpi"><div class="kpi-label">Profit Factor</div><div class="kpi-val" id="xyzPF">—</div><div class="kpi-sub" id="xyzPFSub">—</div></div>
       <div class="kpi"><div class="kpi-label" data-i18n="kpi.fees">Fees Paid</div><div class="kpi-val" id="xyzFees">—</div></div>
     </div>
+    <p class="hl-vol-hint mb-4" style="margin-top:-8px" data-i18n="vol.apiNotice">For very high-activity accounts (e.g. MM bots), displayed volume may be partial due to public API limits.</p>
 
     <div class="surface p-5 mb-6" id="xyzEmptyBox" style="display:none">
       <div class="text-center py-10">
@@ -8767,6 +8769,7 @@ const I18N = {
     'hl.fillsSub': 'executions',
     'hl.closedPosSub': 'closed positions',
     'hl.volHint': 'Click a row to filter trades and performance metrics.',
+    'vol.apiNotice': 'For very high-activity accounts (e.g. MM bots), displayed volume may be partial due to public API limits.',
     'hl.unitElsewhere': 'UNIT Spot & UNIT Bridge',
     'hl.unitElsewhereLink': 'UNIT tab',
     'hl.chartsToggle': 'Charts (volume & PnL)',
@@ -9256,6 +9259,7 @@ const I18N = {
     'hl.fillsSub': 'exécutions',
     'hl.closedPosSub': 'positions clôturées',
     'hl.volHint': 'Clique une ligne pour filtrer les trades et les indicateurs de performance.',
+    'vol.apiNotice': 'Pour les comptes très actifs (ex: bots MM), le volume affiché peut être partiel à cause des limites des APIs publiques.',
     'hl.unitElsewhere': 'UNIT Spot & UNIT Bridge',
     'hl.unitElsewhereLink': 'onglet UNIT',
     'hl.chartsToggle': 'Graphiques (volume & PnL)',
