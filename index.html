@@ -12760,7 +12760,7 @@ function groupFills(fills, windowMs=120000) {
       if (fillDirectionMeta(f).isTwap || isTwapFill(f)) last.isTwap = true;
       if (dust) last.isSpotDust = true;
     } else {
-      const dirMeta = fillDirectionMeta(f);
+      const direction = fillDirectionMeta(f);
       groups.push({
         key, cat, side: f.side,
         firstTime: f.time, lastTime: f.time,
@@ -12770,9 +12770,9 @@ function groupFills(fills, windowMs=120000) {
         totalSz: Math.abs(parseFloat(f.sz || 0)),
         totalPxSz: parseFloat(f.px || 0) * Math.abs(parseFloat(f.sz || 0)),
         count: 1,
-        dirLabel: dirMeta.label,
-        isTwap: !!dirMeta.isTwap,
-        isSpotDust: !!dirMeta.isSpotDust,
+        dirLabel: direction.label,
+        isTwap: !!direction.isTwap || isTwapFill(f),
+        isSpotDust: !!direction.isSpotDust,
       });
     }
   }
@@ -13216,7 +13216,7 @@ function groupFillsXyz(fills) {
       last.lastTime = f.time;
       if (fillDirectionMeta(f).isTwap || isTwapFill(f)) last.isTwap = true;
     } else {
-      const dirMeta = fillDirectionMeta(f);
+      const direction = fillDirectionMeta(f);
       groups.push({
         key, side: f.side,
         cat: { type: 'tradexyz', display },
@@ -13227,8 +13227,8 @@ function groupFillsXyz(fills) {
         totalSz: Math.abs(parseFloat(f.sz || 0)),
         totalPxSz: parseFloat(f.px || 0) * Math.abs(parseFloat(f.sz || 0)),
         count: 1,
-        dirLabel: dirMeta.label,
-        isTwap: !!dirMeta.isTwap,
+        dirLabel: direction.label,
+        isTwap: !!direction.isTwap || isTwapFill(f),
       });
     }
   }
