@@ -4872,11 +4872,13 @@ const HS_CONFIG = {
       }
 
       #hsFooterBar {
-        bottom: 0;
+        position: fixed;
+        bottom: env(safe-area-inset-bottom, 0px);
         left: 0;
         right: 0;
         padding: 8px 12px;
-        z-index: 501;
+        z-index: 498;
+        transform: none;
       }
 
       .welcome-cta {
@@ -4908,7 +4910,7 @@ const HS_CONFIG = {
     #mobileNav {
       display: none;
       position: fixed;
-      bottom: var(--hs-footer-bar-h); left: 0; right: 0;
+      bottom: calc(var(--hs-footer-bar-h) + env(safe-area-inset-bottom, 0px)); left: 0; right: 0;
       min-height: 56px;
       padding-bottom: env(safe-area-inset-bottom, 0px);
       background: var(--hs-chrome-bar-bg);
@@ -12776,7 +12778,7 @@ function groupFills(fills, windowMs=120000) {
 const _tradeTableStore = {};
 
 function defaultTradeFilters() {
-  return { market: '', type: 'all', dir: 'all', twapOnly: false, hideSpotDust: false };
+  return { market: '', type: 'all', dir: 'all', twapOnly: false, hideSpotDust: true };
 }
 
 function defaultBridgeFilters() {
