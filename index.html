@@ -16604,8 +16604,18 @@ function scheduleLeaderboardPoll() {
 async function fetchLeaderboardStatus() {
   const base = HS_CONFIG.alliumProxyUrl
   if (!base) return { status: 'error', error: 'alliumProxyUrl non configuré' }
-  const res = await fetch(base + '/leaderboard/status')
+  const res = await fetchWithTimeout(base + '/leaderboard/status', { timeoutMs: 12000 })
   return res.json()
+}
+
+async function fetchWithTimeout(url, { timeoutMs = 12000, ...options } = {}) {
+  const ctrl = new AbortController()
+  const t = setTimeout(() => ctrl.abort(), timeoutMs)
+  try {
+    return await fetch(url, { ...options, signal: ctrl.signal })
+  } finally {
+    clearTimeout(t)
+  }
 }
 
 async function fetchLeaderboardData(force = false) {
@@ -16615,7 +16625,10 @@ async function fetchLeaderboardData(force = false) {
 
   const staticUrl = (HS_CONFIG.leaderboardDataUrl || '').trim()
   if (staticUrl) {
-    const res = await fetch(staticUrl + (staticUrl.includes('?') ? '&' : '?') + '_=' + Date.now())
+    const res = await fetchWithTimeout(
+      staticUrl + (staticUrl.includes('?') ? '&' : '?') + '_=' + Date.now(),
+      { timeoutMs: 12000 }
+    )
     if (!res.ok) throw new Error('leaderboardDataUrl HTTP ' + res.status)
     const data = await res.json()
     const rows = normalizeLeaderboardPayload(data)
@@ -16636,7 +16649,7 @@ async function fetchLeaderboardData(force = false) {
   const base = HS_CONFIG.alliumProxyUrl
   if (!base) throw new Error(t('xyz.lbNoFile'))
 
-  const res = await fetch(base + '/leaderboard')
+  const res = await fetchWithTimeout(base + '/leaderboard', { timeoutMs: 12000 })
   const data = await res.json()
 
   if (res.status === 202 || data.status === 'computing' || data.status === 'refreshing') {
@@ -16835,7 +16848,6 @@ async function loadHip3Leaderboard(force = false) {
     clearLeaderboardPoll()
     await renderLeaderboardFallback()
   } finally {
-    if (btn) btn.disabled = false
     hsAuxLoading(false)
   }
 }
