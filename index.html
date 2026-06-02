@@ -11070,7 +11070,7 @@ async function fetchTwapSliceFills(wallet, startTime, walletLabel, walletIdx) {
       const fill = entry?.fill || entry;
       if (!fill?.time) continue;
       if (startTime && fill.time < startTime) continue;
-      out.push({ ...fill, _twapId: entry.twapId, _wallet: wallet });
+      out.push({ ...fill, _twapId: entry.twapId, _isTwapSlice: true, _wallet: wallet });
     }
     console.log(`[fetchTwapSliceFills] ${walletLabel || ''} ${truncAddr(wallet)} → ${out.length} slices`);
     return out;
@@ -11081,7 +11081,7 @@ async function fetchTwapSliceFills(wallet, startTime, walletLabel, walletIdx) {
 }
 
 function isTwapFill(f) {
-  return f._twapId != null && f._twapId !== '';
+  return !!(f && (f._isTwapSlice || (f._twapId != null && f._twapId !== '')));
 }
 
 function isSpotDustFill(f) {
@@ -11657,7 +11657,7 @@ async function loadData() {
     fillsByWallet = {};
     const seenFills = new Set();
     const pushFillUnique = (target, f, w) => {
-      const twapPart = f?._twapId != null && f._twapId !== '' ? `|twap:${f._twapId}` : ''
+      const twapPart = f?._isTwapSlice ? `|twapSlice:${f._twapId || 1}` : (f?._twapId != null && f._twapId !== '' ? `|twap:${f._twapId}` : '')
       const key = (f.tid || `${f.time}-${f.coin}-${f.px}-${f.sz}-${f.side}-${f.oid}`) + '|' + w + twapPart;
       if (seenFills.has(key)) return;
       seenFills.add(key);
