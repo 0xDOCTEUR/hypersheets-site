@@ -12757,7 +12757,7 @@ function groupFills(fills, windowMs=120000) {
       last.totalPxSz += parseFloat(f.px || 0) * Math.abs(parseFloat(f.sz || 0));
       last.count++;
       last.lastTime = f.time;
-      if (isTwapFill(f)) last.isTwap = true;
+      if (dirMeta.isTwap || isTwapFill(f)) last.isTwap = true;
       if (dust) last.isSpotDust = true;
     } else {
       const dirMeta = fillDirectionMeta(f);
@@ -12771,7 +12771,7 @@ function groupFills(fills, windowMs=120000) {
         totalPxSz: parseFloat(f.px || 0) * Math.abs(parseFloat(f.sz || 0)),
         count: 1,
         dirLabel: dirMeta.label,
-        isTwap: dirMeta.isTwap,
+        isTwap: !!dirMeta.isTwap,
         isSpotDust: !!dirMeta.isSpotDust,
       });
     }
@@ -13214,7 +13214,7 @@ function groupFillsXyz(fills) {
       last.totalPxSz += parseFloat(f.px || 0) * Math.abs(parseFloat(f.sz || 0));
       last.count++;
       last.lastTime = f.time;
-      if (isTwapFill(f)) last.isTwap = true;
+      if (dirMeta.isTwap || isTwapFill(f)) last.isTwap = true;
     } else {
       const dirMeta = fillDirectionMeta(f);
       groups.push({
@@ -13228,7 +13228,7 @@ function groupFillsXyz(fills) {
         totalPxSz: parseFloat(f.px || 0) * Math.abs(parseFloat(f.sz || 0)),
         count: 1,
         dirLabel: dirMeta.label,
-        isTwap: dirMeta.isTwap,
+        isTwap: !!dirMeta.isTwap,
       });
     }
   }
