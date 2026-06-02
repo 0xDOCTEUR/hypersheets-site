@@ -12921,7 +12921,7 @@ function tradeFilterDirOptions() {
 
 function tradeGroupMatchesFilter(g, filters, isXyz) {
   const f = filters || defaultTradeFilters();
-  if (!isXyz && g.cat?.type === 'unit' && !f.twapOnly) return false;
+  if (!isXyz && g.cat?.type === 'unit' && !g.isTwap && !f.twapOnly) return false;
   if (f.hideSpotDust && g.isSpotDust) return false;
   if (f.twapOnly && !g.isTwap) return false;
   const mkt = (f.market || '').trim().toLowerCase();
