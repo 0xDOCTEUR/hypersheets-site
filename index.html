@@ -11465,6 +11465,13 @@ function setActiveWallet(wallet) {
   }
   renderWallets();
   renderAll();
+  if ((document.body?.dataset?.page || '') === 'leaderboard') {
+    if (_leaderboardAllRows?.length && typeof renderLeaderboard === 'function') {
+      renderLeaderboard(_leaderboardAllRows, _leaderboardCache?.updatedAt)
+    } else if (typeof loadHip3Leaderboard === 'function') {
+      loadHip3Leaderboard(false)
+    }
+  }
 }
 
 function getActiveFills() {
