@@ -11145,6 +11145,9 @@ function twapDiagRender() {
   const c = window._hlPageCtx || {};
   const store = _tradeTableStore.hlTable;
   const tableFills = Array.isArray(c.hlTrades) ? c.hlTrades : (Array.isArray(c.hl) ? c.hl : []);
+  const hlCoreTwap = Array.isArray(c.hl) ? c.hl.filter(isTwapFill).length : 0;
+  const hlUnitTwap = Array.isArray(c.hlUnit) ? c.hlUnit.filter(isTwapFill).length : 0;
+  const xyzTwap = Array.isArray(c.xyz) ? c.xyz.filter(isTwapFill).length : 0;
   const allGroups = groupFills(tableFills);
   const shownGroups = store ? allGroups.filter(g => tradeGroupMatchesFilter(g, store.filters, false)) : allGroups;
   const shownTwapGroups = shownGroups.filter(g => g.isTwap).length;
@@ -11158,6 +11161,7 @@ function twapDiagRender() {
   panel.innerHTML = [
     `<b>TWAP debug</b> · period=${d.period} · start=${d.startTime ? new Date(d.startTime).toISOString() : 'n/a'}`,
     `totals: api ${d.totals.apiRaw}/${d.totals.apiKept} · merged ${d.totals.merged} · kept ${d.totals.accepted} · dedup ${d.totals.dedupDropped} · hlTwapFills ${hlTwapFills} · shownGroups ${shownTwapGroups}`,
+    `sources: hlCoreTwap ${hlCoreTwap} · hlUnitTwap ${hlUnitTwap} · xyzTwap ${xyzTwap}`,
     walletRows.length ? walletRows.join('<br>') : 'wallets: none',
   ].join('<br>');
 }
