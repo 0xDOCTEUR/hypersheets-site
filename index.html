@@ -11886,6 +11886,7 @@ function filterRowDockEnabled() {
 function sigTfDockEnabled() {
   if (document.body.classList.contains('hs-welcome-mode')) return false
   if ((document.body.dataset.page || '') !== 'signals') return false
+  if (window.matchMedia && window.matchMedia('(max-width: 768px)').matches) return false
   return !!document.getElementById('sigTfToolbarLine')
 }
 
