@@ -11657,7 +11657,8 @@ async function loadData() {
     fillsByWallet = {};
     const seenFills = new Set();
     const pushFillUnique = (target, f, w) => {
-      const key = (f.tid || `${f.time}-${f.coin}-${f.px}-${f.sz}-${f.side}-${f.oid}`) + '|' + w;
+      const twapPart = f?._twapId != null && f._twapId !== '' ? `|twap:${f._twapId}` : ''
+      const key = (f.tid || `${f.time}-${f.coin}-${f.px}-${f.sz}-${f.side}-${f.oid}`) + '|' + w + twapPart;
       if (seenFills.has(key)) return;
       seenFills.add(key);
       target.push(f);
