@@ -11702,18 +11702,19 @@ async function loadData() {
     glpSetProgress(14);
     const walletBundles = await Promise.all(wallets.map(async (w, i) => {
       const tag = `[${i+1}/${wallets.length} ${truncAddr(w)}]`;
-      const [hlW, twapW, fundingRes, bridgeRes, posRes] = await Promise.allSettled([
+      const [hlW, xyzW, twapW, fundingRes, bridgeRes, posRes] = await Promise.allSettled([
         fetchAllFills(w, startTime, null, maxPages, tag, i),
+        fetchAllFills(w, startTime, 'xyz', maxPages, tag, i),
         fetchTwapSliceFills(w, startTime, tag, i),
         fetchAllFunding(w, startTime, maxPages, tag, i),
         fetch(`${UNIT_API}/${w}`).then(r => r.ok ? r.json() : null).catch(() => null),
         hlPost({ type: 'clearinghouseState', user: w }),
       ]);
-      return { w, hlW, twapW, fundingRes, bridgeRes, posRes };
+      return { w, hlW, xyzW, twapW, fundingRes, bridgeRes, posRes };
     }));
 
     for (let wi = 0; wi < walletBundles.length; wi++) {
-      const { w, hlW, twapW, fundingRes, bridgeRes, posRes } = walletBundles[wi];
+      const { w, hlW, xyzW, twapW, fundingRes, bridgeRes, posRes } = walletBundles[wi];
       if (posRes.status === 'fulfilled' && posRes.value) {
         const state = posRes.value;
         const openPos = (state.assetPositions || [])
@@ -11725,6 +11726,9 @@ async function loadData() {
         if (!accountValues[w]) accountValues[w] = parseFloat(state.marginSummary?.accountValue || 0);
       }
       const merged = (hlW.status === 'fulfilled') ? [...hlW.value] : [];
+      if (xyzW.status === 'fulfilled' && Array.isArray(xyzW.value)) {
+        for (const f of xyzW.value) merged.push(f);
+      }
       if (twapW.status === 'fulfilled' && Array.isArray(twapW.value)) {
         for (const f of twapW.value) merged.push(f);
       }
