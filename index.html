@@ -11064,32 +11064,76 @@ async function fetchAllFills(wallet, startTime, dex, maxPages, walletLabel, wall
 
 /** TWAP slice fills (endpoint séparé — absents de userFillsByTime). Max ~2000 slices récents. */
 async function fetchTwapSliceFills(wallet, startTime, walletLabel, walletIdx) {
+  const twapDebug = (() => {
+    try {
+      const qp = new URLSearchParams(window.location.search || '');
+      return qp.get('twapdebug') === '1' || String(localStorage.getItem('hsTwapDebug') || '') === '1';
+    } catch (_) {
+      return false;
+    }
+  })();
+  const normalizeTwapFill = (entry, dexName) => {
+    const fill = entry?.fill || entry || {};
+    const merged = { ...(entry || {}), ...(fill || {}) };
+    const rawCoin = String(merged?.coin || merged?.asset || merged?.symbol || '').trim();
+    let market = 'perp';
+    let dex = dexName || null;
+    let coin = rawCoin;
+    if (rawCoin.startsWith('@')) {
+      market = 'spot';
+      dex = null;
+      coin = rawCoin;
+    } else if (rawCoin.includes(':')) {
+      const [d, c] = rawCoin.split(':');
+      market = 'hip3';
+      dex = d || dexName || null;
+      coin = c || rawCoin;
+    }
+    const rawTime = Number(merged?.time || merged?.fillTime || merged?.timestamp || merged?.ts || 0);
+    return {
+      ...merged,
+      coin: rawCoin,
+      px: merged?.px ?? merged?.price ?? merged?.avgPx ?? merged?.avg_price ?? 0,
+      sz: merged?.sz ?? merged?.size ?? merged?.qty ?? merged?.quantity ?? merged?.executedSz ?? merged?.executed_size ?? 0,
+      side: merged?.side || merged?.dirSide || merged?.direction || '',
+      time: rawTime,
+      _market: market,
+      _dex: dex,
+      _coin: coin,
+      _twapId: entry?.twapId ?? merged?.twapId,
+      _isTwapSlice: true,
+      _wallet: wallet,
+    };
+  };
   try {
-    const batch = await hlPost({ type: 'userTwapSliceFills', user: wallet });
+    const perps = await hlPost({ type: 'perpDexs' }).catch(() => null);
+    const dexNames = Array.isArray(perps) ? perps.map(d => d?.name).filter(Boolean) : [];
+    const dexList = [null, ...dexNames];
     if (typeof walletIdx === 'number') {
       const n = Math.max(1, _glp.nWallets || 1)
       glpSetProgress(14 + (walletIdx + 0.42) * (62 / n))
     }
-    if (!Array.isArray(batch)) return [];
     const out = [];
-    for (const entry of batch) {
-      const fill = entry?.fill || entry;
-      const merged = { ...(entry || {}), ...(fill || {}) };
-      const rawTime = Number(merged?.time || merged?.fillTime || merged?.timestamp || merged?.ts || 0)
-      if (!rawTime) continue;
-      const fillTime = rawTime < 1e11 ? rawTime * 1000 : rawTime
-      if (startTime && fillTime < startTime) continue;
-      out.push({
-        ...merged,
-        coin: merged?.coin || merged?.asset || merged?.symbol || '',
-        px: merged?.px ?? merged?.price ?? merged?.avgPx ?? merged?.avg_price ?? 0,
-        sz: merged?.sz ?? merged?.size ?? merged?.qty ?? merged?.quantity ?? merged?.executedSz ?? merged?.executed_size ?? 0,
-        side: merged?.side || merged?.dirSide || merged?.direction || '',
-        time: fillTime,
-        _twapId: entry?.twapId ?? merged?.twapId,
-        _isTwapSlice: true,
-        _wallet: wallet,
-      });
+    const seen = new Set();
+    for (const dexName of dexList) {
+      const body = { type: 'userTwapSliceFills', user: wallet };
+      if (dexName) body.dex = dexName;
+      const batch = await hlPost(body).catch(() => []);
+      if (!Array.isArray(batch)) continue;
+      if (twapDebug) {
+        const coins = [...new Set(batch.map(e => String((e?.fill || e || {}).coin || '')))];
+        console.log(`[TWAP raw coins][${truncAddr(wallet)}][dex=${dexName || 'default'}]`, coins);
+      }
+      for (const entry of batch) {
+        const f = normalizeTwapFill(entry, dexName);
+        if (!f.time) continue;
+        const fillTime = f.time < 1e11 ? f.time * 1000 : f.time;
+        if (startTime && fillTime < startTime) continue;
+        const key = String(f.tid || `${fillTime}-${f.coin}-${f.px}-${f.sz}-${f.side}-${f.oid}`) + `|${dexName || 'default'}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push({ ...f, time: fillTime });
+      }
     }
     console.log(`[fetchTwapSliceFills] ${walletLabel || ''} ${truncAddr(wallet)} → ${out.length} slices`);
     return out;
@@ -11734,7 +11778,7 @@ async function loadData() {
       }
       for (const f of merged) {
         const c = f.coin || '';
-        if (c.startsWith('xyz:')) pushFillUnique(xyzFills, f, w);
+        if (f?._market === 'hip3' || c.startsWith('xyz:')) pushFillUnique(xyzFills, f, w);
         else                      pushFillUnique(allFills, f, w);
       }
       if (fundingRes.status === 'fulfilled' && Array.isArray(fundingRes.value)) {
