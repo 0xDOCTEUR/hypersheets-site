@@ -13000,9 +13000,9 @@ function tradeFilterDirOptions() {
   ];
 }
 
-function tradeGroupMatchesFilter(g, filters, isXyz) {
+function tradeGroupMatchesFilter(g, filters, isXyz, isUnit) {
   const f = filters || defaultTradeFilters();
-  if (!isXyz && g.cat?.type === 'unit' && !g.isTwap && !f.twapOnly) return false;
+  if (!isXyz && !isUnit && g.cat?.type === 'unit' && !g.isTwap && !f.twapOnly) return false;
   if (f.hideSpotDust && g.isSpotDust) return false;
   if (f.twapOnly && !g.isTwap) return false;
   const mkt = (f.market || '').trim().toLowerCase();
@@ -13292,7 +13292,7 @@ function paintTradeTable(tableId) {
   const store = _tradeTableStore[tableId];
   const c = document.getElementById(tableId);
   if (!store || !c) return;
-  const { fills, isXyz, filters } = store;
+ const { fills, isXyz, isUnit, filters } = store;
   if (!fills.length) {
     c.innerHTML = `<div class="text-center text-sm py-12" style="color:var(--muted)">${t('noTrades')}</div>`;
     const cnt = document.querySelector(`.hs-trade-filters[data-trade-table="${tableId}"] [data-f="count"]`);
@@ -13300,7 +13300,7 @@ function paintTradeTable(tableId) {
     return;
   }
   const allGroups = isXyz ? groupFillsXyz(fills) : groupFills(fills);
-  const groups = allGroups.filter(g => tradeGroupMatchesFilter(g, filters, isXyz));
+ const groups = allGroups.filter(g => tradeGroupMatchesFilter(g, filters, isXyz, isUnit));
   const cntEl = document.querySelector(`.hs-trade-filters[data-trade-table="${tableId}"] [data-f="count"]`);
   if (cntEl) {
     cntEl.textContent = t('trades.filter.count')
@@ -13352,9 +13352,10 @@ function paintTradeTable(tableId) {
 
 function renderTradeTable(targetId, fills, isXyz) {
   const prev = _tradeTableStore[targetId]?.filters;
-  _tradeTableStore[targetId] = {
+_tradeTableStore[targetId] = {
     fills: fills || [],
     isXyz: !!isXyz,
+    isUnit: targetId === 'unitTable',
     filters: prev || defaultTradeFilters(),
   };
   ensureTradeFilterBar(targetId);
