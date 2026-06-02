@@ -12833,7 +12833,8 @@ function groupFills(fills, windowMs=120000) {
   for (const f of sorted) {
     const cat = categorizeFill(f);
     const dust = isSpotDustFill(f);
-    const key = cat.display + '|' + (dust ? 'dust' : f.side);
+    const twapKey = isTwapFill(f) ? `|twap:${f._twapId != null && f._twapId !== '' ? f._twapId : (f.tid || Math.floor((Number(f.time) || 0) / 60000))}` : '';
+    const key = cat.display + '|' + (dust ? 'dust' : f.side) + twapKey;
     const last = groups[groups.length - 1];
     if (last && last.key === key && Math.abs(last.lastTime - f.time) < windowMs) {
       last.totalVol += fillVolume(f);
@@ -13293,7 +13294,8 @@ function groupFillsXyz(fills) {
   const groups = [];
   for (const f of sorted) {
     const display = xyzMarketName(f);
-    const key = display + '|' + f.side;
+    const twapKey = isTwapFill(f) ? `|twap:${f._twapId != null && f._twapId !== '' ? f._twapId : (f.tid || Math.floor((Number(f.time) || 0) / 60000))}` : '';
+    const key = display + '|' + f.side + twapKey;
     const last = groups[groups.length - 1];
     if (last && last.key === key && Math.abs(last.lastTime - f.time) < 120000) {
       last.totalVol += fillVolume(f);
