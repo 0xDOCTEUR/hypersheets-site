@@ -12909,10 +12909,10 @@ function groupFills(fills, windowMs=120000) {
     const cat = categorizeFill(f);
     const dust = isSpotDustFill(f);
     const twapId = f._twapId != null && f._twapId !== '' ? f._twapId : f.twapId;
-    const twapKey = twap ? `|twap:${twapId != null && twapId !== '' ? twapId : (f.tid || Math.floor((Number(f.time) || 0) / 60000))}` : '';
+    const twapKey = twap ? `|twapOrder:${twapId != null && twapId !== '' ? twapId : 'x'}` : '';
     const key = cat.display + '|' + (dust ? 'dust' : f.side) + twapKey;
     const last = groups[groups.length - 1];
-    if (!twap && last && last.key === key && Math.abs(last.lastTime - f.time) < windowMs) {
+    if (last && last.key === key && (twap || Math.abs(last.lastTime - f.time) < windowMs)) {
       last.totalVol += fillVolume(f);
       last.totalPnl += parseFloat(f.closedPnl || 0);
       last.totalFee += fillFeeUsd(f);
