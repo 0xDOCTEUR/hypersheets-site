@@ -11068,9 +11068,11 @@ async function fetchTwapSliceFills(wallet, startTime, walletLabel, walletIdx) {
     const out = [];
     for (const entry of batch) {
       const fill = entry?.fill || entry;
-      if (!fill?.time) continue;
-      if (startTime && fill.time < startTime) continue;
-      out.push({ ...fill, _twapId: entry.twapId, _isTwapSlice: true, _wallet: wallet });
+      const rawTime = Number(fill?.time || 0)
+      if (!rawTime) continue;
+      const fillTime = rawTime < 1e11 ? rawTime * 1000 : rawTime
+      if (startTime && fillTime < startTime) continue;
+      out.push({ ...fill, time: fillTime, _twapId: entry.twapId, _isTwapSlice: true, _wallet: wallet });
     }
     console.log(`[fetchTwapSliceFills] ${walletLabel || ''} ${truncAddr(wallet)} → ${out.length} slices`);
     return out;
