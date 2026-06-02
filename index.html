@@ -11134,10 +11134,11 @@ function twapDiagRender() {
   }
   const c = window._hlPageCtx || {};
   const store = _tradeTableStore.hlTable;
-  const allGroups = Array.isArray(c.hl) ? groupFills(c.hl) : [];
+  const tableFills = Array.isArray(c.hlTrades) ? c.hlTrades : (Array.isArray(c.hl) ? c.hl : []);
+  const allGroups = groupFills(tableFills);
   const shownGroups = store ? allGroups.filter(g => tradeGroupMatchesFilter(g, store.filters, false)) : allGroups;
   const shownTwapGroups = shownGroups.filter(g => g.isTwap).length;
-  const hlTwapFills = Array.isArray(c.hl) ? c.hl.filter(isTwapFill).length : 0;
+  const hlTwapFills = tableFills.filter(isTwapFill).length;
   d.totals.hlTwapFills = hlTwapFills;
   d.totals.shownGroups = shownTwapGroups;
   const walletRows = Object.entries(d.wallets).map(([w, s]) =>
@@ -12594,7 +12595,9 @@ function renderPositionsSection() {
 
 function renderHyperliquidPage(hl, hlPerp, hlSpot, hlHip4, hlUnit, xyz, ops, funding, isAll, now) {
   const hlCore = (hl || []).filter(f => categorizeFill(f).type !== 'unit');
-  window._hlPageCtx = { hl: hlCore, hlPerp, hlSpot, hlHip4, hlUnit: hlUnit || [], xyz: xyz || [], funding: funding || [], ops: ops || [], isAll, now };
+  const hlUnitTwap = (hlUnit || []).filter(isTwapFill);
+  const hlTrades = [...hlCore, ...hlUnitTwap];
+  window._hlPageCtx = { hl: hlCore, hlTrades, hlPerp, hlSpot, hlHip4, hlUnit: hlUnit || [], xyz: xyz || [], funding: funding || [], ops: ops || [], isAll, now };
 
   const perpVol = hlPerp.reduce((s,f) => s + fillVolume(f), 0);
   const spotVol = hlSpot.reduce((s,f) => s + fillVolume(f), 0);
@@ -12657,7 +12660,7 @@ function renderHyperliquidPage(hl, hlPerp, hlSpot, hlHip4, hlUnit, xyz, ops, fun
     ],
     fullCats);
 
-  renderTradeTable('hlTable', hlCore, false);
+  renderTradeTable('hlTable', hlTrades, false);
 }
 
 function renderTradeXyzPage(xyz, isAll, now) {
@@ -12922,6 +12925,7 @@ function tradeFilterDirOptions() {
 
 function tradeGroupMatchesFilter(g, filters, isXyz) {
   const f = filters || defaultTradeFilters();
+  if (!isXyz && g.cat?.type === 'unit' && !f.twapOnly) return false;
   if (f.hideSpotDust && g.isSpotDust) return false;
   if (f.twapOnly && !g.isTwap) return false;
   const mkt = (f.market || '').trim().toLowerCase();
@@ -13083,8 +13087,8 @@ function applyHlPageFilters() {
 function tradeFilterFromChip(tableId, field, value) {
   if (field !== 'type') return;
   let store = _tradeTableStore[tableId];
-  if (!store && tableId === 'hlTable' && window._hlPageCtx?.hl) {
-    renderTradeTable('hlTable', window._hlPageCtx.hl, false);
+  if (!store && tableId === 'hlTable' && (window._hlPageCtx?.hlTrades || window._hlPageCtx?.hl)) {
+    renderTradeTable('hlTable', window._hlPageCtx.hlTrades || window._hlPageCtx.hl, false);
     store = _tradeTableStore[tableId];
   }
   if (!store) return;
