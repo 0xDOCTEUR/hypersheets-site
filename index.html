@@ -7919,7 +7919,6 @@ const HS_CONFIG = {
     <div class="surface overflow-hidden mb-4" id="hlTradesBlock">
       <div class="px-5 py-4 border-b" style="border-color:var(--border)">
         <div class="section-h" style="margin:0"><span class="bar"></span><span data-i18n="hl.trades">Hyperliquid trades</span></div>
-        <div id="twapDebugPanel" style="display:none;margin-top:8px;padding:8px 10px;border:1px dashed rgba(110,231,255,.35);border-radius:8px;font-size:11px;line-height:1.4;color:var(--muted)"></div>
         <div id="hlTradeFilters" class="hs-trade-filters" data-trade-table="hlTable"></div>
       </div>
       <div class="overflow-x-auto max-h-[min(62vh,680px)] overflow-y-auto hs-table-wrap" id="hlTable"></div>
@@ -11067,11 +11066,6 @@ async function fetchTwapSliceFills(wallet, startTime, walletLabel, walletIdx) {
     }
     if (!Array.isArray(batch)) return [];
     const out = [];
-    const d = twapDiagEnsureWallet(wallet);
-    if (d) {
-      d.apiRaw += batch.length;
-      window._twapDiag.totals.apiRaw += batch.length;
-    }
     for (const entry of batch) {
       const fill = entry?.fill || entry;
       const rawTime = Number(fill?.time || 0)
@@ -11079,10 +11073,6 @@ async function fetchTwapSliceFills(wallet, startTime, walletLabel, walletIdx) {
       const fillTime = rawTime < 1e11 ? rawTime * 1000 : rawTime
       if (startTime && fillTime < startTime) continue;
       out.push({ ...fill, time: fillTime, _twapId: entry.twapId, _isTwapSlice: true, _wallet: wallet });
-    }
-    if (d) {
-      d.apiKept += out.length;
-      window._twapDiag.totals.apiKept += out.length;
     }
     console.log(`[fetchTwapSliceFills] ${walletLabel || ''} ${truncAddr(wallet)} → ${out.length} slices`);
     return out;
@@ -11104,66 +11094,6 @@ function isTwapFill(f) {
     /twap/i.test(orderType) ||
     /twap/i.test(dir)
   );
-}
-
-function hsDebugEnabled() {
-  try {
-    const qp = new URLSearchParams(window.location.search || '');
-    if (qp.get('debug') === '1') return true;
-    return String(localStorage.getItem('hsDebug') || '') === '1';
-  } catch (_) {
-    return false;
-  }
-}
-
-function twapDiagReset(startTime) {
-  window._twapDiag = {
-    enabled: hsDebugEnabled(),
-    period: currentPeriod,
-    startTime: Number(startTime || 0),
-    wallets: {},
-    totals: { apiRaw: 0, apiKept: 0, merged: 0, accepted: 0, dedupDropped: 0, hlTwapFills: 0, shownGroups: 0 },
-  };
-}
-
-function twapDiagEnsureWallet(wallet) {
-  const d = window._twapDiag;
-  if (!d?.enabled) return null;
-  if (!d.wallets[wallet]) d.wallets[wallet] = { apiRaw: 0, apiKept: 0, merged: 0, accepted: 0, dedupDropped: 0 };
-  return d.wallets[wallet];
-}
-
-function twapDiagRender() {
-  const panel = document.getElementById('twapDebugPanel');
-  const d = window._twapDiag;
-  if (!panel) return;
-  if (!d?.enabled) {
-    panel.style.display = 'none';
-    panel.innerHTML = '';
-    return;
-  }
-  const c = window._hlPageCtx || {};
-  const store = _tradeTableStore.hlTable;
-  const tableFills = Array.isArray(c.hlTrades) ? c.hlTrades : (Array.isArray(c.hl) ? c.hl : []);
-  const hlCoreTwap = Array.isArray(c.hl) ? c.hl.filter(isTwapFill).length : 0;
-  const hlUnitTwap = Array.isArray(c.hlUnit) ? c.hlUnit.filter(isTwapFill).length : 0;
-  const xyzTwap = Array.isArray(c.xyz) ? c.xyz.filter(isTwapFill).length : 0;
-  const allGroups = groupFills(tableFills);
-  const shownGroups = store ? allGroups.filter(g => tradeGroupMatchesFilter(g, store.filters, false)) : allGroups;
-  const shownTwapGroups = shownGroups.filter(g => g.isTwap).length;
-  const hlTwapFills = tableFills.filter(isTwapFill).length;
-  d.totals.hlTwapFills = hlTwapFills;
-  d.totals.shownGroups = shownTwapGroups;
-  const walletRows = Object.entries(d.wallets).map(([w, s]) =>
-    `${truncAddr(w)}: api ${s.apiRaw}/${s.apiKept} · merged ${s.merged} · kept ${s.accepted} · dedup ${s.dedupDropped}`
-  );
-  panel.style.display = 'block';
-  panel.innerHTML = [
-    `<b>TWAP debug</b> · period=${d.period} · start=${d.startTime ? new Date(d.startTime).toISOString() : 'n/a'}`,
-    `totals: api ${d.totals.apiRaw}/${d.totals.apiKept} · merged ${d.totals.merged} · kept ${d.totals.accepted} · dedup ${d.totals.dedupDropped} · hlTwapFills ${hlTwapFills} · shownGroups ${shownTwapGroups}`,
-    `sources: hlCoreTwap ${hlCoreTwap} · hlUnitTwap ${hlUnitTwap} · xyzTwap ${xyzTwap}`,
-    walletRows.length ? walletRows.join('<br>') : 'wallets: none',
-  ].join('<br>');
 }
 
 function isSpotDustFill(f) {
@@ -11753,7 +11683,6 @@ async function loadData() {
     };
 
     glpSetProgress(14);
-    twapDiagReset(startTime);
     const walletBundles = await Promise.all(wallets.map(async (w, i) => {
       const tag = `[${i+1}/${wallets.length} ${truncAddr(w)}]`;
       const [hlW, twapW, fundingRes, bridgeRes, posRes] = await Promise.allSettled([
@@ -11782,26 +11711,10 @@ async function loadData() {
       if (twapW.status === 'fulfilled' && Array.isArray(twapW.value)) {
         for (const f of twapW.value) merged.push(f);
       }
-      const d = twapDiagEnsureWallet(w);
       for (const f of merged) {
         const c = f.coin || '';
-        const tw = isTwapFill(f);
-        if (tw) {
-          if (d) d.merged += 1;
-          if (window._twapDiag?.enabled) window._twapDiag.totals.merged += 1;
-        }
-        const inserted = c.startsWith('xyz:')
-          ? pushFillUnique(xyzFills, f, w)
-          : pushFillUnique(allFills, f, w);
-        if (tw) {
-          if (inserted) {
-            if (d) d.accepted += 1;
-            if (window._twapDiag?.enabled) window._twapDiag.totals.accepted += 1;
-          } else {
-            if (d) d.dedupDropped += 1;
-            if (window._twapDiag?.enabled) window._twapDiag.totals.dedupDropped += 1;
-          }
-        }
+        if (c.startsWith('xyz:')) pushFillUnique(xyzFills, f, w);
+        else                      pushFillUnique(allFills, f, w);
       }
       if (fundingRes.status === 'fulfilled' && Array.isArray(fundingRes.value)) {
         fundingRes.value.forEach(ev => {
@@ -13099,7 +13012,6 @@ function applyHlPageFilters() {
   paintTradeTable('hlTable');
   renderHlPerformance(hlFillsByType(type), type);
   syncHlVolChips();
-  twapDiagRender();
 }
 
 function tradeFilterFromChip(tableId, field, value) {
@@ -13303,7 +13215,6 @@ function renderTradeTable(targetId, fills, isXyz) {
   syncTradeFilterBar(targetId);
   if (targetId === 'hlTable') applyHlPageFilters();
   else paintTradeTable(targetId);
-  if (targetId === 'hlTable') twapDiagRender();
 }
 
 function groupFillsXyz(fills) {
