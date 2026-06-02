@@ -12831,12 +12831,13 @@ function groupFills(fills, windowMs=120000) {
   const sorted = [...fills].sort((a,b) => b.time - a.time);
   const groups = [];
   for (const f of sorted) {
+    const twap = isTwapFill(f);
     const cat = categorizeFill(f);
     const dust = isSpotDustFill(f);
-    const twapKey = isTwapFill(f) ? `|twap:${f._twapId != null && f._twapId !== '' ? f._twapId : (f.tid || Math.floor((Number(f.time) || 0) / 60000))}` : '';
+    const twapKey = twap ? `|twap:${f._twapId != null && f._twapId !== '' ? f._twapId : (f.tid || Math.floor((Number(f.time) || 0) / 60000))}` : '';
     const key = cat.display + '|' + (dust ? 'dust' : f.side) + twapKey;
     const last = groups[groups.length - 1];
-    if (last && last.key === key && Math.abs(last.lastTime - f.time) < windowMs) {
+    if (!twap && last && last.key === key && Math.abs(last.lastTime - f.time) < windowMs) {
       last.totalVol += fillVolume(f);
       last.totalPnl += parseFloat(f.closedPnl || 0);
       last.totalFee += fillFeeUsd(f);
@@ -13293,11 +13294,12 @@ function groupFillsXyz(fills) {
   const sorted = [...fills].sort((a,b) => b.time - a.time);
   const groups = [];
   for (const f of sorted) {
+    const twap = isTwapFill(f);
     const display = xyzMarketName(f);
-    const twapKey = isTwapFill(f) ? `|twap:${f._twapId != null && f._twapId !== '' ? f._twapId : (f.tid || Math.floor((Number(f.time) || 0) / 60000))}` : '';
+    const twapKey = twap ? `|twap:${f._twapId != null && f._twapId !== '' ? f._twapId : (f.tid || Math.floor((Number(f.time) || 0) / 60000))}` : '';
     const key = display + '|' + f.side + twapKey;
     const last = groups[groups.length - 1];
-    if (last && last.key === key && Math.abs(last.lastTime - f.time) < 120000) {
+    if (!twap && last && last.key === key && Math.abs(last.lastTime - f.time) < 120000) {
       last.totalVol += fillVolume(f);
       last.totalPnl += parseFloat(f.closedPnl || 0);
       last.totalFee += fillFeeUsd(f);
