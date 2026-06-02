@@ -15774,7 +15774,9 @@ function lbFindUserRowIndex(view, userAddrs) {
 }
 
 function getLeaderboardActiveAddrs() {
-  return (wallets || []).map(w => String(w).toLowerCase())
+  const selected = lbNormAddr(activeWallet)
+  if (selected) return [selected]
+  return (wallets || []).map(w => lbNormAddr(w)).filter(Boolean)
 }
 
 function getXyzFillsForWallet(addr) {
