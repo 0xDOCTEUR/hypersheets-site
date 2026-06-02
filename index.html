@@ -11178,7 +11178,7 @@ async function fetchTwapSliceFills(wallet, startTime, walletLabel, walletIdx) {
       console.warn(`[fetchTwapSliceFills] perpDexs failed ${walletLabel || ''} ${truncAddr(wallet)}:`, e.message || e)
     }
     const dexNames = Array.isArray(perps) ? perps.map(d => d?.name).filter(Boolean) : [];
-    const dexList = [null, ...dexNames];
+    const dexList = [null];
     if (typeof walletIdx === 'number') {
       const n = Math.max(1, _glp.nWallets || 1)
       glpSetProgress(14 + (walletIdx + 0.42) * (62 / n))
