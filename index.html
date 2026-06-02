@@ -10967,37 +10967,102 @@ async function loadFallbackPrices(assets) {
 // ║  API                                                                      ║
 // ╚═══════════════════════════════════════════════════════════════════════════╝
 let _hlNextSlot = 0
-let _hlInflight = 0
-const HL_POST_GAP_MS = 120
-const HL_MAX_INFLIGHT = 3
+let _hlActive = 0
+const _hlWaitQueue = []
+const HL_MIN_GAP_MS = 120
+const HL_MAX_CONCURRENT = 3
+const HL_MAX_RETRIES = 4
+const HL_BACKOFF_BASE_MS = 400
 
-async function hlPost(body, retries = 4) {
-  while (_hlInflight >= HL_MAX_INFLIGHT) {
-    await new Promise(r => setTimeout(r, 40))
-  }
-  _hlInflight++
-  try {
-  const now = Date.now()
-  const wait = Math.max(0, _hlNextSlot - now)
-  if (wait) await new Promise(r => setTimeout(r, wait))
-  _hlNextSlot = Date.now() + HL_POST_GAP_MS
-
-  const res = await fetch(HL_API, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+function hlAcquireSlot() {
+  return new Promise(resolve => {
+    const tryAcquire = () => {
+      if (_hlActive < HL_MAX_CONCURRENT) {
+        _hlActive++
+        resolve()
+      } else {
+        _hlWaitQueue.push(tryAcquire)
+      }
+    }
+    tryAcquire()
   })
+}
 
-  if (res.status === 429 && retries > 0) {
-    const backoff = (5 - retries) * 900 + 400
-    _hlNextSlot = Date.now() + backoff
-    await new Promise(r => setTimeout(r, backoff))
-    return hlPost(body, retries - 1)
-  }
-  if (!res.ok) throw new Error(`HL API HTTP ${res.status}`)
-  return res.json()
+function hlReleaseSlot() {
+  _hlActive--
+  const next = _hlWaitQueue.shift()
+  if (next) next()
+}
+
+function hlBackoffMs(attempt) {
+  return HL_BACKOFF_BASE_MS * Math.pow(2, attempt) + Math.floor(Math.random() * 120)
+}
+
+function hlRequestLabel(body) {
+  const type = body?.type || 'unknown'
+  const dex = body?.dex ? ` dex=${body.dex}` : ''
+  const user = body?.user ? ` wallet=${truncAddr(body.user)}` : ''
+  return `${type}${dex}${user}`
+}
+
+/** POST /info — file d'attente globale, gap minimum, retry 429/réseau avec backoff + jitter. */
+async function hlPost(body, opts) {
+  const label = (opts && opts.label) || hlRequestLabel(body)
+  const maxRetries = (opts && opts.maxRetries != null) ? opts.maxRetries : HL_MAX_RETRIES
+  await hlAcquireSlot()
+  try {
+    let lastErr = null
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      const now = Date.now()
+      const wait = Math.max(0, _hlNextSlot - now)
+      if (wait) await new Promise(r => setTimeout(r, wait))
+      _hlNextSlot = Date.now() + HL_MIN_GAP_MS
+      try {
+        const res = await fetch(HL_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+        if (res.status === 429) {
+          lastErr = new Error('HL API HTTP 429')
+          if (attempt < maxRetries - 1) {
+            const delay = hlBackoffMs(attempt)
+            console.warn(`[hlPost] 429 ${label} — retry ${attempt + 1}/${maxRetries} in ${delay}ms`)
+            _hlNextSlot = Date.now() + delay
+            await new Promise(r => setTimeout(r, delay))
+            continue
+          }
+          break
+        }
+        if (!res.ok) {
+          lastErr = new Error(`HL API HTTP ${res.status}`)
+          if (attempt < maxRetries - 1) {
+            const delay = hlBackoffMs(attempt)
+            console.warn(`[hlPost] ${lastErr.message} ${label} — retry ${attempt + 1}/${maxRetries} in ${delay}ms`)
+            _hlNextSlot = Date.now() + delay
+            await new Promise(r => setTimeout(r, delay))
+            continue
+          }
+          break
+        }
+        return await res.json()
+      } catch (e) {
+        lastErr = e
+        const retriable = e.name === 'TypeError' || /fetch|network|Failed/i.test(String(e.message || ''))
+        if (retriable && attempt < maxRetries - 1) {
+          const delay = hlBackoffMs(attempt)
+          console.warn(`[hlPost] ${e.message || e} ${label} — retry ${attempt + 1}/${maxRetries} in ${delay}ms`)
+          _hlNextSlot = Date.now() + delay
+          await new Promise(r => setTimeout(r, delay))
+          continue
+        }
+        break
+      }
+    }
+    console.warn(`[hlPost] failed after ${maxRetries} attempts: ${label}`, lastErr?.message || lastErr)
+    throw lastErr || new Error(`HL API failed: ${label}`)
   } finally {
-    _hlInflight--
+    hlReleaseSlot()
   }
 }
 
@@ -11106,7 +11171,12 @@ async function fetchTwapSliceFills(wallet, startTime, walletLabel, walletIdx) {
     };
   };
   try {
-    const perps = await hlPost({ type: 'perpDexs' }).catch(() => null);
+    let perps = null
+    try {
+      perps = await hlPost({ type: 'perpDexs' }, { label: `perpDexs ${truncAddr(wallet)}` })
+    } catch (e) {
+      console.warn(`[fetchTwapSliceFills] perpDexs failed ${walletLabel || ''} ${truncAddr(wallet)}:`, e.message || e)
+    }
     const dexNames = Array.isArray(perps) ? perps.map(d => d?.name).filter(Boolean) : [];
     const dexList = [null, ...dexNames];
     if (typeof walletIdx === 'number') {
@@ -11118,8 +11188,17 @@ async function fetchTwapSliceFills(wallet, startTime, walletLabel, walletIdx) {
     for (const dexName of dexList) {
       const body = { type: 'userTwapSliceFills', user: wallet };
       if (dexName) body.dex = dexName;
-      const batch = await hlPost(body).catch(() => []);
-      if (!Array.isArray(batch)) continue;
+      let batch
+      try {
+        batch = await hlPost(body, { label: `userTwapSliceFills dex=${dexName || 'default'} ${truncAddr(wallet)}` })
+      } catch (e) {
+        console.warn(`[fetchTwapSliceFills] userTwapSliceFills failed after retries ${walletLabel || ''} dex=${dexName || 'default'}:`, e.message || e)
+        continue
+      }
+      if (!Array.isArray(batch)) {
+        console.warn(`[fetchTwapSliceFills] non-array response ${walletLabel || ''} dex=${dexName || 'default'}:`, batch)
+        continue
+      }
       if (twapDebug) {
         const coins = [...new Set(batch.map(e => String((e?.fill || e || {}).coin || '')))];
         console.log(`[TWAP raw coins][${truncAddr(wallet)}][dex=${dexName || 'default'}]`, coins);
@@ -11744,7 +11823,9 @@ async function loadData() {
     };
 
     glpSetProgress(14);
-    const walletBundles = await Promise.all(wallets.map(async (w, i) => {
+    const walletBundles = []
+    for (let i = 0; i < wallets.length; i++) {
+      const w = wallets[i]
       const tag = `[${i+1}/${wallets.length} ${truncAddr(w)}]`;
       const [hlW, xyzW, twapW, fundingRes, bridgeRes, posRes] = await Promise.allSettled([
         fetchAllFills(w, startTime, null, maxPages, tag, i),
@@ -11752,10 +11833,10 @@ async function loadData() {
         fetchTwapSliceFills(w, startTime, tag, i),
         fetchAllFunding(w, startTime, maxPages, tag, i),
         fetch(`${UNIT_API}/${w}`).then(r => r.ok ? r.json() : null).catch(() => null),
-        hlPost({ type: 'clearinghouseState', user: w }),
+        hlPost({ type: 'clearinghouseState', user: w }, { label: `clearinghouseState ${truncAddr(w)}` }),
       ]);
-      return { w, hlW, xyzW, twapW, fundingRes, bridgeRes, posRes };
-    }));
+      walletBundles.push({ w, hlW, xyzW, twapW, fundingRes, bridgeRes, posRes });
+    }
 
     for (let wi = 0; wi < walletBundles.length; wi++) {
       const { w, hlW, xyzW, twapW, fundingRes, bridgeRes, posRes } = walletBundles[wi];
