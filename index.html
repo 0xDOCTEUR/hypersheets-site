@@ -13698,10 +13698,15 @@ function walletSpotBaseSymbol(b) {
     return String(spotTokenMeta[tokenIdx].name).toUpperCase();
   }
   const coin = String(b?.coin || '').trim();
-  if (!coin) return '';
+  if (!coin) {
+    const nm = walletTokenName(tokenIdx, b);
+    return nm && !nm.startsWith('@') ? nm : '';
+  }
   if (coin.startsWith('@')) {
     const meta = spotMetaMap[coin] || (tokenIdx != null ? spotTokenMeta[tokenIdx] : null);
     if (meta?.baseToken) return String(meta.baseToken).toUpperCase();
+    const nm = walletTokenName(tokenIdx, b);
+    if (nm && !nm.startsWith('@')) return nm;
     return '';
   }
   return coin.toUpperCase();
@@ -13749,23 +13754,59 @@ function walletAssetFallbackLetters(base) {
   return (s.slice(0, 2) || '?').toUpperCase();
 }
 
-function walletAssetLogoUrl(base) {
-  const b = String(base || '').toUpperCase();
-  const lk = walletSpotCgLookupKey(b);
-  return _walletCgLogoByBase[b] || _walletCgLogoByBase[lk] || walletHlIconUrl(b) || '';
+function walletAssetLogoSymbol(base, label, b) {
+  let sym = String(base || '').trim().toUpperCase();
+  if (!sym && b) sym = walletSpotBaseSymbol(b);
+  if (!sym && label) {
+    const pairBase = String(label).split('/')[0].trim();
+    if (pairBase) sym = pairBase.toUpperCase();
+  }
+  return sym;
 }
 
-function walletAssetLogoHtml(base, label) {
-  const b = String(base || '').toUpperCase();
-  const url = walletAssetLogoUrl(b);
-  const hlUrl = escWalletHtml(walletHlIconUrl(b));
-  const letters = walletAssetFallbackLetters(b || label);
-  const img = url
-    ? `<img class="wallet-asset-logo" src="${escWalletHtml(url)}" alt="" loading="lazy" decoding="async" data-hl-src="${hlUrl}" onerror="if(!this.dataset.hlTried&&this.dataset.hlSrc){this.dataset.hlTried=1;this.src=this.dataset.hlSrc;return}this.closest('.wallet-asset-logo-wrap')?.classList.add('is-fallback');this.remove()">`
+function walletAssetCgLogoUrl(sym) {
+  const b = String(sym || '').toUpperCase();
+  if (!b) return '';
+  const lk = walletSpotCgLookupKey(b);
+  return _walletCgLogoByBase[b] || _walletCgLogoByBase[lk] || '';
+}
+
+function walletAssetLogoUrl(sym) {
+  const cg = walletAssetCgLogoUrl(sym);
+  if (cg) return cg;
+  return walletHlIconUrl(sym) || '';
+}
+
+function walletAssetLogoOnError(img) {
+  if (!img) return;
+  if (!img.dataset.hlTried && img.dataset.hlSrc && img.src !== img.dataset.hlSrc) {
+    img.dataset.hlTried = '1';
+    img.src = img.dataset.hlSrc;
+    return;
+  }
+  if (!img.dataset.cgTried && img.dataset.cgSrc && img.src !== img.dataset.cgSrc) {
+    img.dataset.cgTried = '1';
+    img.src = img.dataset.cgSrc;
+    return;
+  }
+  img.closest('.wallet-asset-logo-wrap')?.classList.add('is-fallback');
+  img.remove();
+}
+
+function walletAssetLogoHtml(base, label, b) {
+  const sym = walletAssetLogoSymbol(base, label, b);
+  const cgUrl = walletAssetCgLogoUrl(sym);
+  const hlUrl = walletHlIconUrl(sym);
+  const primary = cgUrl || hlUrl || '';
+  const letters = walletAssetFallbackLetters(sym || String(label || '').split('/')[0] || '?');
+  const hlAttr = hlUrl && primary !== hlUrl ? ` data-hl-src="${escWalletHtml(hlUrl)}"` : '';
+  const cgAttr = cgUrl && primary !== cgUrl ? ` data-cg-src="${escWalletHtml(cgUrl)}"` : '';
+  const img = primary
+    ? `<img class="wallet-asset-logo" src="${escWalletHtml(primary)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer"${hlAttr}${cgAttr} onerror="walletAssetLogoOnError(this)">`
     : '';
-  const safeLbl = escWalletHtml(label || b);
+  const safeLbl = escWalletHtml(label || sym);
   return `<div class="wallet-asset-cell">
-    <span class="wallet-asset-logo-wrap${url ? '' : ' is-fallback'}">${img}<span class="wallet-asset-fallback">${escWalletHtml(letters)}</span></span>
+    <span class="wallet-asset-logo-wrap${primary ? '' : ' is-fallback'}">${img}<span class="wallet-asset-fallback">${escWalletHtml(letters)}</span></span>
     <span class="wallet-asset-name" title="${safeLbl}">${safeLbl}</span>
   </div>`;
 }
@@ -13816,7 +13857,7 @@ async function ensureWalletCgMetaForBases(bases) {
 
   const resolvedBases = new Set(Object.values(idToBases).flat().map(x => String(x).toUpperCase()));
   const missing = todo.filter(b => !resolvedBases.has(b));
-  for (const base of missing.slice(0, 12)) {
+  for (const base of missing.slice(0, 40)) {
     if (typeof sigSpotCgResolveId !== 'function') break;
     try {
       const cgId = await sigSpotCgResolveId(base);
@@ -14093,7 +14134,7 @@ function renderWalletPage() {
           ? `<span class="wallet-val-strong">${fmtUsd(rowUsd)}</span>`
           : `<span class="wallet-val-muted">—</span>`;
         return `<tr>
-          <td class="wallet-td-asset">${walletAssetLogoHtml(base, lbl)}</td>
+          <td class="wallet-td-asset">${walletAssetLogoHtml(base, lbl, b)}</td>
           ${showWalletCol ? `<td class="mono wallet-val-muted wallet-td-wallet">${escWalletHtml(truncAddr(w))}</td>` : ''}
           <td class="mono wallet-spot-qty wallet-td-size">${walletSpotFmtQty(total)}</td>
           <td class="mono wallet-td-px">${pxCell}</td>
