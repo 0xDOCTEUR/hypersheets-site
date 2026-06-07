@@ -71,7 +71,17 @@ const HS_CONFIG = {
   showLeaderboardImport: false,
   /** Volume max ($) pour le classement « retail » (exclut les mega-wallets) */
   leaderboardRetailMaxUsd: 500000000,
+  /** Wallet démo pour vidéos / screenshots — activer avec ?demo=1 */
+  demoWalletAddress: '0xdeed000000000000000000000000000042',
+  demoWalletLabel: 'Wallet démo',
 }
+;(function hsBootstrapDemoMode() {
+  try {
+    const q = new URLSearchParams(location.search || '');
+    if (q.get('demo') === '0' || q.get('demo') === 'false') sessionStorage.removeItem('hs-demo-mode');
+    else if (q.get('demo') === '1' || q.get('demo') === 'true') sessionStorage.setItem('hs-demo-mode', '1');
+  } catch (_) {}
+})();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.tailwindcss.com"></script>
@@ -9074,8 +9084,9 @@ const HS_CONFIG = {
 
     </div>
     <p class="text-xs mb-4" style="color:var(--muted)" data-i18n="modal.walletsSub">Add multiple addresses for an aggregated view across all your wallets.</p>
+    <div id="demoWalletBanner" class="text-xs mb-4 px-3 py-2" style="display:none;border-radius:8px;border:1px solid rgba(151,252,228,.25);background:rgba(151,252,228,.06);color:var(--accent-muted)"></div>
 
-    <div class="flex items-center gap-2 mb-4">
+    <div id="walletsAddRow" class="flex items-center gap-2 mb-4">
       <input type="text" id="newWalletInput" placeholder="0x..." class="flex-1" style="font-size:.85rem" />
       <button class="btn" onclick="addWalletFromInput()" data-i18n="modal.add">Add</button>
     </div>
@@ -9689,6 +9700,11 @@ const I18N = {
     'ref.btn': 'Sign up on Hyperliquid →',
     'modal.walletsTitle': 'Manage wallets',
     'modal.walletsSub': 'Add multiple addresses for an aggregated view across all your wallets.',
+    'demo.banner': 'Demo mode — fictional data for recordings. Your real wallets are hidden. Exit with ?demo=0',
+    'demo.listHint': 'Fictional portfolio · no real stats',
+    'demo.noAdd': 'Demo mode: open without ?demo=1 to add your wallet',
+    'demo.noRemove': 'Demo wallet cannot be removed in demo mode',
+    'demo.loaded': 'Demo data loaded',
     'modal.add': 'Add',
     'modal.cancel': 'Close',
     'modal.loadAll': 'Load all',
@@ -10234,6 +10250,11 @@ const I18N = {
     'ref.btn': "S'inscrire sur Hyperliquid →",
     'modal.walletsTitle': 'Gérer les wallets',
     'modal.walletsSub': 'Ajoute plusieurs adresses pour une vue agrégée sur tous tes wallets.',
+    'demo.banner': 'Mode démo — données fictives pour tes vidéos. Tes vrais wallets sont masqués. Quitter : ?demo=0',
+    'demo.listHint': 'Portefeuille fictif · aucune stat réelle',
+    'demo.noAdd': 'Mode démo : ouvre sans ?demo=1 pour ajouter ton wallet',
+    'demo.noRemove': 'Le wallet démo ne peut pas être retiré en mode démo',
+    'demo.loaded': 'Données démo chargées',
     'modal.add': 'Ajouter',
     'modal.cancel': 'Fermer',
     'modal.loadAll': 'Tout charger',
@@ -12352,7 +12373,53 @@ async function fetchAllFunding(wallet, startTime, maxPages, walletLabel, walletI
 // ╔═══════════════════════════════════════════════════════════════════════════╗
 // ║  WALLETS                                                                  ║
 // ╚═══════════════════════════════════════════════════════════════════════════╝
+const HS_DEMO_SESSION_KEY = 'hs-demo-mode';
+
+function hsDemoWalletAddress() {
+  return String(HS_CONFIG?.demoWalletAddress || '0xdeed000000000000000000000000000042').toLowerCase();
+}
+
+function isDemoWallet(addr) {
+  return String(addr || '').toLowerCase() === hsDemoWalletAddress();
+}
+
+function isDemoWalletMode() {
+  try {
+    const q = new URLSearchParams(location.search || '');
+    if (q.get('demo') === '0' || q.get('demo') === 'false') {
+      sessionStorage.removeItem(HS_DEMO_SESSION_KEY);
+      return false;
+    }
+    if (q.get('demo') === '1' || q.get('demo') === 'true') {
+      sessionStorage.setItem(HS_DEMO_SESSION_KEY, '1');
+      return true;
+    }
+  } catch (_) {}
+  try { return sessionStorage.getItem(HS_DEMO_SESSION_KEY) === '1'; } catch (_) { return false; }
+}
+
+function demoWalletLabel() {
+  return HS_CONFIG?.demoWalletLabel || (currentLang === 'fr' ? 'Wallet démo' : 'Demo wallet');
+}
+
+function walletDisplayAddr(w) {
+  if (isDemoWallet(w)) return `🎬 ${demoWalletLabel()}`;
+  return truncAddr(w);
+}
+
+function activateDemoWalletSession() {
+  wallets = [hsDemoWalletAddress()];
+  activeWallet = wallets[0];
+  setDashboardUnlocked(true);
+  try { markDashboardLaunched(); } catch (_) {}
+}
+
 function loadWalletsFromStorage() {
+  if (isDemoWalletMode()) {
+    activateDemoWalletSession();
+    renderWallets();
+    return;
+  }
   const raw = localStorage.getItem('hf-wallets');
   if (raw) {
     try { wallets = JSON.parse(raw); } catch { wallets = []; }
@@ -12369,6 +12436,7 @@ function loadWalletsFromStorage() {
   renderWallets();
 }
 function saveWallets() {
+  if (isDemoWalletMode()) return;
   localStorage.setItem('hf-wallets', JSON.stringify(wallets));
 }
 
@@ -12576,6 +12644,12 @@ function launchDashboardReveal() {
 
 async function loadAllWallets() {
   closeWalletsModal();
+  if (isDemoWalletMode()) {
+    activateDemoWalletSession();
+    _pendingDashboardReveal = isWelcomeMode();
+    await loadData();
+    return;
+  }
   if (!wallets.length) {
     openWalletsModal();
     return;
@@ -12585,6 +12659,12 @@ async function loadAllWallets() {
 }
 
 async function loadDataFromConnect() {
+  if (isDemoWalletMode()) {
+    activateDemoWalletSession();
+    if (isWelcomeMode()) _pendingDashboardReveal = true;
+    await loadData();
+    return;
+  }
   if (!wallets.length) {
     openWalletsModal();
     return;
@@ -12613,9 +12693,9 @@ function renderWallets() {
     // Individual wallet chips
     html += wallets.map(w => {
       const isActive = activeWallet === w || wallets.length === 1;
+      const rm = isDemoWallet(w) ? '' : `<span class="x" onclick="event.stopPropagation();removeWallet('${w}')" title="Remove">×</span>`;
       return `<span class="wallet-chip${isActive ? ' active' : ''}" onclick="setActiveWallet('${w}')" style="border-color:${isActive ? 'var(--accent)' : ''}">
-        <span style="color:${isActive ? 'var(--accent)' : ''}">${truncAddr(w)}</span>
-        <span class="x" onclick="event.stopPropagation();removeWallet('${w}')" title="Remove">×</span>
+        <span style="color:${isActive ? 'var(--accent)' : ''}">${walletDisplayAddr(w)}</span>${rm}
       </span>`;
     }).join('');
     chips.innerHTML = html;
@@ -12623,17 +12703,30 @@ function renderWallets() {
     row.classList.add('hidden');
     row.classList.remove('flex');
   }
+  const demoBanner = document.getElementById('demoWalletBanner');
+  const addRow = document.getElementById('walletsAddRow');
+  if (demoBanner) {
+    if (isDemoWalletMode()) {
+      demoBanner.style.display = 'block';
+      demoBanner.textContent = t('demo.banner');
+    } else {
+      demoBanner.style.display = 'none';
+      demoBanner.textContent = '';
+    }
+  }
+  if (addRow) addRow.style.display = isDemoWalletMode() ? 'none' : '';
   // Liste dans la modal
   const list = document.getElementById('walletsList');
   if (wallets.length === 0) {
     list.innerHTML = `<div class="text-sm text-center py-4" style="color:var(--muted)">No wallet added yet</div>`;
   } else {
-    list.innerHTML = wallets.map(w => `
-      <div class="surface-2 px-3 py-2 flex items-center justify-between" style="border-radius:8px">
-        <span class="mono text-xs">${w}</span>
-        <button class="btn btn-ghost text-xs" style="padding:4px 10px" onclick="removeWallet('${w}')">×</button>
-      </div>
-    `).join('');
+    list.innerHTML = wallets.map(w => {
+      const lbl = isDemoWallet(w)
+        ? `<span class="font-semibold" style="color:var(--accent-muted)">🎬 ${demoWalletLabel()}</span><span class="mono text-xs" style="color:var(--muted);margin-left:8px">0xdeed…0042</span><div class="text-xs" style="color:var(--muted);margin-top:4px">${t('demo.listHint')}</div>`
+        : `<span class="mono text-xs">${w}</span>`;
+      const rmBtn = isDemoWallet(w) ? '' : `<button class="btn btn-ghost text-xs" style="padding:4px 10px" onclick="removeWallet('${w}')">×</button>`;
+      return `<div class="surface-2 px-3 py-2 flex items-center justify-between" style="border-radius:8px">${lbl}${rmBtn}</div>`;
+    }).join('');
   }
 }
 function setActiveWallet(wallet) {
@@ -12679,6 +12772,10 @@ function getActivePositions() {
 }
 
 function addWallet(addr, opts) {
+  if (isDemoWalletMode()) {
+    if (typeof toast === 'function') toast(t('demo.noAdd'), true);
+    return false;
+  }
   addr = addr.trim();
   if (!addr.startsWith('0x') || addr.length !== 42) {
     showError(t('enterWallet'));
@@ -12693,6 +12790,10 @@ function addWallet(addr, opts) {
   return true;
 }
 function removeWallet(addr) {
+  if (isDemoWalletMode() && isDemoWallet(addr)) {
+    if (typeof toast === 'function') toast(t('demo.noRemove'), true);
+    return;
+  }
   wallets = wallets.filter(w => w !== addr);
   saveWallets();
   if (wallets.length === 0) {
@@ -12743,7 +12844,231 @@ function toast(msg, isErr=false) {
   }
 }
 
+function demoSpotTokenIdx(name) {
+  const u = String(name || '').toUpperCase();
+  for (const [idx, meta] of Object.entries(spotTokenMeta || {})) {
+    if (String(meta?.name || '').toUpperCase() === u) return parseInt(idx, 10);
+  }
+  return null;
+}
+
+function demoMakeFill(coin, side, px, sz, time, closedPnl, fee) {
+  return {
+    coin,
+    side,
+    px: String(px),
+    sz: String(sz),
+    time,
+    closedPnl: String(closedPnl ?? 0),
+    fee: String(fee ?? 0.42),
+    feeToken: 'USDC',
+    tid: Math.floor(time / 1000) + Math.floor(Math.random() * 999),
+    oid: Math.floor(time / 100) + Math.floor(Math.random() * 99),
+  };
+}
+
+function demoSeedSpotSparklineHist(wallet) {
+  const key = String(wallet || '').toLowerCase();
+  const now = Date.now();
+  const pts = [8200, 8450, 9100, 8800, 10200, 10850, 11200, 11800, 12100, 12450].map((v, i) => ({
+    t: now - (9 - i) * 86400000,
+    v,
+  }));
+  try {
+    const all = JSON.parse(localStorage.getItem(WALLET_SPOT_HIST_LS) || '{}');
+    all[key] = pts;
+    localStorage.setItem(WALLET_SPOT_HIST_LS, JSON.stringify(all));
+  } catch (_) {}
+}
+
+async function loadDemoWalletData() {
+  const w = hsDemoWalletAddress();
+  hsBeginScrollPreserve();
+  const revealAfter = _pendingDashboardReveal && isWelcomeMode();
+  if (revealAfter) {
+    document.body.classList.add('hs-welcome-loading');
+    hsLaunchShow();
+  }
+  setLoading(true);
+  await glpStart(1, 30);
+  hideError();
+  try {
+    const isAll = currentPeriod === 'all';
+    const ALL_TIME_START = new Date('2023-01-01T00:00:00Z').getTime();
+    const startTime = isAll ? ALL_TIME_START : Date.now() - 31 * 86400000;
+    glpSetProgress(8);
+    const [spotBundleRes, outcomeMetaRes, midsRes, xyzMetaRes] = await Promise.allSettled([
+      hlPost({ type: 'spotMetaAndAssetCtxs' }),
+      hlPost({ type: 'outcomeMeta' }),
+      hlPost({ type: 'allMids' }),
+      hlPost({ type: 'meta', dex: 'xyz' }),
+    ]);
+    spotMetaMap = {};
+    spotTokenMeta = {};
+    spotPriceByTokenIdx = {};
+    if (spotBundleRes.status === 'fulfilled' && Array.isArray(spotBundleRes.value) && spotBundleRes.value[0]?.universe) {
+      buildSpotMetaMapFromHl(spotBundleRes.value[0], spotBundleRes.value[1]);
+    }
+    if (outcomeMetaRes.status === 'fulfilled') buildOutcomeMetaMap(outcomeMetaRes.value);
+    xyzMetaMap = {};
+    if (xyzMetaRes.status === 'fulfilled' && xyzMetaRes.value?.universe) {
+      xyzMetaRes.value.universe.forEach((asset, idx) => {
+        if (asset.name) {
+          const short = asset.name.startsWith('xyz:') ? asset.name.slice(4) : asset.name;
+          xyzMetaMap[asset.name] = short;
+          xyzMetaMap['@' + idx] = short;
+        }
+      });
+    }
+    const midsMap = (midsRes.status === 'fulfilled' && midsRes.value)
+      ? Object.fromEntries(Object.entries(midsRes.value).map(([k, v]) => [k, parseFloat(v)]))
+      : {};
+    prices = { ...midsMap, BTC: midsMap.BTC || 95000, ETH: midsMap.ETH || 3400, SOL: midsMap.SOL || 145, HYPE: midsMap.HYPE || 38, PURR: midsMap.PURR || 0.18 };
+    if (spotBundleRes.status === 'fulfilled' && Array.isArray(spotBundleRes.value) && spotBundleRes.value[0]?.universe) {
+      for (const meta of Object.values(spotMetaMap)) {
+        const px = parseFloat(meta?.markPx || 0);
+        if (!px || !meta?.baseToken) continue;
+        const base = String(meta.baseToken).toUpperCase();
+        prices[base] = px;
+        if (meta.name) prices[meta.name] = px;
+        if (meta.pairKey) prices[meta.pairKey] = px;
+      }
+    }
+    glpSetProgress(20);
+    allFills = [];
+    xyzFills = [];
+    bridgeOps = [];
+    fundingEvents = [];
+    allPositions = [];
+    accountValues = {};
+    walletPortfolio = {};
+    fillsByWallet = {};
+    const now = Date.now();
+    const day = 86400000;
+    const hlSpecs = [
+      ['HYPE', 'B', 36.2, 420, 12, 18.5], ['HYPE', 'A', 37.8, 180, 8, -6.2], ['ETH', 'B', 3350, 1.2, 6, 22],
+      ['ETH', 'A', 3480, 0.8, 4, -11], ['BTC', 'B', 92000, 0.05, 10, 45], ['PURR/USDC', 'B', 0.17, 8000, 5, 0],
+      ['HYPE', 'B', 35.1, 300, 15, 0], ['SOL', 'B', 138, 25, 7, 12], ['ARB', 'A', 0.82, 4000, 3, -4],
+    ];
+    hlSpecs.forEach((spec, i) => {
+      const [coin, side, px, sz, daysAgo, pnl] = spec;
+      const f = demoMakeFill(coin, side, px, sz, now - daysAgo * day - i * 3600000, pnl, 0.35 + i * 0.05);
+      allFills.push(f);
+    });
+    for (let i = 0; i < 24; i++) {
+      const px = 36 + Math.sin(i / 3) * 2;
+      allFills.push(demoMakeFill('HYPE', i % 2 ? 'B' : 'A', px, 80 + i * 4, now - i * day * 0.4, (i % 3) * 3.2 - 2, 0.28));
+    }
+    for (let i = 0; i < 14; i++) {
+      xyzFills.push(demoMakeFill('xyz:TSLA', i % 2 ? 'B' : 'A', 285 + i, 4 + i * 0.3, now - i * day * 0.55, (i % 4) * 2.1 - 1.5, 0.31));
+    }
+    const bridgeSpecs = [
+      { asset: 'btc', amt: 0.018, daysAgo: 18, dep: true },
+      { asset: 'eth', amt: 0.42, daysAgo: 9, dep: true },
+      { asset: 'sol', amt: 12, daysAgo: 4, dep: false },
+    ];
+    bridgeSpecs.forEach((b, i) => {
+      const dec = UNIT_DECIMALS[b.asset] || 8;
+      bridgeOps.push({
+        asset: b.asset,
+        sourceAmount: String(Math.round(b.amt * Math.pow(10, dec))),
+        opCreatedAt: new Date(now - b.daysAgo * day).toISOString(),
+        destinationChain: b.dep ? 'hyperliquid' : 'ethereum',
+        sourceChain: b.dep ? 'bitcoin' : 'hyperliquid',
+        _wallet: w,
+      });
+    });
+    fundingEvents = [
+      { time: now - 5 * day, coin: 'ETH', usdc: '-2.14' },
+      { time: now - 12 * day, coin: 'HYPE', usdc: '0.88' },
+      { time: now - 20 * day, coin: 'BTC', usdc: '-4.02' },
+    ];
+    const hlPositions = [
+      { coin: 'HYPE', szi: '1250', unrealizedPnl: '248.50', leverage: { value: 5 }, _wallet: w, _dex: 'HL' },
+      { coin: 'ETH', szi: '-2.4', unrealizedPnl: '-86.20', leverage: { value: 3 }, _wallet: w, _dex: 'HL' },
+    ];
+    const xyzPositions = [
+      { coin: 'xyz:TSLA', szi: '18', unrealizedPnl: '124.00', leverage: { value: 10 }, _wallet: w, _dex: 'XYZ' },
+    ];
+    allPositions = [...hlPositions, ...xyzPositions];
+    const spotRows = [
+      { name: 'USDC', total: '14250', hold: '0' },
+      { name: 'HYPE', total: '820', hold: '40' },
+      { name: 'PURR', total: '18500', hold: '0' },
+      { name: 'SOL', total: '14.5', hold: '0' },
+    ];
+    const spotBalances = spotRows.map((row) => {
+      const idx = demoSpotTokenIdx(row.name);
+      const b = { total: row.total, hold: row.hold, coin: idx != null ? '@' + idx : row.name, token: idx, _wallet: w };
+      return enrichSpotBalanceRow(b);
+    });
+    const spotEquityUsd = walletSpotBalancesEquityUsd(spotBalances);
+    const perpHl = 42580;
+    const perpXyz = 8240;
+    walletPortfolio[w] = {
+      native: {
+        accountValue: perpHl,
+        withdrawable: 11800,
+        positions: hlPositions,
+      },
+      xyz: {
+        accountValue: perpXyz,
+        withdrawable: 2100,
+        positions: xyzPositions,
+      },
+      spotBalances,
+      spotEquityUsd,
+      ts: now,
+    };
+    accountValues[w] = perpHl;
+    fillsByWallet[w] = {
+      hl: [...allFills],
+      xyz: [...xyzFills],
+      bridge: [...bridgeOps],
+      funding: [...fundingEvents],
+      positions: [...allPositions],
+    };
+    bridgeOps.forEach(o => unitTokenSet.add('U' + o.asset.toUpperCase()));
+    demoSeedSpotSparklineHist(w);
+    dataIsAllTime = isAll;
+    glpSetProgress(78);
+    glpSetProgress(88);
+    setText('lastUpdate', t('updatedAt') + ' ' + new Date().toLocaleTimeString(locale()) + ' · ' + demoWalletLabel());
+    setText('dataStats', `${allFills.length} HL · ${xyzFills.length} XYZ · ${bridgeOps.length} bridge · demo`);
+    await glpPaintFrame();
+    renderAll();
+    glpSetProgress(96);
+    if (_pendingDashboardReveal) {
+      _pendingDashboardReveal = false;
+      _hsLaunchHandoff = true;
+      await hsLaunchComplete();
+      _hsLaunchHandoff = false;
+      await launchDashboardReveal();
+    }
+    if (typeof toast === 'function') toast(t('demo.loaded'));
+    if (refreshTimer) clearInterval(refreshTimer);
+  } catch (e) {
+    _pendingDashboardReveal = false;
+    hsLaunchHide();
+    showError('Demo: ' + e.message);
+  } finally {
+    hsEndScrollPreserve();
+    document.body.classList.remove('hs-welcome-loading');
+    if (!_hsLaunchHandoff) hsLaunchHide();
+    if (typeof syncSupportBannerVisibility === 'function') syncSupportBannerVisibility();
+    glpEnd();
+    const btn = document.getElementById('connectBtn');
+    if (btn) { btn.disabled = false; btn.textContent = typeof t === 'function' ? t('btn.load') : 'Load'; }
+    if (typeof setXyzPageLoading === 'function') setXyzPageLoading(false);
+  }
+}
+
 async function loadData() {
+  if (isDemoWalletMode()) {
+    activateDemoWalletSession();
+    await loadDemoWalletData();
+    return;
+  }
   if (!wallets.length) {
     openWalletsModal();
     return;
@@ -21205,7 +21530,12 @@ window.addEventListener('DOMContentLoaded', () => {
   applyTicker()
   if(_xHandle && $('xHandleInput')) $('xHandleInput').value = _xHandle
   syncWelcomeShell();
-  if (wallets.length && isDashboardUnlocked() && !isWelcomeMode()) {
+  if (isDemoWalletMode()) {
+    activateDemoWalletSession();
+    renderWallets();
+    _pendingDashboardReveal = isWelcomeMode();
+    setTimeout(() => loadData(), 280);
+  } else if (wallets.length && isDashboardUnlocked() && !isWelcomeMode()) {
     setTimeout(() => loadData(), 200);
   }
 });
