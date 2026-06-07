@@ -2285,12 +2285,15 @@ const HS_CONFIG = {
     #page-wallet .wallet-asset-logo-wrap.is-fallback img { display: none; }
     #page-wallet .wallet-asset-fallback {
       display: none;
-      font-size: .62rem;
-      font-weight: 800;
-      color: var(--accent);
+      width: 100%;
+      height: 100%;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
       letter-spacing: -.02em;
+      line-height: 1;
     }
-    #page-wallet .wallet-asset-logo-wrap.is-fallback .wallet-asset-fallback { display: block; }
+    #page-wallet .wallet-asset-logo-wrap.is-fallback .wallet-asset-fallback { display: inline-flex; }
     #page-wallet .wallet-asset-name {
       font-weight: 600;
       white-space: nowrap;
@@ -10771,9 +10774,9 @@ let _walletCgUsdByBase = {};
 let _walletCgFetchGen = 0;
 let _walletCgAttempted = new Set();
 let _walletCgEnrichBusy = false;
-let _walletIconDataUrlBySym = {};
-let _walletIconPrefetchGen = 0;
 let _walletIconDelegBound = false;
+const WALLET_LETTER_BADGE_COLORS = ['#2c5e4f', '#3a4a6b', '#5e3a5e', '#6b5a2c', '#2c4a6b', '#4a2c5e'];
+const WALLET_ICON_SIZE = 28;
 let outcomeMetaMap = {};   // #encoding → {name, outcomeId, side, short} pour HIP-4
 let outcomeById = {};      // outcomeId → {short, yesName, noName}
 const HS_OUTCOME_META_LS = 'hs-outcome-meta-v1';
@@ -12838,8 +12841,6 @@ async function loadData() {
     accountValues = {};
     walletPortfolio = {};
     _walletCgAttempted = new Set();
-    Object.values(_walletIconDataUrlBySym).forEach((u) => { try { URL.revokeObjectURL(u); } catch (_) {} });
-    _walletIconDataUrlBySym = {};
     fillsByWallet = {};
     const seenFills = new Set();
     const pushFillUnique = (target, f, w) => {
@@ -13756,9 +13757,13 @@ function walletSpotFmtUnitPrice(px) {
   return v.toLocaleString(locale(), { minimumFractionDigits: 4, maximumFractionDigits: 6 }) + ' $';
 }
 
-function walletAssetFallbackLetters(base) {
-  const s = String(base || '?').replace(/[^A-Za-z0-9]/g, '');
-  return (s.slice(0, 2) || '?').toUpperCase();
+function walletLetterBadgeColor(name) {
+  const n = String(name || '?');
+  return WALLET_LETTER_BADGE_COLORS[[...n].reduce((a, ch) => a + ch.charCodeAt(0), 0) % WALLET_LETTER_BADGE_COLORS.length];
+}
+
+function walletLetterBadgeLetters(name) {
+  return String(name || '?').slice(0, 2).toUpperCase();
 }
 
 function walletAssetLogoSymbol(base, label, b) {
@@ -13771,117 +13776,41 @@ function walletAssetLogoSymbol(base, label, b) {
   return sym;
 }
 
-function walletAssetCgLogoUrl(sym) {
-  const b = String(sym || '').toUpperCase();
-  if (!b) return '';
-  const lk = walletSpotCgLookupKey(b);
-  return _walletCgLogoByBase[b] || _walletCgLogoByBase[lk] || '';
-}
-
-function walletAssetIconCandidateUrls(sym) {
-  const b = String(sym || '').toUpperCase();
-  if (!b) return [];
-  const urls = [];
-  const push = (u) => { if (u && !urls.includes(u)) urls.push(u); };
-  const cached = _walletIconDataUrlBySym[b];
-  if (cached) push(cached);
-  push(walletAssetCgLogoUrl(b));
-  push(walletHlIconUrl(b));
-  push(`https://assets.coincap.io/assets/icons/${b.toLowerCase()}@2x.png`);
-  push(`https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/svg/color/${b.toLowerCase()}.svg`);
-  return urls;
-}
-
 function ensureWalletIconDelegation() {
   if (_walletIconDelegBound) return;
   _walletIconDelegBound = true;
   document.addEventListener('error', (e) => {
     const img = e.target;
-    if (img?.classList?.contains('wallet-asset-logo')) walletAssetLogoOnError(img);
+    if (img?.classList?.contains('wallet-asset-logo')) walletTokenIconOnError(img);
   }, true);
 }
 
-function walletAssetLogoOnError(img) {
-  if (!img) return;
-  let urls = [];
-  try { urls = JSON.parse(img.dataset.iconUrls || '[]'); } catch (_) {}
-  let idx = (parseInt(img.dataset.iconIdx || '0', 10) || 0) + 1;
-  for (; idx < urls.length; idx++) {
-    const next = urls[idx];
-    if (!next || img.src === next) continue;
-    img.dataset.iconIdx = String(idx);
-    img.src = next;
-    return;
-  }
-  const wrap = img.closest('.wallet-asset-logo-wrap');
+function walletTokenIconOnError(img) {
+  const wrap = img?.closest('.wallet-asset-logo-wrap');
   if (wrap) wrap.classList.add('is-fallback');
-  img.style.display = 'none';
+  if (img) img.style.display = 'none';
 }
 
-function walletRefreshAssetIconsInDom() {
-  document.querySelectorAll('#walletSpotTableWrap img.wallet-asset-logo[data-icon-sym]').forEach((img) => {
-    const sym = String(img.dataset.iconSym || '').toUpperCase();
-    const cached = sym && _walletIconDataUrlBySym[sym];
-    if (!cached) return;
-    const wrap = img.closest('.wallet-asset-logo-wrap');
-    if (!wrap) return;
-    img.src = cached;
-    img.style.display = '';
-    wrap.classList.remove('is-fallback');
-  });
-}
-
-async function walletPrefetchAssetIcons(symbols) {
-  const syms = [...new Set((symbols || []).map((s) => String(s || '').toUpperCase()).filter(Boolean))];
-  if (!syms.length) return;
-  ensureWalletIconDelegation();
-  const gen = ++_walletIconPrefetchGen;
-  let changed = false;
-  for (const sym of syms) {
-    if (gen !== _walletIconPrefetchGen) return;
-    if (_walletIconDataUrlBySym[sym]) continue;
-    for (const url of walletAssetIconCandidateUrls(sym)) {
-      if (url.startsWith('blob:')) {
-        _walletIconDataUrlBySym[sym] = url;
-        changed = true;
-        break;
-      }
-      try {
-        const res = await fetch(url, { mode: 'cors', referrerPolicy: 'no-referrer' });
-        if (!res.ok) continue;
-        const ct = (res.headers.get('content-type') || '').toLowerCase();
-        const blob = await res.blob();
-        if (url.endsWith('.svg') || ct.includes('svg')) {
-          const head = await blob.slice(0, 280).text();
-          if (!head.includes('<svg')) continue;
-        } else if (!ct.startsWith('image/') && !/\.(png|jpe?g|webp|gif)(\?|$)/i.test(url)) {
-          continue;
-        }
-        _walletIconDataUrlBySym[sym] = URL.createObjectURL(blob);
-        changed = true;
-        break;
-      } catch (_) {}
-    }
-  }
-  if (gen !== _walletIconPrefetchGen || !changed) return;
-  if ((document.body?.dataset?.page || '') === 'wallet') {
-    walletRefreshAssetIconsInDom();
-    renderWalletPage();
-  }
+function walletHlTokenIconUrl(name) {
+  const n = String(name || '').trim();
+  if (!n) return '';
+  return `https://app.hyperliquid.xyz/coins/${encodeURIComponent(n)}.svg`;
 }
 
 function walletAssetLogoHtml(base, label, b) {
   const sym = walletAssetLogoSymbol(base, label, b);
-  const urls = walletAssetIconCandidateUrls(sym);
-  const primary = urls[0] || '';
-  const letters = walletAssetFallbackLetters(sym || String(label || '').split('/')[0] || '?');
-  const urlsJson = escWalletHtml(JSON.stringify(urls));
-  const img = primary
-    ? `<img class="wallet-asset-logo" src="${escWalletHtml(primary)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-icon-sym="${escWalletHtml(sym)}" data-icon-idx="0" data-icon-urls="${urlsJson}">`
+  const badgeName = sym || String(label || '').split('/')[0] || '?';
+  const hlUrl = sym ? (walletHlIconUrl(sym) || walletHlTokenIconUrl(sym)) : '';
+  const letters = walletLetterBadgeLetters(badgeName);
+  const bg = walletLetterBadgeColor(badgeName);
+  const fs = (WALLET_ICON_SIZE * 0.38).toFixed(2);
+  const img = hlUrl
+    ? `<img class="wallet-asset-logo" src="${escWalletHtml(hlUrl)}" alt="" width="${WALLET_ICON_SIZE}" height="${WALLET_ICON_SIZE}" loading="lazy" decoding="async" referrerpolicy="no-referrer">`
     : '';
+  const badgeStyle = `background:${bg};color:#cfe;font-weight:600;font-size:${fs}px;font-family:system-ui,-apple-system,sans-serif;`;
   const safeLbl = escWalletHtml(label || sym);
   return `<div class="wallet-asset-cell">
-    <span class="wallet-asset-logo-wrap${primary ? '' : ' is-fallback'}">${img}<span class="wallet-asset-fallback">${escWalletHtml(letters)}</span></span>
+    <span class="wallet-asset-logo-wrap${hlUrl ? '' : ' is-fallback'}">${img}<span class="wallet-asset-fallback" style="${badgeStyle}">${escWalletHtml(letters)}</span></span>
     <span class="wallet-asset-name" title="${safeLbl}">${safeLbl}</span>
   </div>`;
 }
@@ -14100,7 +14029,6 @@ function renderWalletPage() {
   let perpHl = 0, perpXyz = 0, spotUsd = 0, spotVisibleUsd = 0, posCount = 0;
   const perpRows = [];
   const spotRowsAll = [];
-  const spotBasesForCg = [];
   let spotHiddenCount = 0;
   for (const w of addrs) {
     const p = walletPortfolio[w];
@@ -14114,7 +14042,6 @@ function renderWalletPage() {
       if (hideDust && usd < dustMin) { spotHiddenCount++; continue; }
       spotVisibleUsd += usd;
       const base = walletSpotBaseSymbol(b);
-      if (base) spotBasesForCg.push(base);
       spotRowsAll.push({ b, usd, w, base, lbl: walletSpotDisplayName(b.coin, b.token), unitPx });
     }
     for (const pos of [...(p.native.positions || []), ...(p.xyz.positions || [])]) {
@@ -14145,11 +14072,7 @@ function renderWalletPage() {
   setText('walletKpiTotal', fmtUsd(totalUsd));
   setText('walletSpotTotalBar', fmtUsd(spotUsd));
   renderWalletSpotSparkline(spotUsd);
-  if (spotBasesForCg.length) {
-    ensureWalletIconDelegation();
-    setTimeout(() => walletPrefetchAssetIcons(spotBasesForCg), 0);
-    setTimeout(() => scheduleWalletCgEnrich(spotBasesForCg), 0);
-  }
+  if (spotRowsAll.length) ensureWalletIconDelegation();
   const totalHint = document.getElementById('walletTotalHint');
   if (totalHint) {
     if (addrs.length && walletPortfolio[addrs[0]]) {
