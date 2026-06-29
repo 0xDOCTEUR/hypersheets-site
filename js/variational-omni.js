@@ -219,6 +219,32 @@
     if (n >= 1) return n.toLocaleString(varLoc(), { maximumFractionDigits: 2 });
     return n.toLocaleString(varLoc(), { maximumFractionDigits: 4 });
   }
+
+  function varMarkSpread(ticker) {
+    const tick = String(ticker || '').toUpperCase();
+    const L = (_varListingsCache || []).find(x => String(x.ticker || '').toUpperCase() === tick);
+    const markOmni = parseFloat(L?.mark_price || 0);
+    const hl = varHlMapLookup(_varHlFunding?.map, tick);
+    const markHl = hl?.markPx || 0;
+    if (!(markOmni > 0) || !(markHl > 0)) return null;
+    const mid = (markOmni + markHl) / 2;
+    const spreadPct = mid > 0 ? Math.abs(markOmni - markHl) / mid * 100 : 0;
+    const firstVenue = markOmni >= markHl ? 'omni' : 'hl';
+    return { markOmni, markHl, spreadPct, firstVenue };
+  }
+
+  function varOpenOrderTipHtml(ticker) {
+    const m = varMarkSpread(ticker);
+    if (!m || m.spreadPct < 0.03) return '';
+    const venueLbl = m.firstVenue === 'omni' ? 'Variational Omni' : 'Hyperliquid';
+    const highMark = m.firstVenue === 'omni' ? m.markOmni : m.markHl;
+    const lowMark = m.firstVenue === 'omni' ? m.markHl : m.markOmni;
+    return `<p class="var-hedge-open-tip">${varT('var.openOrderTip')
+      .replace('{venue}', venueLbl)
+      .replace('{high}', varFmtMark(highMark))
+      .replace('{low}', varFmtMark(lowMark))
+      .replace('{pct}', m.spreadPct.toFixed(2))}</p>`;
+  }
   function hlFundingDailyPct(fundingHr) {
     const f = parseFloat(fundingHr || 0);
     if (!isFinite(f)) return null;
@@ -1044,7 +1070,7 @@
           .replace('{usd}', varFmtUsd(targetUsd))
           .replace('{ticker}', leg.ticker)
           .replace('{hlTicker}', varHlCoinShort(leg.ticker))}</p>
-        ${!hlPos ? `<p style="font-size:.78rem;color:var(--warning-brand);margin:0">${varT('var.hlMissingHint')}</p>` : ''}
+        ${!hlPos ? `<p style="font-size:.78rem;color:var(--warning-brand);margin:0">${varT('var.hlMissingHint')}</p>${varOpenOrderTipHtml(leg.ticker)}` : ''}
         ${hlPos && sizeWarn ? `<p style="font-size:.78rem;color:var(--warning-brand);margin:8px 0 0">${varT('var.sizeGapWarn').replace('{pct}', sizeGap.toFixed(0))}</p>` : ''}
         ${driftWarn ? `<p style="font-size:.78rem;color:var(--danger);margin:8px 0 0">${varT('var.driftWarn')}</p>` : (!sizeWarn && hlPos ? `<p style="font-size:.78rem;color:var(--muted);margin:8px 0 0">${varT('var.hedgeHint')}</p>` : '')}
       </div>

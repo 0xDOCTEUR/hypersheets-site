@@ -412,6 +412,7 @@ const HS_CONFIG = {
         .var-hedge-earn-item { padding: 10px; border-radius: 8px; background: var(--surface-1, var(--bg)); border: 1px solid var(--border); text-align: center; }
         .var-hedge-earn-item strong { display: block; font-size: .85rem; margin-top: 4px; }
         .var-hedge-earn-item span { font-size: .65rem; color: var(--muted); }
+        .var-hedge-open-tip { font-size: .76rem; color: var(--muted); margin: 8px 0 0; line-height: 1.5; padding: 8px 10px; border-radius: 8px; background: rgba(76,154,248,.06); border: 1px solid rgba(76,154,248,.15); }
         .var-csv-imports { display: grid; grid-template-columns: 1fr; gap: 10px; margin-bottom: 16px; }
         @media (min-width: 640px) { .var-csv-imports { grid-template-columns: 1fr 1fr; } }
         @media (min-width: 1100px) { .var-csv-imports { grid-template-columns: repeat(4, 1fr); } }
@@ -10018,6 +10019,7 @@ const I18N = {
     'var.hlMissing': 'No HL position',
     'var.actionTitle': 'What to do on Hyperliquid',
     'var.actionBody': 'Target a {hlSide} of ~{usd} on {hlTicker} (Hyperliquid) to offset your Omni {ticker} leg and farm the funding spread.',
+    'var.openOrderTip': 'Entry tip: open first on {venue} (higher mark {high} vs {low}, {pct}% gap) to limit instant UPnL mismatch. Then the opposite leg — match quantity when possible, not only USD notional.',
     'var.recTitle': 'Recommended sides (funding)',
     'var.recBody': 'Short {omniTicker} on Omni + Long {hlTicker} on HL — est. funding ~{net}/day on notional.',
     'var.recBodyAlt': 'Long {omniTicker} on Omni + Short {hlTicker} on HL — est. funding ~{net}/day on notional.',
@@ -10732,6 +10734,7 @@ const I18N = {
     'var.hlMissing': 'Pas de position HL',
     'var.actionTitle': 'À faire sur Hyperliquid',
     'var.actionBody': 'Vise un {hlSide} d’environ {usd} sur {hlTicker} (Hyperliquid) pour compenser ta jambe Omni {ticker} et farmer l’écart de funding.',
+    'var.openOrderTip': 'Astuce ouverture : passe d’abord sur {venue} (mark le plus élevé {high} vs {low}, écart {pct} %) pour limiter le décalage d’UPnL à l’entrée. Ensuite la jambe opposée — vise la même quantité si possible, pas seulement le même USD.',
     'var.recTitle': 'Sens recommandés (funding)',
     'var.recBody': 'Short {omniTicker} sur Omni + Long {hlTicker} sur HL — funding estimé ~{net}/j sur le notionnel.',
     'var.recBodyAlt': 'Long {omniTicker} sur Omni + Short {hlTicker} sur HL — funding estimé ~{net}/j sur le notionnel.',
