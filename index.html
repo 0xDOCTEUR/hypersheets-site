@@ -363,9 +363,9 @@ const HS_CONFIG = {
         }
         #page-variational { --var-accent: #4c9af8; --var-omni: #4c9af8; --var-hl: #5eead4; }
         .var-hedge-lead { font-size: .84rem; color: var(--muted); line-height: 1.55; margin: 0 0 12px; }
-        .var-hedge-steps { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+        .var-hedge-steps { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; counter-reset: var-hedge-step; }
         .var-hedge-step { font-size: .72rem; padding: 5px 11px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); color: var(--muted); }
-        .var-hedge-step b { color: var(--text); font-weight: 600; }
+        .var-hedge-step::before { counter-increment: var-hedge-step; content: counter(var-hedge-step); font-weight: 600; color: var(--text); margin-right: 6px; }
         .var-hedge-grid { display: grid; grid-template-columns: 1fr; gap: 18px; align-items: start; }
         @media (min-width: 1024px) { .var-hedge-grid { grid-template-columns: minmax(300px, 400px) 1fr; } }
         .var-hedge-form-card { padding: 16px 18px; border-radius: 12px; }
@@ -9139,9 +9139,9 @@ const HS_CONFIG = {
           <div class="section-h mb-2"><span class="bar" style="background:var(--var-accent,#4c9af8)"></span><span data-i18n="var.hedgeTitle">Suivi delta-neutre Omni ↔ Hyperliquid</span></div>
           <p class="var-hedge-lead" data-i18n="var.hedgeDesc">Indique ta position sur Variational Omni : Hypersheets compare en direct avec ta jambe Hyperliquid (wallet chargé) et calcule l'écart de delta et de funding.</p>
           <div class="var-hedge-steps">
-            <span class="var-hedge-step" data-i18n="var.hedgeStep1"><b>1</b> Saisis ta jambe Omni</span>
-            <span class="var-hedge-step" data-i18n="var.hedgeStep2"><b>2</b> Vérifie la jambe HL</span>
-            <span class="var-hedge-step" data-i18n="var.hedgeStep3"><b>3</b> Farme le funding</span>
+            <span class="var-hedge-step" data-i18n="var.hedgeStep1">Saisis ta jambe Omni</span>
+            <span class="var-hedge-step" data-i18n="var.hedgeStep2">Vérifie la jambe HL</span>
+            <span class="var-hedge-step" data-i18n="var.hedgeStep3">Farme le funding</span>
           </div>
           <div id="varHedgeStatus" class="var-hedge-status"></div>
           <div class="var-hedge-grid">
@@ -9913,9 +9913,9 @@ const I18N = {
     'var.updated': 'Updated',
     'var.hedgeTitle': 'Delta-neutral tracker (Omni ↔ Hyperliquid)',
     'var.hedgeDesc': 'Enter your Variational Omni position — Hypersheets compares it live with your Hyperliquid wallet and shows delta + funding gap.',
-    'var.hedgeStep1': '<b>1</b> Enter your Omni leg',
-    'var.hedgeStep2': '<b>2</b> Check HL leg',
-    'var.hedgeStep3': '<b>3</b> Farm funding',
+    'var.hedgeStep1': 'Enter your Omni leg',
+    'var.hedgeStep2': 'Check the HL leg',
+    'var.hedgeStep3': 'Farm funding',
     'var.hedgeFormTitle': 'Your Omni position',
     'var.hedgeResultTitle': 'Live comparison',
     'var.legTicker': 'Ticker',
@@ -10627,9 +10627,9 @@ const I18N = {
     'var.updated': 'Màj',
     'var.hedgeTitle': 'Suivi delta-neutre Omni ↔ Hyperliquid',
     'var.hedgeDesc': 'Indique ta position sur Variational Omni : Hypersheets compare en direct avec ta jambe Hyperliquid (wallet chargé) et calcule l’écart de delta et de funding.',
-    'var.hedgeStep1': '<b>1</b> Saisis ta jambe Omni',
-    'var.hedgeStep2': '<b>2</b> Vérifie la jambe HL',
-    'var.hedgeStep3': '<b>3</b> Farme le funding',
+    'var.hedgeStep1': 'Saisis ta jambe Omni',
+    'var.hedgeStep2': 'Vérifie la jambe HL',
+    'var.hedgeStep3': 'Farme le funding',
     'var.hedgeFormTitle': 'Ta position Omni',
     'var.hedgeResultTitle': 'Comparaison en direct',
     'var.legTicker': 'Actif',
