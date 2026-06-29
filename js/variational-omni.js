@@ -133,11 +133,10 @@
     return map;
   }
 
-  /** API funding_rate = décimal par intervalle (×100 → % par intervalle). Voir docs Variational. */
+  /** API : funding_rate = % par intervalle (ex. 0,08 = 0,08 % / intervalle). */
   function varFundingIntervalPct(rate) {
     const r = parseFloat(rate || 0);
     if (!isFinite(r)) return null;
-    if (Math.abs(r) <= 1.5) return r * 100;
     return r;
   }
   function varFundingDailyPct(rate, intervalS) {
@@ -439,17 +438,49 @@
       stats.loss_refund ? varT('var.lossRefund') + ' ' + varFmtUsd(parseFloat(stats.loss_refund.refunded_24h || 0)) : '');
   }
 
+  function varFmtSetupShort(rec, ticker) {
+    if (!rec) return '—';
+    const omni = rec.omniSide === 'short' ? varT('var.sideShort') : varT('var.sideLong');
+    const hl = rec.hlSide === 'short' ? varT('var.sideShort') : varT('var.sideLong');
+    const hlTick = varHlCoinShort(ticker);
+    return `${omni} Omni · ${hl} HL (${hlTick})`;
+  }
+
+  function varRadarIntroHtml(mode) {
+    const key = mode === 'compare' ? 'var.radarIntroCompare' : mode === 'spread' ? 'var.radarIntroSpread' : mode === 'volume' ? 'var.radarIntroVolume' : 'var.radarIntroFunding';
+    return `<div class="card2 p3 mb-2" style="border-left:3px solid var(--var-accent,#4c9af8);margin:8px 0 10px">
+      <div style="font-size:.78rem;font-weight:600;margin-bottom:4px">${varT('var.radarIntroTitle')}</div>
+      <p style="font-size:.8rem;color:var(--muted);margin:0;line-height:1.5">${varT(key)}</p>
+    </div>`;
+  }
+
+  function varThHint(label, hint) {
+    return `<span title="${hint}">${label}</span>`;
+  }
+
+  function varFundingWhoPays(pct) {
+    if (pct == null || !isFinite(pct) || Math.abs(pct) < 0.001) return varT('var.fundingFlat');
+    return pct > 0 ? varT('var.fundingLongsPay') : varT('var.fundingShortsPay');
+  }
+
   function varRadarTableHtml(rows, mode, hlMap) {
     if (!rows.length) {
       return `<div class="text-center text-sm py-10" style="color:var(--muted)">${varT('var.noData')}</div>`;
     }
-    let head = `<tr><th>${varT('var.colAsset')}</th><th class="text-right">${varT('var.colMark')}</th>`;
+    let head = `<tr><th>${varT('var.colAsset')}</th>`;
     if (mode === 'funding') {
-      head += `<th class="text-right">${varT('var.colFundingOmni')}</th><th class="text-right">${varT('var.colFundingHl')}</th><th class="text-right">${varT('var.colFundingGap')}</th><th class="text-right">${varT('var.colVol24h')}</th>`;
-    } else if (mode === 'spread') {
-      head += `<th class="text-right">${varT('var.colSpread')}</th><th class="text-right">${varT('var.colVol24h')}</th>`;
+      head += `<th>${varT('var.colSetup')}</th>`;
+      head += `<th class="text-right">${varThHint(varT('var.colFundingOmni'), varT('var.colFundingOmniHint'))}</th>`;
+      head += `<th class="text-right">${varThHint(varT('var.colFundingHl'), varT('var.colFundingHlHint'))}</th>`;
+      head += `<th class="text-right">${varThHint(varT('var.colNetFunding'), varT('var.colNetFundingHint'))}</th>`;
+      head += `<th class="text-right">${varT('var.colVol24h')}</th>`;
     } else {
-      head += `<th class="text-right">${varT('var.colVol24h')}</th><th class="text-right">${varT('var.colFundingOmni')}</th>`;
+      head += `<th class="text-right">${varT('var.colMark')}</th>`;
+      if (mode === 'spread') {
+        head += `<th class="text-right">${varT('var.colSpread')}</th><th class="text-right">${varT('var.colVol24h')}</th>`;
+      } else {
+        head += `<th class="text-right">${varT('var.colVol24h')}</th><th class="text-right">${varT('var.colFundingOmni')}</th>`;
+      }
     }
     head += '</tr>';
     const body = rows.map(L => {
@@ -459,16 +490,24 @@
       const varD = varFundingDailyPct(L.funding_rate, L.funding_interval_s);
       const hl = varHlMapLookup(hlMap, tick);
       const hlD = hl ? hlFundingDailyPct(hl.fundingHr) : null;
-      let cells = `<td class="font-medium" title="${varHlCoinShort(tick)}">${varHlAssetLabel(tick)}</td><td class="text-right mono">${mark > 0 ? varFmtMark(mark) : '—'}</td>`;
       if (mode === 'funding') {
-        const diff = varD != null && hlD != null ? varD - hlD : null;
-        const diffCls = diff > 0 ? 'color:var(--success)' : diff < 0 ? 'color:var(--danger)' : '';
-        const ivLbl = varFundingIntervalLabel(L.funding_interval_s);
-        cells += `<td class="text-right mono" title="${ivLbl}">${varD != null ? varFmtFundingDaily(varD, true) : '—'}</td>`;
-        cells += `<td class="text-right mono">${hlD != null ? varFmtFundingDaily(hlD, true) : varT('var.hlNa')}</td>`;
-        cells += `<td class="text-right mono" style="${diffCls}">${diff != null ? varFmtFundingDaily(diff, true) : '—'}</td>`;
-        cells += `<td class="text-right mono">${varFmtVol(vol)}</td>`;
-      } else if (mode === 'spread') {
+        const rec = hlD != null && varD != null ? varRecommendSides(tick, [L], hlMap) : null;
+        const net = rec ? rec.netDaily : null;
+        const diffCls = net > 0 ? 'color:var(--success)' : net < 0 ? 'color:var(--danger)' : '';
+        const setup = rec
+          ? `<span style="font-size:.78rem;line-height:1.35">${varFmtSetupShort(rec, tick)}</span>`
+          : `<span style="font-size:.78rem;color:var(--muted)">${varT('var.hlNa')}</span>`;
+        return `<tr>
+          <td class="font-medium" title="${varHlCoinShort(tick)}">${varHlAssetLabel(tick)}</td>
+          <td>${setup}</td>
+          <td class="text-right mono" title="${varFundingWhoPays(varD)}">${varD != null ? varFmtFundingDaily(varD, true) : '—'}</td>
+          <td class="text-right mono" title="${hlD != null ? varFundingWhoPays(hlD) : ''}">${hlD != null ? varFmtFundingDaily(hlD, true) : varT('var.hlNa')}</td>
+          <td class="text-right mono" style="${diffCls}" title="${varT('var.colNetFundingHint')}">${net != null ? varFmtFundingDaily(net, true) : '—'}</td>
+          <td class="text-right mono">${varFmtVol(vol)}</td>
+        </tr>`;
+      }
+      let cells = `<td class="font-medium" title="${varHlCoinShort(tick)}">${varHlAssetLabel(tick)}</td><td class="text-right mono">${mark > 0 ? varFmtMark(mark) : '—'}</td>`;
+      if (mode === 'spread') {
         cells += `<td class="text-right mono">${parseFloat(L.base_spread_bps || 0).toFixed(1)}</td>`;
         cells += `<td class="text-right mono">${varFmtVol(vol)}</td>`;
       } else {
@@ -477,7 +516,8 @@
       }
       return `<tr>${cells}</tr>`;
     }).join('');
-    return `<p class="text-xs" style="color:var(--muted);padding:8px 0 4px;margin:0">${varT('var.radarHint')}</p><table class="hs-trades-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
+    const hintKey = mode === 'funding' ? 'var.radarHintFunding' : mode === 'spread' ? 'var.radarHintSpread' : 'var.radarHintVolume';
+    return `${varRadarIntroHtml(mode)}<p class="text-xs" style="color:var(--muted);padding:0 0 6px;margin:0">${varT(hintKey)}</p><table class="hs-trades-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
   }
 
   async function renderVarRadar() {
@@ -497,7 +537,11 @@
         rows = varCompareRows(listings, hlMap, 50000);
         host.innerHTML = varCompareTableHtml(rows);
       } else {
-        rows = varRadarSort(listings, mode);
+        let list = listings;
+        if (mode === 'funding') {
+          list = listings.filter(L => varHlMapLookup(hlMap, L.ticker) && parseFloat(L.volume_24h || 0) >= 25000);
+        }
+        rows = varRadarSort(list, mode);
         host.innerHTML = varRadarTableHtml(rows, mode, hlMap);
       }
       const ts = document.getElementById('varRadarUpdated');
@@ -510,20 +554,27 @@
   function varCompareTableHtml(rows) {
     if (!rows.length) return `<div class="text-center text-sm py-10" style="color:var(--muted)">${varT('var.noCompare')}</div>`;
     const body = rows.map(r => {
-      const cls = r.diff > 0 ? 'color:var(--success)' : r.diff < 0 ? 'color:var(--danger)' : '';
+      const net = Math.abs(r.diff);
+      const cls = r.diff >= 0 ? 'color:var(--success)' : 'color:var(--danger)';
+      const fakeRec = {
+        omniSide: r.diff >= 0 ? 'short' : 'long',
+        hlSide: r.diff >= 0 ? 'long' : 'short',
+      };
       return `<tr>
         <td class="font-medium" title="${varHlCoinShort(r.ticker)}">${varHlAssetLabel(r.ticker)}</td>
+        <td><span style="font-size:.78rem;line-height:1.35">${varFmtSetupShort(fakeRec, r.ticker)}</span></td>
         <td class="text-right mono">${varFmtFundingDaily(r.varDaily, true)}</td>
         <td class="text-right mono">${varFmtFundingDaily(r.hlDaily, true)}</td>
-        <td class="text-right mono" style="${cls}">${varFmtFundingDaily(r.diff, true)}</td>
+        <td class="text-right mono" style="${cls}">${varFmtFundingDaily(net, true)}</td>
         <td class="text-right mono">${varFmtVol(r.vol)}</td>
       </tr>`;
     }).join('');
-    return `<p class="text-xs" style="color:var(--muted);padding:8px 0 4px;margin:0">${varT('var.compareHint')}</p><table class="hs-trades-table"><thead><tr>
+    return `${varRadarIntroHtml('compare')}<p class="text-xs" style="color:var(--muted);padding:0 0 6px;margin:0">${varT('var.compareHint')}</p><table class="hs-trades-table"><thead><tr>
       <th>${varT('var.colAsset')}</th>
-      <th class="text-right">${varT('var.colFundingOmni')}</th>
-      <th class="text-right">${varT('var.colFundingHl')}</th>
-      <th class="text-right">${varT('var.colFundingGap')}</th>
+      <th>${varT('var.colSetup')}</th>
+      <th class="text-right">${varThHint(varT('var.colFundingOmni'), varT('var.colFundingOmniHint'))}</th>
+      <th class="text-right">${varThHint(varT('var.colFundingHl'), varT('var.colFundingHlHint'))}</th>
+      <th class="text-right">${varThHint(varT('var.colNetFunding'), varT('var.colNetFundingHint'))}</th>
       <th class="text-right">${varT('var.colVol24h')}</th>
     </tr></thead><tbody>${body}</tbody></table>`;
   }
