@@ -165,10 +165,9 @@ html = injectI18nKeys(html, 'fr', 'tab.hyperunit', VAR_I18N_FR);
 
 html = insertAfter(html, "if (pageName === 'hyperliquid') theme = 'theme-hl'\n", "  else if (pageName === 'variational') theme = 'theme-hl'\n");
 
-html = insertAfter(
-  html,
-  "} else if (name === 'leaderboard') {\n      filterRow.style.display = 'flex';\n      filterPills?.classList.add('hs-filter-pills-hidden');\n    } else {",
-  "\n    } else if (name === 'variational') {\n      filterRow.style.display = 'flex';\n      filterPills?.classList.add('hs-filter-pills-hidden');"
+html = html.replace(
+  "} else if (name === 'leaderboard') {\n      filterRow.style.display = 'flex';\n      filterPills?.classList.add('hs-filter-pills-hidden');\n    } else {\n      filterRow.style.display = '';\n      filterPills?.classList.remove('hs-filter-pills-hidden');\n    }",
+  "} else if (name === 'leaderboard') {\n      filterRow.style.display = 'flex';\n      filterPills?.classList.add('hs-filter-pills-hidden');\n    } else if (name === 'variational') {\n      filterRow.style.display = 'flex';\n      filterPills?.classList.add('hs-filter-pills-hidden');\n    } else {\n      filterRow.style.display = '';\n      filterPills?.classList.remove('hs-filter-pills-hidden');\n    }"
 );
 
 html = insertAfter(html, "if (name === 'wallet') renderWalletPage();\n", "  if (name === 'variational' && typeof initVarPage === 'function') initVarPage(false);\n");
