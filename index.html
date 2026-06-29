@@ -58,7 +58,10 @@ const HS_CONFIG = {
   donationAddress: '0x8271b2a500342617571dfddd69981278d96822aa',
   donationMinUsd: 10,
   jumperBridgeUrl: 'https://jumper.xyz/',
-  tweetText: "I am using Hypersheets the dashboard created by @0xDOCTEUR \u{1F680}\nhttps://hypersheets.xyz/\n#Hyperliquid",
+  tweetText: "I track my Hyperliquid activity on Hypersheets 🚀\nhttps://hypersheets.xyz/\n@HypersheetsXYZ @0xDOCTEUR #Hyperliquid",
+  tweetTextFr: "Je track mon activité Hyperliquid avec Hypersheets 🚀\nhttps://hypersheets.xyz/\n@HypersheetsXYZ @0xDOCTEUR #Hyperliquid",
+  xHandle: 'HypersheetsXYZ',
+  xProfileUrl: 'https://x.com/HypersheetsXYZ',
   tippers: [],
   coinApiKey: '',
   finnhubKey: '',
@@ -70,6 +73,13 @@ const HS_CONFIG = {
   /** false = masquer l'import JSON (build public) ; true = bouton « Importer JSON » visible */
   showLeaderboardImport: false,
   variationalProxyUrl: '',
+  /** URLs des dApps officielles (titres de page cliquables) */
+  dappUrls: {
+    hyperliquid: 'https://app.hyperliquid.xyz/',
+    tradexyz: 'https://trade.xyz',
+    hyperunit: 'https://app.hyperunit.xyz/',
+    variational: 'https://omni.variational.io/',
+  },
   /** Volume max ($) pour le classement « retail » (exclut les mega-wallets) */
   leaderboardRetailMaxUsd: 500000000,
   /** Wallet démo pour vidéos / screenshots — activer avec ?demo=1 */
@@ -114,6 +124,9 @@ const HS_CONFIG = {
       --fs-lg: 1.1rem;   /* sous-titres */
       --fs-xl: 1.3rem;   /* titres KPI */
       --fs-2xl: 1.6rem;  /* valeurs KPI principales */
+      --hs-radius-tile: 10px;
+      --hs-radius-badge: 6px;
+      --hs-radius-bar: 4px;
       --bg: #060709;
       --surface: #0d1117;
       --surface-2: #161b24;
@@ -807,10 +820,14 @@ const HS_CONFIG = {
       border-color: var(--accent);
       color: var(--on-accent);
     }
-    [data-theme="light"] .hs-support-panel .hs-don-addr-copy-link,
-    [data-theme="light"] .hs-support-panel .hs-support-jumper a {
-      text-decoration: underline;
-      text-underline-offset: 2px;
+    [data-theme="light"] .hs-support-panel .hs-support-cta-inline--x,
+    [data-theme="light"] .hs-support-panel .hs-support-cta-inline--don {
+      background: var(--accent-soft);
+      border-color: var(--accent-border);
+      color: var(--accent);
+    }
+    [data-theme="light"] .hs-support-panel .hs-support-note {
+      color: var(--muted);
     }
     .hs-support-panel { position: relative; }
     .hs-support-close {
@@ -898,7 +915,20 @@ const HS_CONFIG = {
       font-size: var(--hs-support-text-size);
       color: var(--support-text);
       line-height: 1.5;
-      margin: 0 0 8px;
+      margin: 0 0 4px;
+      max-width: 42rem;
+      text-align: center;
+    }
+    .hs-support-intro strong { color: var(--support-accent); font-weight: 700; }
+    .hs-support-note {
+      margin: 0 0 12px;
+      font-size: calc(var(--hs-support-text-size) * 0.94);
+      color: color-mix(in srgb, var(--support-text) 72%, transparent);
+      line-height: 1.45;
+      max-width: 40rem;
+      text-align: center;
+    }
+    .hs-support-actions {
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
@@ -906,7 +936,6 @@ const HS_CONFIG = {
       gap: 8px 10px;
       max-width: 100%;
     }
-    .hs-support-intro strong { color: var(--support-accent); font-weight: 700; }
     .hs-support-cta-inline {
       display: inline-flex;
       align-items: center;
@@ -925,12 +954,24 @@ const HS_CONFIG = {
       border: 1px solid transparent;
       transition: opacity .15s;
       cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
     }
     .hs-support-cta-inline:hover { opacity: .88; }
     .hs-support-cta-inline--ref {
       background: color-mix(in srgb, var(--support-accent) 14%, transparent);
       border-color: color-mix(in srgb, var(--support-accent) 36%, transparent);
       color: var(--support-accent);
+    }
+    .hs-support-cta-inline--x {
+      background: color-mix(in srgb, var(--support-accent) 10%, transparent);
+      border-color: color-mix(in srgb, var(--support-accent) 30%, transparent);
+      color: var(--support-accent);
+    }
+    .hs-support-cta-inline--don {
+      background: color-mix(in srgb, var(--support-warm) 12%, transparent);
+      border-color: color-mix(in srgb, var(--support-warm) 34%, transparent);
+      color: var(--support-warm);
     }
     .hs-support-heading {
       display: inline-flex;
@@ -1062,9 +1103,8 @@ const HS_CONFIG = {
     }
     .unlock-jumper-hint a:hover { text-decoration: underline; }
     @media (max-width: 640px) {
-      .hs-support-intro,
-      .hs-support-jumper { flex-direction: column; gap: 6px; }
-      .hs-support-don-addr { width: 100%; max-width: 100%; }
+      .hs-support-actions { flex-direction: column; align-items: stretch; }
+      .hs-support-actions .hs-support-cta-inline { width: 100%; }
     }
     #page-signals.sig-universe-perp.active {
       background:
@@ -1202,7 +1242,7 @@ const HS_CONFIG = {
     }
 
     .pill {
-      padding: 6px 14px; border-radius: 999px; font-size: .8rem; font-weight: 600;
+      padding: 6px 14px; border-radius: var(--hs-radius-tile); font-size: .8rem; font-weight: 600;
       cursor: pointer; border: 1px solid var(--border); background: var(--pill-bg);
       color: var(--muted); transition: all .15s;
     }
@@ -1508,7 +1548,7 @@ const HS_CONFIG = {
     }
     .hl-vol-row-bar {
       height: 5px;
-      border-radius: 999px;
+      border-radius: var(--hs-radius-bar);
       background: color-mix(in srgb, var(--border) 70%, transparent);
       overflow: hidden;
     }
@@ -1647,6 +1687,7 @@ const HS_CONFIG = {
     #page-hyperliquid .hl-perf-panel,
     .kpi.kpi-accent,
     #page-dashboard .kpi,
+    #page-wallet .wallet-kpi-row .kpi,
     .farm-goal-card,
     .lb-hero-card,
     .hs-support-panel:not(.is-dismissed),
@@ -1690,6 +1731,7 @@ const HS_CONFIG = {
     #page-hyperliquid .hl-perf-panel::after,
     .kpi.kpi-accent::after,
     #page-dashboard .kpi::after,
+    #page-wallet .wallet-kpi-row .kpi::after,
     .farm-goal-card::after,
     .lb-hero-card::after,
     .hs-support-panel:not(.is-dismissed)::after,
@@ -1725,6 +1767,7 @@ const HS_CONFIG = {
     #page-hyperliquid .hl-perf-panel > *,
     .kpi.kpi-accent > *,
     #page-dashboard .kpi > *,
+    #page-wallet .wallet-kpi-row .kpi > *,
     .farm-goal-card > *,
     .lb-hero-card > *,
     .hs-support-panel:not(.is-dismissed) > *:not(.hs-support-close),
@@ -1738,6 +1781,18 @@ const HS_CONFIG = {
     #page-dashboard .kpi:nth-child(2) { --hs-neon-a: #FBBF24; --hs-neon-b: #fcd34d; --hs-neon-sweep-delay: .8s; }
     #page-dashboard .kpi:nth-child(3) { --hs-neon-a: #00B4FF; --hs-neon-b: #38bdf8; --hs-neon-sweep-delay: 1.6s; }
     #page-dashboard .kpi:nth-child(4) { --hs-neon-sweep-delay: 2.4s; }
+    #page-wallet .wallet-kpi-row .kpi:nth-child(1) { --hs-neon-a: #97FCE4; --hs-neon-b: #6ee7ff; }
+    #page-wallet .wallet-kpi-row .kpi:nth-child(2) { --hs-neon-a: #FBBF24; --hs-neon-b: #fcd34d; --hs-neon-sweep-delay: .8s; }
+    #page-wallet .wallet-kpi-row .kpi:nth-child(3) { --hs-neon-a: #00B4FF; --hs-neon-b: #38bdf8; --hs-neon-sweep-delay: 1.6s; }
+    #page-wallet .wallet-kpi-row .kpi:nth-child(4) { --hs-neon-sweep-delay: 2.4s; }
+    #page-wallet .wallet-kpi-row .kpi:nth-child(5) {
+      --hs-neon-a: #6ee7ff;
+      --hs-neon-b: #38bdf8;
+      --hs-neon-bg: var(--surface-2);
+      --hs-neon-pulse: 4.2s;
+      --hs-neon-sweep-opacity: .5;
+      --hs-neon-sweep-delay: .4s;
+    }
     .farm-goal-card {
       --hs-neon-a: #6ee7ff;
       --hs-neon-b: #38bdf8;
@@ -1787,6 +1842,7 @@ const HS_CONFIG = {
     #page-hyperliquid .hl-perf-panel { --hs-neon-sweep-delay: .85s; }
     .kpi.kpi-accent:hover,
     #page-dashboard .kpi:hover,
+    #page-wallet .wallet-kpi-row .kpi:hover,
     #page-hyperliquid .hl-vol-panel:hover,
     #page-hyperliquid .hl-perf-panel:hover,
     .hs-neon-tile:hover,
@@ -1801,6 +1857,7 @@ const HS_CONFIG = {
         inset 0 0 36px color-mix(in srgb, var(--hs-neon-a) 12%, transparent);
     }
     #page-dashboard .kpi:hover { transform: translateY(-1px); transition: transform .2s, border-color .2s, box-shadow .25s; }
+    #page-wallet .wallet-kpi-row .kpi:hover { transform: translateY(-1px); transition: transform .2s, border-color .2s, box-shadow .25s; }
     @media (prefers-reduced-motion: reduce) {
       .hs-neon-tile,
       .welcome-card,
@@ -1809,6 +1866,7 @@ const HS_CONFIG = {
       #page-hyperliquid .hl-perf-panel,
       .kpi.kpi-accent,
       #page-dashboard .kpi,
+      #page-wallet .wallet-kpi-row .kpi,
       .farm-goal-card,
       .lb-hero-card,
       .hs-support-panel:not(.is-dismissed),
@@ -1826,6 +1884,7 @@ const HS_CONFIG = {
       #page-hyperliquid .hl-perf-panel::after,
       .kpi.kpi-accent::after,
       #page-dashboard .kpi::after,
+      #page-wallet .wallet-kpi-row .kpi::after,
       .farm-goal-card::after,
       .lb-hero-card::after,
       .hs-support-panel:not(.is-dismissed)::after,
@@ -1841,6 +1900,7 @@ const HS_CONFIG = {
     [data-theme="light"] #page-hyperliquid .hl-perf-panel,
     [data-theme="light"] .kpi.kpi-accent,
     [data-theme="light"] #page-dashboard .kpi,
+    [data-theme="light"] #page-wallet .wallet-kpi-row .kpi,
     [data-theme="light"] .farm-goal-card,
     [data-theme="light"] .lb-hero-card,
     [data-theme="light"] .hs-support-panel:not(.is-dismissed),
@@ -1863,6 +1923,9 @@ const HS_CONFIG = {
     [data-theme="light"] #page-dashboard .kpi:nth-child(1) { --hs-neon-a: #0d9488; --hs-neon-b: #0891b2; }
     [data-theme="light"] #page-dashboard .kpi:nth-child(2) { --hs-neon-a: #d97706; --hs-neon-b: #f59e0b; }
     [data-theme="light"] #page-dashboard .kpi:nth-child(3) { --hs-neon-a: #0284c7; --hs-neon-b: #0ea5e9; }
+    [data-theme="light"] #page-wallet .wallet-kpi-row .kpi:nth-child(1) { --hs-neon-a: #0d9488; --hs-neon-b: #0891b2; }
+    [data-theme="light"] #page-wallet .wallet-kpi-row .kpi:nth-child(2) { --hs-neon-a: #d97706; --hs-neon-b: #f59e0b; }
+    [data-theme="light"] #page-wallet .wallet-kpi-row .kpi:nth-child(3) { --hs-neon-a: #0284c7; --hs-neon-b: #0ea5e9; }
     [data-theme="light"] .lb-hero-card { --hs-neon-a: #d97706; --hs-neon-b: #f59e0b; }
     [data-theme="light"] #page-hyperliquid .hl-vol-panel,
     [data-theme="light"] #page-hyperliquid .hl-perf-panel {
@@ -1876,6 +1939,7 @@ const HS_CONFIG = {
     [data-theme="light"] #page-hyperliquid .hl-perf-panel::after,
     [data-theme="light"] .kpi.kpi-accent::after,
     [data-theme="light"] #page-dashboard .kpi::after,
+    [data-theme="light"] #page-wallet .wallet-kpi-row .kpi::after,
     [data-theme="light"] .farm-goal-card::after,
     [data-theme="light"] .lb-hero-card::after,
     [data-theme="light"] .hs-support-panel:not(.is-dismissed)::after,
@@ -1892,6 +1956,7 @@ const HS_CONFIG = {
     }
     [data-theme="light"] .kpi.kpi-accent:hover,
     [data-theme="light"] #page-dashboard .kpi:hover,
+    [data-theme="light"] #page-wallet .wallet-kpi-row .kpi:hover,
     [data-theme="light"] .hs-neon-tile:hover,
     [data-theme="light"] .welcome-card:hover,
     [data-theme="light"] .welcome-logo:hover,
@@ -1937,6 +2002,31 @@ const HS_CONFIG = {
     }
     .section-h .hs-section-icon--leaderboard { color: #FBBF24; }
 
+    a.hs-dapp-title-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: inherit;
+      text-decoration: none;
+      border-radius: 8px;
+      margin: -4px -8px;
+      padding: 4px 8px;
+      transition: color .15s, background .15s;
+    }
+    a.hs-dapp-title-link:hover { color: var(--accent); background: var(--accent-soft); }
+    a.hs-dapp-title-link:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+    a.hs-dapp-title-link .hs-dapp-title-ext {
+      font-size: .72rem;
+      opacity: 0;
+      transform: translateY(1px);
+      transition: opacity .15s;
+      color: var(--muted);
+    }
+    a.hs-dapp-title-link:hover .hs-dapp-title-ext { opacity: 1; }
+
     input[type=text] {
       background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
       color: var(--text); padding: 10px 14px; outline: none; transition: border .15s;
@@ -1957,27 +2047,34 @@ const HS_CONFIG = {
     }
     .btn-ghost:hover { color: var(--text); border-color: var(--accent-border); }
 
-    /* Wallet chip */
+    /* Wallet chip — tuiles arrondies (actif = bordure + texte accent) */
     .wallet-chip {
-      display: inline-flex; align-items: center; gap: 6px;
-      padding: 5px 10px 5px 12px;
+      display: inline-flex;
+      align-items: center;
+      padding: 8px 14px;
       background: var(--surface-2);
-      border: 1px solid var(--border);
-      border-radius: 999px;
+      border: 1px solid transparent;
+      border-radius: var(--hs-radius-tile);
       font-size: .78rem;
       font-family: 'JetBrains Mono', monospace;
-      color: var(--text);
+      font-weight: 500;
+      color: var(--muted);
       cursor: pointer;
-      transition: border-color .15s, background .15s;
+      transition: border-color .15s, color .15s, background .15s;
     }
-    .wallet-chip:hover { border-color: var(--accent); background: rgba(151,252,228,.06); }
-    .wallet-chip .x {
-      cursor: pointer; color: var(--muted-2);
-      width: 16px; height: 16px;
-      display: inline-flex; align-items: center; justify-content: center;
-      border-radius: 50%;
+    button.wallet-chip {
+      margin: 0;
+      appearance: none;
+      -webkit-appearance: none;
+      font-family: 'JetBrains Mono', monospace;
     }
-    .wallet-chip .x:hover { background: rgba(239,68,68,.15); color: var(--danger); }
+    .wallet-chip:hover { color: var(--text); }
+    .wallet-chip.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--surface-2);
+      font-weight: 600;
+    }
 
     /* Tags */
     .tag-long, .tag-short, .tag-deposit, .tag-withdraw, .badge {
@@ -2119,73 +2216,75 @@ const HS_CONFIG = {
       gap: 8px;
       margin-bottom: 16px;
     }
-    #page-wallet .wallet-view-pill {
-      padding: 6px 12px;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      background: var(--surface);
-      font-size: .78rem;
-      font-weight: 500;
-      color: var(--muted);
-      cursor: pointer;
-      font-family: inherit;
-      transition: border-color .15s, color .15s, background .15s;
-    }
-    #page-wallet .wallet-view-pill:hover { border-color: var(--accent-border); color: var(--text); }
-    #page-wallet .wallet-view-pill.active {
-      border-color: var(--accent-border);
-      background: rgba(151, 252, 228, .08);
-      color: var(--accent);
-    }
     #page-wallet .wallet-spot-panel {
       border: 1px solid var(--border);
       border-radius: 12px;
       background: linear-gradient(180deg, rgba(0, 180, 255, .04) 0%, transparent 120px);
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
     }
-    #page-wallet .wallet-spot-panel .section-h {
-      padding: 16px 18px 10px;
-      margin: 0;
+    #page-wallet .wallet-spot-head {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 16px 18px 14px;
+      flex-shrink: 0;
       border-bottom: 1px solid rgba(255, 255, 255, .05);
     }
+    #page-wallet .wallet-spot-panel .section-h {
+      padding: 0;
+      margin: 0;
+      border-bottom: none;
+      flex-shrink: 0;
+      width: 100%;
+      min-width: 0;
+    }
     #page-wallet .wallet-spot-panel .wallet-spot-body {
-      padding: 0 18px 16px;
+      padding: 14px 18px 16px;
     }
     #page-wallet .wallet-spot-total-bar {
       display: grid;
-      grid-template-columns: minmax(0, auto) minmax(120px, 1fr) minmax(0, auto);
+      grid-template-columns: 1fr auto;
+      grid-template-rows: auto auto;
       align-items: center;
-      gap: 14px;
+      gap: 10px 14px;
       padding: 10px 14px;
-      margin-bottom: 12px;
+      margin: 0;
       border-radius: 10px;
       background: rgba(0, 180, 255, .06);
       border: 1px solid rgba(0, 180, 255, .12);
+      min-width: 0;
     }
     #page-wallet .wallet-spot-total-lbl {
+      grid-column: 1;
+      grid-row: 1;
       font-size: .72rem;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: .05em;
       color: var(--muted);
       white-space: nowrap;
+      min-width: 0;
     }
     #page-wallet .wallet-spot-total-mid {
+      grid-column: 1 / -1;
+      grid-row: 2;
       display: flex;
       align-items: center;
-      justify-content: center;
+      justify-content: flex-start;
       gap: 10px;
       min-width: 0;
       width: 100%;
     }
     #page-wallet .wallet-spot-spark-wrap {
       flex: 1 1 140px;
-      max-width: 280px;
-      min-width: 100px;
+      max-width: 100%;
+      min-width: 0;
       height: 40px;
       display: flex;
       align-items: center;
-      justify-content: center;
+      justify-content: flex-start;
     }
     #page-wallet .wallet-spot-spark {
       display: block;
@@ -2209,6 +2308,8 @@ const HS_CONFIG = {
     #page-wallet .wallet-spot-spark-delta.is-down { color: var(--danger); }
     #page-wallet .wallet-spot-spark-delta.is-flat { color: var(--muted); }
     #page-wallet .wallet-spot-total-val {
+      grid-column: 2;
+      grid-row: 1;
       font-size: 1.15rem;
       font-weight: 700;
       color: var(--accent);
@@ -2216,14 +2317,18 @@ const HS_CONFIG = {
       white-space: nowrap;
       text-align: right;
     }
-    @media (max-width: 720px) {
+    @media (min-width: 960px) {
       #page-wallet .wallet-spot-total-bar {
-        grid-template-columns: 1fr auto;
-        grid-template-rows: auto auto;
+        grid-template-columns: minmax(0, auto) minmax(140px, 1fr) minmax(0, auto);
+        grid-template-rows: auto;
       }
       #page-wallet .wallet-spot-total-lbl { grid-column: 1; grid-row: 1; }
-      #page-wallet .wallet-spot-total-val { grid-column: 2; grid-row: 1; }
-      #page-wallet .wallet-spot-total-mid { grid-column: 1 / -1; grid-row: 2; }
+      #page-wallet .wallet-spot-total-mid {
+        grid-column: 2;
+        grid-row: 1;
+        justify-content: center;
+      }
+      #page-wallet .wallet-spot-total-val { grid-column: 3; grid-row: 1; }
     }
     #page-wallet .wallet-spot-table-scroll {
       width: 100%;
@@ -2242,8 +2347,7 @@ const HS_CONFIG = {
     #page-wallet .hs-wallet-table--perp {
       min-width: 640px;
     }
-    #page-wallet .hs-wallet-table--perp col.wallet-col-side { width: 76px; }
-    #page-wallet .hs-wallet-table--perp col.wallet-col-asset { width: 16%; }
+    #page-wallet .hs-wallet-table--perp col.wallet-col-position { width: 24%; }
     #page-wallet .hs-wallet-table--perp col.wallet-col-wallet { width: 11%; }
     #page-wallet .hs-wallet-table--perp col.wallet-col-dex { width: 10%; }
     #page-wallet .hs-wallet-table--perp col.wallet-col-size { width: 14%; }
@@ -2299,14 +2403,26 @@ const HS_CONFIG = {
       text-align: right;
       white-space: nowrap;
     }
-    #page-wallet .hs-wallet-table--perp th.wallet-th-side,
-    #page-wallet .hs-wallet-table--perp td.wallet-td-side {
+    #page-wallet .hs-wallet-table--perp th.wallet-th-position,
+    #page-wallet .hs-wallet-table--perp td.wallet-td-position {
       text-align: left;
       white-space: nowrap;
     }
-    #page-wallet .hs-wallet-table--perp th.wallet-th-asset,
-    #page-wallet .hs-wallet-table--perp td.wallet-td-asset {
-      text-align: left;
+    #page-wallet .wallet-perp-position-cell {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      max-width: 100%;
+    }
+    #page-wallet .wallet-perp-asset-name {
+      font-weight: 600;
+      font-size: .84rem;
+      color: var(--text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
     }
     #page-wallet .hs-wallet-table--perp th.wallet-th-wallet,
     #page-wallet .hs-wallet-table--perp td.wallet-td-wallet {
@@ -2380,6 +2496,25 @@ const HS_CONFIG = {
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+    }
+    #page-wallet a.wallet-asset-link {
+      display: block;
+      color: inherit;
+      text-decoration: none;
+      border-radius: 8px;
+      margin: -4px -6px;
+      padding: 4px 6px;
+      transition: background .15s, color .15s;
+    }
+    #page-wallet a.wallet-asset-link:hover {
+      background: rgba(151, 252, 228, .08);
+    }
+    #page-wallet a.wallet-asset-link:hover .wallet-asset-name {
+      color: var(--accent);
+    }
+    #page-wallet a.wallet-asset-link:focus-visible {
+      outline: 2px solid var(--accent-border);
+      outline-offset: 2px;
     }
     #page-wallet .wallet-val-muted { color: var(--muted); }
     #page-wallet .wallet-val-strong { font-weight: 600; color: var(--text); }
@@ -2693,7 +2828,7 @@ const HS_CONFIG = {
     .farm-goal-head { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 8px; font-size: .72rem; }
     .farm-goal-track {
       height: 8px;
-      border-radius: 999px;
+      border-radius: var(--hs-radius-bar);
       background: var(--progress-track-bg);
       border: 1px solid var(--progress-track-border);
       box-shadow: var(--progress-track-inset);
@@ -2702,7 +2837,7 @@ const HS_CONFIG = {
     .farm-goal-fill {
       height: 100%;
       min-width: 3px;
-      border-radius: 999px;
+      border-radius: var(--hs-radius-bar);
       transition: width .25s ease;
       box-shadow: 0 0 10px rgba(110, 231, 255, .2);
     }
@@ -2806,7 +2941,7 @@ const HS_CONFIG = {
     .sig-price-alert-asset { font-weight: 700; color: var(--text); }
     .sig-price-alert-cond { color: var(--muted); }
     .sig-price-alert-badge {
-      border-radius: 999px; padding: 2px 8px; font-size: .64rem; font-weight: 700;
+      border-radius: var(--hs-radius-badge); padding: 2px 8px; font-size: .64rem; font-weight: 700;
       border: 1px solid transparent;
     }
     .sig-price-alert-badge.on { color: var(--success); background: rgba(34,197,94,.12); border-color: var(--success-border); }
@@ -3207,7 +3342,7 @@ const HS_CONFIG = {
     }
     .sig-watch-banner-viewport.is-scroll-off::-webkit-scrollbar-thumb {
       background: color-mix(in srgb, var(--border) 85%, #0a0b0f);
-      border-radius: 999px;
+      border-radius: var(--hs-radius-bar);
     }
     .sig-watch-banner-viewport.is-scroll-off::after {
       content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 16px;
@@ -3460,8 +3595,8 @@ const HS_CONFIG = {
     .sig-mult-panel-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     .sig-mult-ctrl { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 4px; }
     .sig-mult-obj { font-size: 1rem; font-weight: 800; min-width: 20px; text-align: center; }
-    .sig-mult-tp { display: inline-block; min-width: 36px; text-align: center; font-weight: 700; font-size: .78rem; padding: 3px 10px; border-radius: 20px; background: rgba(251,191,36,.1); border: 2px solid rgba(251,191,36,.45); color: #fbbf24; }
-    .sig-mult-sl { display: inline-block; min-width: 36px; text-align: center; font-weight: 700; font-size: .78rem; padding: 3px 10px; border-radius: 20px; background: var(--accent-soft); border: 2px solid var(--accent-border); color: var(--accent); }
+    .sig-mult-tp { display: inline-block; min-width: 36px; text-align: center; font-weight: 700; font-size: .78rem; padding: 3px 10px; border-radius: var(--hs-radius-badge); background: rgba(251,191,36,.1); border: 2px solid rgba(251,191,36,.45); color: #fbbf24; }
+    .sig-mult-sl { display: inline-block; min-width: 36px; text-align: center; font-weight: 700; font-size: .78rem; padding: 3px 10px; border-radius: var(--hs-radius-badge); background: var(--accent-soft); border: 2px solid var(--accent-border); color: var(--accent); }
     @keyframes globalLoadSlide {
       0% { transform: translateX(-100%); }
       100% { transform: translateX(380%); }
@@ -3501,7 +3636,7 @@ const HS_CONFIG = {
     :not(html):not(body)::-webkit-scrollbar-track { background: var(--surface); }
     :not(html):not(body)::-webkit-scrollbar-thumb {
       background: color-mix(in srgb, var(--border) 85%, var(--surface));
-      border-radius: 999px;
+      border-radius: var(--hs-radius-bar);
       border: 2px solid var(--surface);
     }
     :not(html):not(body)::-webkit-scrollbar-thumb:hover {
@@ -3691,7 +3826,7 @@ const HS_CONFIG = {
       z-index: 1201;
       width: 52px;
       height: 52px;
-      border-radius: 999px;
+      border-radius: 12px;
       border: 1px solid rgba(110,231,255,.6);
       background:
         radial-gradient(circle at 32% 28%, rgba(151,252,228,.36), rgba(110,231,255,.14) 42%, rgba(14,24,38,.22) 100%);
@@ -4200,22 +4335,6 @@ const HS_CONFIG = {
       .welcome-features-scroll .welcome-card { flex-basis: min(220px, 80vw); }
       .welcome-feat-nav { flex-basis: 32px; width: 32px; height: 32px; }
       .welcome-card { min-height: 120px; }
-    }
-    .beta-pill {
-      display: inline-flex;
-      align-items: center;
-      margin-left: 6px;
-      padding: 1px 6px;
-      border-radius: 999px;
-      border: 1px solid rgba(251,191,36,.38);
-      background: rgba(251,191,36,.14);
-      color: #FBBF24;
-      font-size: .56rem;
-      font-weight: 800;
-      letter-spacing: .06em;
-      text-transform: uppercase;
-      line-height: 1.2;
-      vertical-align: middle;
     }
     .welcome-cta {
       display: inline-flex; align-items: center; gap: 10px;
@@ -5100,8 +5219,7 @@ const HS_CONFIG = {
     body.sidebar-collapsed #sidebar .sidebar-section-label,
     body.sidebar-collapsed #sidebar .nav-tab-label,
     body.sidebar-collapsed #sidebar .sidebar-link-label,
-    body.sidebar-collapsed #sidebar .sidebar-action-label,
-    body.sidebar-collapsed #sidebar .beta-pill {
+    body.sidebar-collapsed #sidebar .sidebar-action-label {
       display: none !important;
     }
     body.sidebar-collapsed #sidebar .sidebar-logo {
@@ -5283,12 +5401,8 @@ const HS_CONFIG = {
       .wallet-chip {
         flex-shrink: 0;
         min-height: 40px;
-        padding: 8px 12px 8px 14px;
+        padding: 8px 14px;
         font-size: .74rem;
-      }
-      .wallet-chip .x {
-        width: 28px;
-        height: 28px;
       }
 
       .hs-trade-filters {
@@ -5485,7 +5599,6 @@ const HS_CONFIG = {
       color: var(--text);
       letter-spacing: -0.01em;
     }
-    .sig-page-title-line .beta-pill { margin-left: 0; flex-shrink: 0; }
     .sig-page-sub { font-size:.78rem;color:var(--muted);margin:0 }
     .sig-layout {
       display: grid;
@@ -5504,28 +5617,26 @@ const HS_CONFIG = {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
-      padding: 2px 0;
+      padding: 0;
     }
     #page-signals.sig-tabs-v2 .sig-page-tab {
-      padding: 8px 16px;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      background: transparent;
+      padding: 8px 14px;
+      border-radius: var(--hs-radius-tile);
+      border: 1px solid transparent;
+      background: var(--surface-2);
       color: var(--muted);
-      font-size: .82rem;
-      font-weight: 600;
+      font-size: .78rem;
+      font-weight: 500;
       cursor: pointer;
-      transition: background .15s, color .15s, border-color .15s;
+      font-family: inherit;
+      transition: border-color .15s, color .15s, background .15s;
     }
-    #page-signals.sig-tabs-v2 .sig-page-tab:hover {
-      color: var(--text);
-      border-color: var(--border-strong);
-      background: rgba(255,255,255,.04);
-    }
+    #page-signals.sig-tabs-v2 .sig-page-tab:hover { color: var(--text); }
     #page-signals.sig-tabs-v2 .sig-page-tab.active {
       color: var(--accent);
-      border-color: var(--accent-border);
-      background: var(--accent-soft);
+      border-color: var(--accent);
+      background: var(--surface-2);
+      font-weight: 600;
     }
     #page-signals.sig-tabs-v2 .sig-tab-panels { min-height: 0; }
     #page-signals.sig-tabs-v2 .sig-tab-panel {
@@ -5555,6 +5666,19 @@ const HS_CONFIG = {
       border-bottom: 1px solid var(--border-subtle);
     }
     #page-signals.sig-tabs-v2 .sig-compare-toolbar-row--main {
+      align-items: flex-start;
+    }
+    #page-signals.sig-tabs-v2 .sig-compare-picks-col {
+      flex: 1 1 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-width: 0;
+    }
+    #page-signals.sig-tabs-v2 .sig-compare-picks {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
       align-items: stretch;
     }
     #page-signals.sig-tabs-v2 .sig-compare-pick {
@@ -5563,19 +5687,57 @@ const HS_CONFIG = {
       gap: 6px;
       flex: 1 1 200px;
       min-width: 0;
+      max-width: 100%;
       padding: 10px 12px;
       border-radius: 10px;
       border: 1px solid var(--border);
+      border-left-width: 3px;
       background: var(--surface-2);
     }
     #page-signals.sig-tabs-v2 .sig-compare-pick--a {
-      border-left: 3px solid var(--accent);
+      border-left-color: var(--accent);
       box-shadow: inset 0 0 0 1px rgba(110, 231, 255, .06);
     }
     #page-signals.sig-tabs-v2 .sig-compare-pick--b {
-      border-left: 3px solid var(--warning-brand);
+      border-left-color: var(--warning-brand);
       box-shadow: inset 0 0 0 1px rgba(251, 191, 36, .06);
     }
+    #page-signals.sig-tabs-v2 .sig-compare-pick-remove {
+      margin-left: auto;
+      width: 22px;
+      height: 22px;
+      padding: 0;
+      border: 1px solid var(--border);
+      border-radius: var(--hs-radius-badge);
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    #page-signals.sig-tabs-v2 .sig-compare-pick-remove:hover {
+      color: var(--danger);
+      border-color: rgba(248, 113, 113, .35);
+    }
+    #page-signals.sig-tabs-v2 .sig-compare-add-btn {
+      align-self: flex-start;
+      min-height: 36px;
+      padding: 6px 14px;
+      font-size: .78rem;
+      font-weight: 600;
+      border-radius: var(--hs-radius-badge);
+      border: 1px dashed var(--border-strong);
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+    }
+    #page-signals.sig-tabs-v2 .sig-compare-add-btn:hover:not(:disabled) {
+      color: var(--accent);
+      border-color: var(--accent-border);
+      background: var(--accent-soft);
+    }
+    #page-signals.sig-tabs-v2 .sig-compare-add-btn:disabled { opacity: .45; cursor: not-allowed; }
     #page-signals.sig-tabs-v2 .sig-compare-pick label {
       display: flex;
       align-items: center;
@@ -5619,7 +5781,7 @@ const HS_CONFIG = {
       align-self: center;
       flex-shrink: 0;
       padding: 6px 10px;
-      border-radius: 999px;
+      border-radius: var(--hs-radius-badge);
       font-size: .72rem;
       font-weight: 800;
       letter-spacing: .08em;
@@ -6326,7 +6488,7 @@ const HS_CONFIG = {
     }
     .xyz-lb-scroll::-webkit-scrollbar-thumb {
       background: color-mix(in srgb, var(--border) 85%, var(--surface));
-      border-radius: 999px;
+      border-radius: var(--hs-radius-bar);
       border: 2px solid var(--surface);
     }
     .xyz-lb-scroll::-webkit-scrollbar-thumb:hover {
@@ -6584,7 +6746,7 @@ const HS_CONFIG = {
     .lb-rank-est-box { background:rgba(251,191,36,.08); border:1px dashed rgba(251,191,36,.45); border-radius:12px; padding:12px 14px; margin-bottom:14px; }
     .lb-milestone-progress-track {
       height: 10px;
-      border-radius: 999px;
+      border-radius: var(--hs-radius-bar);
       background: var(--progress-track-bg);
       border: 1px solid rgba(251, 191, 36, .28);
       box-shadow: var(--progress-track-inset);
@@ -6593,15 +6755,15 @@ const HS_CONFIG = {
     .lb-milestone-progress-fill {
       height: 100%;
       min-width: 3px;
-      border-radius: 999px;
+      border-radius: var(--hs-radius-bar);
       background: linear-gradient(90deg, #f59e0b, #fbbf24);
       transition: width .3s ease;
       box-shadow: 0 0 12px rgba(251, 191, 36, .35);
     }
     .lb-panel-muted { background:rgba(251,191,36,.04);border:1px solid rgba(251,191,36,.18);border-radius:12px;padding:16px;margin-bottom:16px }
-    .lb-rank-est-pill { display:inline-flex; align-items:center; gap:6px; font-size:.58rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; padding:3px 8px; border-radius:999px; color:#fbbf24; background:rgba(251,191,36,.16); border:1px solid rgba(251,191,36,.4); margin-bottom:8px; }
+    .lb-rank-est-pill { display:inline-flex; align-items:center; gap:6px; font-size:.58rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; padding:3px 8px; border-radius:var(--hs-radius-badge); color:#fbbf24; background:rgba(251,191,36,.16); border:1px solid rgba(251,191,36,.4); margin-bottom:8px; }
     .lb-hero-kpis { display:grid;grid-template-columns:repeat(auto-fit,minmax(116px,1fr));gap:8px }
-    .lb-milestone-chip { font-size:.62rem;padding:4px 9px;border-radius:999px;border:1px solid var(--border);font-weight:700;line-height:1.3 }
+    .lb-milestone-chip { font-size:.62rem;padding:4px 9px;border-radius:var(--hs-radius-badge);border:1px solid var(--border);font-weight:700;line-height:1.3 }
     @media (max-width: 560px) {
       .lb-hero-rank-row { grid-template-columns: 1fr; }
     }
@@ -7414,7 +7576,7 @@ const HS_CONFIG = {
       pointer-events: none; z-index: 5;
     }
     .sig-sr-gauge-ext {
-      flex: 0 0 8%; min-width: 0; height: 6px; border-radius: 999px;
+      flex: 0 0 8%; min-width: 0; height: 6px; border-radius: var(--hs-radius-bar);
       background: color-mix(in srgb, var(--border) 90%, transparent);
       opacity: .5;
     }
@@ -7422,7 +7584,7 @@ const HS_CONFIG = {
       position: relative; flex: 1 1 84%; min-width: 0; height: 10px; margin: 0 1px;
     }
     .sig-sr-gauge-track {
-      position: absolute; inset: 0; border-radius: 999px;
+      position: absolute; inset: 0; border-radius: var(--hs-radius-bar);
       background: linear-gradient(90deg,
         color-mix(in srgb, var(--success) 38%, var(--border)),
         var(--border) 50%,
@@ -7431,7 +7593,7 @@ const HS_CONFIG = {
     }
     .sig-sr-gauge-band {
       position: absolute; top: 50%; height: 10px;
-      transform: translateY(-50%); border-radius: 999px; z-index: 2;
+      transform: translateY(-50%); border-radius: var(--hs-radius-bar); z-index: 2;
       background: color-mix(in srgb, var(--accent) 8%, transparent);
       border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
       pointer-events: none;
@@ -8290,7 +8452,7 @@ const HS_CONFIG = {
     </span>
     <span class="nav-tab" data-tab="signals" onclick="if(typeof switchPage==='function')switchPage('signals',this)">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-      <span class="nav-tab-label" id="sidebarSigAnaLabel"><span data-i18n="tab.signals">Signal</span><span class="beta-pill">BETA</span></span>
+      <span class="nav-tab-label" id="sidebarSigAnaLabel" data-i18n="tab.signals">Signal</span>
     </span>
   </div>
 
@@ -8401,7 +8563,7 @@ const HS_CONFIG = {
         <div class="welcome-features-scroll-wrap">
           <div class="welcome-features-scroll" id="welcomeFeaturesScroll" role="list" aria-label="Fonctionnalités" tabindex="-1">
       <div class="welcome-card hs-neon-tile" role="listitem">
-        <div class="welcome-card-title"><span data-i18n="tab.signals">Signals</span> <span class="beta-pill">BETA</span></div>
+        <div class="welcome-card-title" data-i18n="tab.signals">Signals</div>
         <div class="welcome-card-desc" data-i18n="welcome.card.signals">Detect market opportunities on Hyperliquid in real time.</div>
       </div>
       <div class="welcome-card hs-neon-tile" role="listitem">
@@ -8473,7 +8635,7 @@ const HS_CONFIG = {
             <span data-i18n="tab.leaderboard">Leaderboard</span>
     </span>
     <span class="nav-tab" data-tab="signals" onclick="if(typeof switchPage==='function')switchPage('signals',this)">
-            <span data-i18n="tab.signals">Signal</span><span class="beta-pill">BETA</span>
+            <span data-i18n="tab.signals">Signal</span>
     </span>
     <span class="nav-tab" data-tab="analyse" onclick="if(typeof switchPage==='function')switchPage('analyse',this)">
             <span data-i18n="tab.analyse">Analysis</span>
@@ -8516,16 +8678,13 @@ const HS_CONFIG = {
               <span class="hs-support-brand-name hs-brand-wordmark" aria-hidden="true"><span class="hs-brand-hyper">Hyper</span><span class="hs-brand-sheets">sheets</span></span>
             </span>
           </div>
-          <p class="hs-support-intro">
+          <p class="hs-support-intro" data-i18n-html="support.intro">Aide le projet via la promotion sur X, le referral Hyperliquid <strong>DOCTEUR</strong> ou un don crypto.</p>
+          <p class="hs-support-note" data-i18n="support.note">(Le soutien et les dons permettent à Hypersheets de s'autofinancer et de proposer des mises à jour régulières.)</p>
+          <div class="hs-support-actions">
+            <a id="supportXFollow" href="https://x.com/intent/follow?screen_name=HypersheetsXYZ" target="_blank" rel="noopener" class="hs-support-cta-inline hs-support-cta-inline--x" data-i18n="support.x.btn">↗ Suivre @HypersheetsXYZ</a>
             <a href="https://app.hyperliquid.xyz/join/DOCTEUR" target="_blank" rel="noopener" class="hs-support-cta-inline hs-support-cta-inline--ref" data-i18n="support.referral.btn">↗ Referral DOCTEUR</a>
-            <span data-i18n-html="support.intro"></span>
-          </p>
-          <p class="hs-support-jumper">
-            <button type="button" class="hs-support-don-addr" data-support-don-addr onclick="copySupportDonAddr(this)" title="Copier l'adresse"></button>
-            <span class="hs-support-jumper-lead">
-              <button type="button" class="hs-don-addr-copy-link" onclick="copySupportDonAddr(this)"><span data-i18n="support.don.clickHere">Clique ici</span></button><span data-i18n-html="support.don.jumper"></span>
-            </span>
-          </p>
+            <button type="button" id="supportDonCopy" class="hs-support-cta-inline hs-support-cta-inline--x" data-support-don-addr onclick="copySupportDonAddr(this)" data-i18n="support.don.btn">↗ Adresse don</button>
+          </div>
         </div>
       </div>
     </div>
@@ -8640,19 +8799,19 @@ const HS_CONFIG = {
     <div id="walletViewBar" class="wallet-view-bar"></div>
     <div class="wallet-kpi-row">
       <div class="kpi">
-        <div class="kpi-label" data-i18n="wallet.kpi.perpHl">Perp equity (HL)</div>
+        <div class="kpi-label" data-i18n="wallet.kpi.perpHl">Équité perp (HL)</div>
         <div class="kpi-val mono" id="walletKpiPerpHl">—</div>
       </div>
       <div class="kpi">
-        <div class="kpi-label" data-i18n="wallet.kpi.perpXyz">Perp equity (Trade XYZ)</div>
+        <div class="kpi-label" data-i18n="wallet.kpi.perpXyz">Équité perp (Trade XYZ)</div>
         <div class="kpi-val mono" id="walletKpiPerpXyz">—</div>
       </div>
       <div class="kpi">
-        <div class="kpi-label" data-i18n="wallet.kpi.spot">Spot (est. USD)</div>
+        <div class="kpi-label" data-i18n="wallet.kpi.spot">Spot au mark (USD)</div>
         <div class="kpi-val mono" id="walletKpiSpot">—</div>
       </div>
       <div class="kpi">
-        <div class="kpi-label" data-i18n="wallet.kpi.positions">Open positions</div>
+        <div class="kpi-label" data-i18n="wallet.kpi.positions">Positions ouvertes</div>
         <div class="kpi-val mono" id="walletKpiPositions">—</div>
       </div>
       <div class="kpi">
@@ -8666,28 +8825,30 @@ const HS_CONFIG = {
       <div id="walletPerpTableWrap" class="overflow-x-auto"></div>
     </div>
     <div class="surface wallet-spot-panel p-0 mb-6">
-      <div class="section-h" style="flex-wrap:wrap;gap:10px">
-        <span class="bar" style="background:#00B4FF"></span><span data-i18n="wallet.section.spot">Spot balances</span>
-        <div class="wallet-dust-controls" style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <label class="wallet-dust-toggle" style="display:flex;align-items:center;gap:6px;font-size:.75rem;color:var(--muted);cursor:pointer;user-select:none">
-            <input type="checkbox" id="walletHideDust" onchange="setWalletHideDust(this.checked)" style="accent-color:var(--accent)" />
-            <span data-i18n="wallet.hideDust">Hide balances under</span>
-          </label>
-          <select id="walletDustThreshold" class="wallet-dust-select" onchange="setWalletDustThreshold(this.value)" style="font-size:.75rem;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit">
-            <option value="1">1 $</option>
-            <option value="5">5 $</option>
-            <option value="10">10 $</option>
-            <option value="50">50 $</option>
-            <option value="100">100 $</option>
-          </select>
+      <div class="wallet-spot-head">
+        <div class="section-h" style="flex-wrap:wrap;gap:10px">
+          <span class="bar" style="background:#00B4FF"></span><span data-i18n="wallet.section.spot">Spot balances</span>
+          <div class="wallet-dust-controls" style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <label class="wallet-dust-toggle" style="display:flex;align-items:center;gap:6px;font-size:.75rem;color:var(--muted);cursor:pointer;user-select:none">
+              <input type="checkbox" id="walletHideDust" onchange="setWalletHideDust(this.checked)" style="accent-color:var(--accent)" />
+              <span data-i18n="wallet.hideDust">Hide balances under</span>
+            </label>
+            <select id="walletDustThreshold" class="wallet-dust-select" onchange="setWalletDustThreshold(this.value)" style="font-size:.75rem;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit">
+              <option value="1">1 $</option>
+              <option value="5">5 $</option>
+              <option value="10">10 $</option>
+              <option value="50">50 $</option>
+              <option value="100">100 $</option>
+            </select>
+          </div>
         </div>
-      </div>
-      <div class="wallet-spot-body">
         <div class="wallet-spot-total-bar">
-          <span class="wallet-spot-total-lbl" data-i18n="wallet.spot.total">Spot equity (HL mark)</span>
+          <span class="wallet-spot-total-lbl" data-i18n="wallet.spot.total">Équité spot (mark HL)</span>
           <div class="wallet-spot-total-mid" id="walletSpotSparkWrap" aria-hidden="true"></div>
           <span class="wallet-spot-total-val mono" id="walletSpotTotalBar">—</span>
         </div>
+      </div>
+      <div class="wallet-spot-body">
         <p id="walletSpotHiddenNote" class="text-xs mb-2" style="display:none;color:var(--muted)"></p>
         <div id="walletSpotTableWrap" class="overflow-x-auto"></div>
       </div>
@@ -8708,8 +8869,11 @@ const HS_CONFIG = {
 
   <section id="page-hyperliquid" class="page">
     <div class="section-h mb-4" style="align-items:center;gap:8px;margin-top:0">
-      <img src="img/hyperliquid-logo.png" alt="" width="24" height="24" style="width:24px;height:24px;border-radius:5px;object-fit:cover" decoding="async" />
-      <span class="text-lg font-semibold" data-i18n="tab.hyperliquid">Hyperliquid</span>
+      <a class="hs-dapp-title-link" href="https://app.hyperliquid.xyz/" target="_blank" rel="noopener noreferrer" data-i18n-title="dapp.open.hl">
+        <img class="hs-section-logo" src="img/hyperliquid-logo.png" alt="" width="24" height="24" decoding="async" />
+        <span class="text-lg font-semibold" data-i18n="tab.hyperliquid">Hyperliquid</span>
+        <span class="hs-dapp-title-ext" aria-hidden="true">↗</span>
+      </a>
     </div>
     <div class="hl-summary mb-6">
       <div class="hl-vol-panel">
@@ -8805,8 +8969,11 @@ const HS_CONFIG = {
   <!-- ═══════════════════════════════════════════════════════════════ -->
   <section id="page-tradexyz" class="page">
     <div class="section-h mb-4" style="align-items:center;gap:8px;margin-top:0">
-      <img src="img/tradexyz-logo.png" alt="" width="24" height="24" style="width:24px;height:24px;border-radius:5px;object-fit:cover" decoding="async" />
-      <span class="text-lg font-semibold" data-i18n="tab.tradexyz">Trade XYZ</span>
+      <a class="hs-dapp-title-link" href="https://trade.xyz" target="_blank" rel="noopener noreferrer" data-i18n-title="dapp.open.xyz">
+        <img class="hs-section-logo" src="img/tradexyz-logo.png" alt="" width="24" height="24" decoding="async" />
+        <span class="text-lg font-semibold" data-i18n="tab.tradexyz">Trade XYZ</span>
+        <span class="hs-dapp-title-ext" aria-hidden="true">↗</span>
+      </a>
     </div>
     <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
       <div class="kpi kpi-accent" data-i18n-title="kpi.tip.xyz.vol"><div class="kpi-label" data-i18n="xyz.vol">Trade XYZ volume</div><div class="kpi-val" id="xyzVol">—</div><div class="kpi-sub" id="xyzVolSub">—</div></div>
@@ -8860,8 +9027,11 @@ const HS_CONFIG = {
   <!-- ═══════════════════════════════════════════════════════════════ -->
   <section id="page-variational" class="page">
     <div class="section-h mb-4" style="align-items:center;gap:8px;margin-top:0">
-      <img src="img/variational-logo.png" alt="" width="24" height="24" style="width:24px;height:24px;border-radius:5px;object-fit:cover" decoding="async" />
-      <span class="text-lg font-semibold" data-i18n="tab.variational">Variational</span>
+      <a class="hs-dapp-title-link" href="https://omni.variational.io/" target="_blank" rel="noopener noreferrer" data-i18n-title="dapp.open.var">
+        <img class="hs-section-logo" src="img/variational-logo.png" alt="" width="24" height="24" decoding="async" />
+        <span class="text-lg font-semibold" data-i18n="tab.variational">Variational</span>
+        <span class="hs-dapp-title-ext" aria-hidden="true">↗</span>
+      </a>
     </div>
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
       <div class="kpi kpi-accent"><div class="kpi-label" data-i18n="var.kpiVol">Omni volume</div><div class="kpi-val" id="varKpiVol">—</div><div class="kpi-sub" id="varKpiVolSub">24h</div></div>
@@ -8957,8 +9127,11 @@ const HS_CONFIG = {
   <!-- ═══════════════════════════════════════════════════════════════ -->
   <section id="page-hyperunit" class="page">
     <div class="section-h mb-4" style="align-items:center;gap:8px;margin-top:0">
-      <img src="img/hyperunit-logo.png" alt="" width="24" height="24" style="width:24px;height:24px;border-radius:5px;object-fit:cover" decoding="async" />
-      <span class="text-lg font-semibold" data-i18n="tab.hyperunit">HyperUnit</span>
+      <a class="hs-dapp-title-link" href="https://app.hyperunit.xyz/" target="_blank" rel="noopener noreferrer" data-i18n-title="dapp.open.unit">
+        <img class="hs-section-logo" src="img/hyperunit-logo.png" alt="" width="24" height="24" decoding="async" />
+        <span class="text-lg font-semibold" data-i18n="tab.hyperunit">HyperUnit</span>
+        <span class="hs-dapp-title-ext" aria-hidden="true">↗</span>
+      </a>
     </div>
     <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
       <div id="unitKpiBridge" class="kpi kpi-accent unit-kpi-filter active" data-unit-view="bridge" role="button" tabindex="0" onclick="selectUnitView('bridge')" data-i18n-title="kpi.tip.unit.bridge"><div class="kpi-label" data-i18n="unit.bridge">Volume bridge Unit</div><div class="kpi-val" id="unitBridgeVol">—</div><div class="kpi-sub" id="unitBridgeSub">—</div></div>
@@ -9022,7 +9195,6 @@ const HS_CONFIG = {
         <div class="sig-section-head-text">
           <div class="sig-page-title-line">
             <span id="sigPageTitle" data-i18n="tab.signals">Signal</span>
-            <span class="beta-pill" aria-label="Beta">BETA</span>
           </div>
         </div>
       </div>
@@ -9030,9 +9202,9 @@ const HS_CONFIG = {
     <div class="sig-tabs-shell">
       <div id="sigPriceAlertsPanel" class="sig-price-alerts-panel" style="display:none"></div>
       <nav class="sig-page-tabs" role="tablist" aria-label="Signals">
-        <button type="button" role="tab" id="sigTabBtnAsset" class="sig-page-tab active" data-sig-tab="asset" aria-selected="true" onclick="setSigTab('asset',this)">Asset</button>
-        <button type="button" role="tab" id="sigTabBtnScanner" class="sig-page-tab" data-sig-tab="scanner" aria-selected="false" onclick="setSigTab('scanner',this)">Scanner marché</button>
-        <button type="button" role="tab" id="sigTabBtnCompare" class="sig-page-tab" data-sig-tab="compare" aria-selected="false" onclick="setSigTab('compare',this)">Comparatif</button>
+        <button type="button" role="tab" id="sigTabBtnAsset" class="sig-page-tab active" data-sig-tab="asset" aria-selected="true" onclick="setSigTab('asset',this)" data-i18n="sig.tabAsset">Asset</button>
+        <button type="button" role="tab" id="sigTabBtnScanner" class="sig-page-tab" data-sig-tab="scanner" aria-selected="false" onclick="setSigTab('scanner',this)" data-i18n="sig.tabScanner">Scanner marché</button>
+        <button type="button" role="tab" id="sigTabBtnCompare" class="sig-page-tab" data-sig-tab="compare" aria-selected="false" onclick="setSigTab('compare',this)" data-i18n="sig.tabCompare">Comparatif</button>
       </nav>
       <div class="sig-tab-panels">
         <div id="sigTabPanelAsset" class="sig-tab-panel active" role="tabpanel" aria-labelledby="sigTabBtnAsset">
@@ -9099,7 +9271,7 @@ const HS_CONFIG = {
         </div>
         </div>
         <div id="sigTabPanelScanner" class="sig-tab-panel" role="tabpanel" aria-labelledby="sigTabBtnScanner" hidden>
-        <div class="surface sig-side-panel">
+        <div class="surface sig-signal-panel">
           <div class="section-h sig-scanner-section-h">
             <span class="hs-section-icon hs-section-icon--signal" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
             <div class="sig-section-head-text">
@@ -9163,8 +9335,8 @@ const HS_CONFIG = {
           <div class="section-h sig-asset-section-h">
             <span class="hs-section-icon hs-section-icon--signal" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
             <div class="sig-section-head-text">
-              <span>Comparatif</span>
-                <p class="sig-section-desc">Performance relative indexée (base 100 au premier point commun).</p>
+              <span data-i18n="sig.tabCompare">Comparatif</span>
+                <p class="sig-section-desc" data-i18n="sig.compareSectionDesc">Performance relative indexée (base 100 au premier point commun).</p>
               </div>
             </div>
             <div class="sig-compare-toolbar">
@@ -9177,14 +9349,9 @@ const HS_CONFIG = {
                 </div>
               </div>
               <div class="sig-compare-toolbar-row sig-compare-toolbar-row--main">
-                <div class="sig-compare-pick sig-compare-pick--a">
-                  <label for="sigCompareSelectA"><span class="sig-compare-dot sig-compare-dot--a" aria-hidden="true"></span> Actif A</label>
-                  <select id="sigCompareSelectA"><option value="">— Chargement —</option></select>
-                </div>
-                <span class="sig-compare-vs-badge" aria-hidden="true">VS</span>
-                <div class="sig-compare-pick sig-compare-pick--b">
-                  <label for="sigCompareSelectB"><span class="sig-compare-dot sig-compare-dot--b" aria-hidden="true"></span> Actif B</label>
-                  <select id="sigCompareSelectB"><option value="">— Chargement —</option></select>
+                <div class="sig-compare-picks-col">
+                  <div id="sigComparePicks" class="sig-compare-picks" aria-live="polite"></div>
+                  <button type="button" id="sigCompareAddBtn" class="sig-compare-add-btn" onclick="sigCompareAddSlot()" data-i18n="sig.compareAddAsset">+ Ajouter un actif</button>
                 </div>
                 <div class="sig-compare-side">
                   <label for="sigComparePeriod">Période</label>
@@ -9544,6 +9711,8 @@ const I18N = {
     'wallet.view.all': 'All wallets',
     'wallet.section.perp': 'Perpetuals',
     'wallet.section.spot': 'Spot balances',
+    'wallet.openHlTrade': 'Open on Hyperliquid',
+    'wallet.col.position': 'Position',
     'wallet.col.asset': 'Pair',
     'wallet.col.wallet': 'Wallet',
     'wallet.col.size': 'Balance (tokens)',
@@ -9579,6 +9748,10 @@ const I18N = {
     'wallet.external.pickOne': 'Select a single wallet (not “All wallets”) to open DeBank or Etherscan.',
     'wallet.external.pickOneShort': 'select one wallet',
     'tab.hyperliquid': 'Hyperliquid',
+    'dapp.open.hl': 'Open Hyperliquid dApp',
+    'dapp.open.xyz': 'Open Trade XYZ dApp',
+    'dapp.open.unit': 'Open HyperUnit dApp',
+    'dapp.open.var': 'Open Variational Omni dApp',
     'tab.tradexyz': 'Trade XYZ',
     'tab.hyperunit': 'HyperUnit',
     'tab.variational': 'Variational',
@@ -9642,6 +9815,15 @@ const I18N = {
     'tab.farming': 'Farming',
     'tab.leaderboard': 'Leaderboard',
     'sig.assetLabel': 'Asset',
+    'sig.tabAsset': 'Asset',
+    'sig.tabScanner': 'Market scanner',
+    'sig.tabCompare': 'Compare',
+    'sig.compareSectionDesc': 'Relative indexed performance (base 100 at first common point).',
+    'sig.compareAddAsset': '+ Add asset',
+    'sig.compareAsset': 'Asset {n}',
+    'sig.compareRemove': 'Remove asset {n}',
+    'sig.compareMinAssets': 'Select at least two assets.',
+    'sig.compareDupAssets': 'Each asset can only be selected once.',
     'sig.assetSectionDesc': 'Multi-timeframe trend, confluence and key levels for the selected asset.',
     'sig.assetEmptyTitle': 'Analyze an asset',
     'sig.modePerp': 'Perps',
@@ -9914,7 +10096,6 @@ const I18N = {
     'trades.filter.type': 'Type',
     'trades.filter.direction': 'Direction',
     'trades.filter.twap': 'TWAP only',
-    'trades.filter.hideSpotDust': 'Hide spot dust (00:00 UTC)',
     'trades.filter.reset': 'Reset',
     'trades.filter.asset': 'Asset',
     'trades.filter.bridgeTypeAll': 'All types',
@@ -10045,12 +10226,13 @@ const I18N = {
     'sig.sr.resistance': 'Resistance',
     'sig.sr.insufficient': 'Insufficient OHLC data for this TF',
     'support.heading': 'Support',
+    'support.intro': 'Support the project via promotion on X, the Hyperliquid <strong>DOCTEUR</strong> referral, or a crypto donation.',
+    'support.note': '(Support and donations help Hypersheets stay self-funded and ship regular updates.)',
+    'support.x.btn': '↗ Follow @HypersheetsXYZ',
     'support.referral.btn': '↗ Referral DOCTEUR',
-    'support.intro': 'Help the project via the Hyperliquid referral <strong>DOCTEUR</strong> or a crypto donation.',
+    'support.don.btn': '↗ Don address',
     'support.close': 'Close',
     'support.thanks': 'Thanks for your contribution 🫶',
-    'support.don.clickHere': 'Click here',
-    'support.don.jumper': ' You can send directly to this address via the <a href="https://jumper.xyz/" target="_blank" rel="noopener noreferrer">Jumper</a> bridge.',
     'sig.title': 'HL + HIP-3 Signals',
     'sig.generate': 'Generate signals',
     'sig.generating': 'Generating…',
@@ -10126,10 +10308,10 @@ const I18N = {
     'tab.wallet': 'Portefeuille',
     'wallet.title': 'Vue portefeuille',
     'wallet.sub': 'Hyperliquid via API publique (sans clé). Spot au mark ; total aligné HL (compte unifié : ne pas additionner perp + spot).',
-    'wallet.kpi.perpHl': 'Equity perp (HL)',
-    'wallet.kpi.perpXyz': 'Equity perp (Trade XYZ)',
-    'wallet.kpi.spot': 'Spot (mark USD)',
-    'wallet.spot.total': 'Equity spot (mark HL)',
+    'wallet.kpi.perpHl': 'Équité perp (HL)',
+    'wallet.kpi.perpXyz': 'Équité perp (Trade XYZ)',
+    'wallet.kpi.spot': 'Spot au mark (USD)',
+    'wallet.spot.total': 'Équité spot (mark HL)',
     'wallet.spot.totalVisible': 'Sous-total affiché',
     'wallet.spot.noPrice': 'Mark indisponible',
     'wallet.spot.priceSrc': 'Valeur = solde × mark HL (API spotMetaAndAssetCtxs).',
@@ -10139,11 +10321,13 @@ const I18N = {
     'wallet.spot.sparkPeriod24h': '24 h',
     'wallet.kpi.positions': 'Positions ouvertes',
     'wallet.kpi.total': 'Total (≈ Hyperliquid)',
-    'wallet.totalHint.unified': 'Compte unifié : le total correspond à l’equity perp HL (l’USDC spot est déjà inclus — ne pas additionner perp + spot).',
-    'wallet.totalHint.separate': 'Total = equity perp HL + spot au mark + equity perp Trade XYZ.',
+    'wallet.totalHint.unified': 'Compte unifié : le total correspond à l’équité perp HL (l’USDC spot est déjà inclus — ne pas additionner perp + spot).',
+    'wallet.totalHint.separate': 'Total = équité perp HL + spot au mark + équité perp Trade XYZ.',
     'wallet.view.all': 'Tous les wallets',
     'wallet.section.perp': 'Perpétuels',
     'wallet.section.spot': 'Soldes spot',
+    'wallet.openHlTrade': 'Ouvrir sur Hyperliquid',
+    'wallet.col.position': 'Position',
     'wallet.col.asset': 'Paire',
     'wallet.col.wallet': 'Wallet',
     'wallet.col.size': 'Solde (tokens)',
@@ -10179,6 +10363,10 @@ const I18N = {
     'wallet.external.pickOne': 'Sélectionne un seul wallet (pas « Tous ») pour ouvrir DeBank ou Etherscan.',
     'wallet.external.pickOneShort': 'choisir un wallet',
     'tab.hyperliquid': 'Hyperliquid',
+    'dapp.open.hl': 'Ouvrir la dApp Hyperliquid',
+    'dapp.open.xyz': 'Ouvrir la dApp Trade XYZ',
+    'dapp.open.unit': 'Ouvrir la dApp HyperUnit',
+    'dapp.open.var': 'Ouvrir Variational Omni',
     'tab.tradexyz': 'Trade XYZ',
     'tab.hyperunit': 'HyperUnit',
     'tab.variational': 'Variational',
@@ -10242,6 +10430,15 @@ const I18N = {
     'tab.farming': 'Farming',
     'tab.leaderboard': 'Classement',
     'sig.assetLabel': 'Asset',
+    'sig.tabAsset': 'Asset',
+    'sig.tabScanner': 'Scanner marché',
+    'sig.tabCompare': 'Comparatif',
+    'sig.compareSectionDesc': 'Performance relative indexée (base 100 au premier point commun).',
+    'sig.compareAddAsset': '+ Ajouter un actif',
+    'sig.compareAsset': 'Actif {n}',
+    'sig.compareRemove': 'Retirer l\'actif {n}',
+    'sig.compareMinAssets': 'Sélectionnez au moins deux actifs.',
+    'sig.compareDupAssets': 'Chaque actif ne peut être sélectionné qu\'une fois.',
     'sig.assetSectionDesc': 'Tendance multi-timeframe, confluence et niveaux sur l\'actif sélectionné.',
     'sig.assetEmptyTitle': 'Analyser un actif',
     'sig.modePerp': 'Perps',
@@ -10513,7 +10710,6 @@ const I18N = {
     'trades.filter.type': 'Type',
     'trades.filter.direction': 'Direction',
     'trades.filter.twap': 'TWAP uniquement',
-    'trades.filter.hideSpotDust': 'Masquer reliquats spot (00:00 UTC)',
     'trades.filter.reset': 'Réinitialiser',
     'trades.filter.asset': 'Actif',
     'trades.filter.bridgeTypeAll': 'Tous types',
@@ -10644,12 +10840,13 @@ const I18N = {
     'sig.sr.resistance': 'Résistance',
     'sig.sr.insufficient': 'Données OHLC insuffisantes pour ce TF',
     'support.heading': 'Soutenir',
+    'support.intro': 'Aide le projet via la promotion sur X, le referral Hyperliquid <strong>DOCTEUR</strong> ou un don crypto.',
+    'support.note': '(Le soutien et les dons permettent à Hypersheets de s\'autofinancer et de proposer des mises à jour régulières.)',
+    'support.x.btn': '↗ Suivre @HypersheetsXYZ',
     'support.referral.btn': '↗ Referral DOCTEUR',
-    'support.intro': 'Aide le projet via le referral Hyperliquid <strong>DOCTEUR</strong> ou un don crypto.',
+    'support.don.btn': '↗ Adresse don',
     'support.close': 'Fermer',
     'support.thanks': 'Merci pour ta contribution 🫶',
-    'support.don.clickHere': 'Clique ici',
-    'support.don.jumper': ' Tu peux envoyer directement vers cette adresse via le bridge <a href="https://jumper.xyz/" target="_blank" rel="noopener noreferrer">Jumper</a>.',
     'sig.title': 'Signaux HL + HIP-3',
     'sig.generate': 'Générer les signaux',
     'sig.placeholder': 'Clique sur "Générer les signaux"',
@@ -11020,10 +11217,10 @@ window.addEventListener('resize', () => {
 const HL_API   = 'https://api.hyperliquid.xyz/info';
 const UNIT_API = 'https://api.hyperunit.xyz/operations';
 
-const UNIT_DECIMALS = { btc: 8, eth: 18, sol: 9, mon: 18, pump: 6, fart: 6, bonk: 5, spx: 8, pengu: 6, usdc: 6, usdt: 6 };
+const UNIT_DECIMALS = { btc: 8, eth: 18, sol: 9, mon: 18, pump: 6, fart: 6, bonk: 5, spx: 8, pengu: 6, zec: 8, usdc: 6, usdt: 6 };
 const BRIDGE_PRICE_MAP = {
   // Crypto majeurs
-  btc: 'BTC', eth: 'ETH', sol: 'SOL',
+  btc: 'BTC', eth: 'ETH', sol: 'SOL', zec: 'ZEC',
   // Memecoins HyperEVM
   pump: 'PUMP', fart: 'FARTCOIN', bonk: 'BONK', pengu: 'PENGU',
   spx: 'SPX', hype: 'HYPE', xpl: 'XPL',
@@ -11041,6 +11238,7 @@ const COINGECKO_IDS = {
   pump:  'pump-fun',
   fart:  'fartcoin',
   spx:   'spx6900',
+  zec:   'zcash',
   usdc:  'usd-coin',
   usdt:  'tether',
 };
@@ -11114,7 +11312,7 @@ const HS_OUTCOME_META_LS = 'hs-outcome-meta-v1';
 let xyzMetaMap = {};       // @idx → name pour Trade XYZ HIP-3
 let prices = {};
 let fallbackPrices = {};
-const KNOWN_UNIT_BASES = new Set(['UBTC','UETH','USOL','UFART','UPUMP','UBONK','UPENGU','USPX','UMON']);
+const KNOWN_UNIT_BASES = new Set(['UBTC','UETH','USOL','UFART','UPUMP','UBONK','UPENGU','USPX','UMON','UZEC']);
 let unitTokenSet = new Set(KNOWN_UNIT_BASES);
 const NON_UNIT_U_STABLES = new Set(['USDC','USDT','USDX','USDE','USDH','USDXL','USDHL']);
 function isNonUnitStable(name) {
@@ -11125,6 +11323,7 @@ function isUnitBaseToken(name) {
   const u = (name || '').toUpperCase();
   if (!u.startsWith('U') || u.length < 3 || isNonUnitStable(u)) return false;
   if (KNOWN_UNIT_BASES.has(u)) return true;
+  if (typeof SIG_SPOT_UNIT_DISPLAY !== 'undefined' && SIG_SPOT_UNIT_DISPLAY[u]) return true;
   const underlying = u.slice(1).toLowerCase();
   return Object.keys(UNIT_DECIMALS).some(a => a === underlying && !['usdc','usdt'].includes(a));
 }
@@ -11908,10 +12107,79 @@ function hlSpotCtxForPair(pair, ctxArr, ui) {
   return null;
 }
 
+function hlSpotIsBadTokenName(name) {
+  const n = String(name || '').trim();
+  return !n || n === '?' || n === '—';
+}
+
+/** Index token HL par champ `.index`, pas par position dans le tableau. */
+function hlSpotBuildTokenIndexMap(tokens) {
+  const byIdx = {};
+  for (let i = 0; i < (tokens || []).length; i++) {
+    const tok = tokens[i];
+    if (!tok) continue;
+    const idx = tok.index != null ? tok.index : i;
+    byIdx[idx] = tok;
+  }
+  return byIdx;
+}
+
+function hlSpotTokenAt(tokens, tokenIndex, tokenByIdx) {
+  if (tokenIndex == null || tokenIndex < 0) return null;
+  const map = tokenByIdx || hlSpotBuildTokenIndexMap(tokens);
+  if (map[tokenIndex]) return map[tokenIndex];
+  return tokens?.[tokenIndex] || null;
+}
+
+function hlSpotResolveTokenNames(pair, tokens, ctx, tokenByIdx) {
+  const byIdx = tokenByIdx || hlSpotBuildTokenIndexMap(tokens);
+  const baseTok = hlSpotTokenAt(tokens, pair.tokens?.[0], byIdx);
+  const quoteTok = hlSpotTokenAt(tokens, pair.tokens?.[1], byIdx);
+  let baseName = String(baseTok?.name || '').trim();
+  let quoteName = String(quoteTok?.name || '').trim();
+  const ctxCoin = ctx?.coin && !String(ctx.coin).startsWith('@') ? String(ctx.coin).trim() : '';
+  if (hlSpotIsBadTokenName(baseName) && ctxCoin.includes('/')) {
+    const parts = ctxCoin.split('/');
+    baseName = parts[0];
+    if (!quoteName) quoteName = parts[1] || 'USDC';
+  }
+  if (hlSpotIsBadTokenName(baseName) && pair.name && !String(pair.name).startsWith('@')) {
+    if (String(pair.name).includes('/')) {
+      const parts = String(pair.name).split('/');
+      baseName = parts[0];
+      if (!quoteName) quoteName = parts[1] || 'USDC';
+    } else {
+      baseName = String(pair.name);
+    }
+  }
+  const baseIdx = pair.tokens?.[0];
+  if (hlSpotIsBadTokenName(baseName) && baseIdx != null && spotTokenMeta[baseIdx]?.name) {
+    baseName = spotTokenMeta[baseIdx].name;
+  }
+  if (hlSpotIsBadTokenName(quoteName)) quoteName = 'USDC';
+  return {
+    baseName: hlSpotIsBadTokenName(baseName) ? '' : baseName,
+    quoteName: hlSpotIsBadTokenName(quoteName) ? 'USDC' : quoteName,
+    ctxCoin,
+  };
+}
+
+function hlSpotPairLabel(pair, tokens, ctx) {
+  if (pair.name && !String(pair.name).startsWith('@') && !String(pair.name).startsWith('?')) {
+    return pair.name;
+  }
+  const { baseName, quoteName, ctxCoin } = hlSpotResolveTokenNames(pair, tokens, ctx);
+  if (ctxCoin && !hlSpotIsBadTokenName(ctxCoin.split('/')[0])) return ctxCoin;
+  if (baseName) return `${baseName}/${quoteName || 'USDC'}`;
+  const idx = pair.index;
+  return idx != null ? `Spot #${idx}` : '—';
+}
+
 /** Prix mark par index token (API spotMetaAndAssetCtxs) — source unique pour le tableau spot. */
 function rebuildSpotPricesByTokenIdx(meta, ctxArr) {
   if (!meta?.tokens) return;
   const tokens = meta.tokens || [];
+  const tokenByIdx = hlSpotBuildTokenIndexMap(tokens);
   const universe = meta.universe || [];
   const best = {};
 
@@ -11923,7 +12191,7 @@ function rebuildSpotPricesByTokenIdx(meta, ctxArr) {
     if (!(markPx > 0)) continue;
     const baseIdx = pair.tokens?.[0];
     if (baseIdx == null) continue;
-    const quoteTok = tokens[pair.tokens?.[1]];
+    const quoteTok = hlSpotTokenAt(tokens, pair.tokens?.[1], tokenByIdx);
     const quoteNm = String(quoteTok?.name || '').toUpperCase();
     const score = walletSpotQuoteIsStable(quoteNm) ? 100 : 10;
     const vol = parseFloat(c.dayNtlVlm || 0) || 0;
@@ -11961,6 +12229,7 @@ function walletSpotQuoteIsStable(quoteName) {
 function buildSpotMetaMapFromHl(meta, ctxs) {
   if (!meta?.universe) return;
   const tokens = meta.tokens || [];
+  const tokenByIdx = hlSpotBuildTokenIndexMap(tokens);
   const ctxArr = Array.isArray(ctxs) ? ctxs : [];
   for (const tok of tokens) {
     if (tok?.index == null) continue;
@@ -11983,35 +12252,33 @@ function buildSpotMetaMapFromHl(meta, ctxs) {
     const idx = pair.index;
     if (idx == null || idx < 0) continue;
     const key = '@' + idx;
-    const baseTok = tokens[pair.tokens?.[0]];
-    const quoteTok = tokens[pair.tokens?.[1]];
-    const baseName = baseTok?.name || '?';
-    const quoteName = quoteTok?.name || '?';
     const c = hlSpotCtxForPair(pair, ctxArr, ui);
+    const { baseName: resolvedBase, quoteName: resolvedQuote } = hlSpotResolveTokenNames(pair, tokens, c, tokenByIdx);
+    const baseName = resolvedBase || '';
+    const quoteName = resolvedQuote || 'USDC';
     const markPx = parseFloat(c?.markPx || 0) || 0;
     const midPx = parseFloat(c?.midPx || 0) || 0;
     const ctxCoin = c?.coin && !String(c.coin).startsWith('@') ? String(c.coin) : null;
-    const pairLabel = typeof sigSpotPairLabel === 'function'
-      ? sigSpotPairLabel(pair, tokens)
-      : (pair.name && !String(pair.name).startsWith('@') ? pair.name : `${baseName}/${quoteName}`);
+    const pairLabel = hlSpotPairLabel(pair, tokens, c);
     const entry = {
       name: ctxCoin || pairLabel,
-      baseToken: baseName,
+      baseToken: baseName || (pairLabel.includes('/') ? pairLabel.split('/')[0] : ''),
       markPx,
       midPx,
       pairKey: key,
     };
     spotMetaMap[key] = entry;
     const baseUpper = String(baseName).toUpperCase();
-    if (baseUpper && baseUpper !== '?') spotMetaMap[baseUpper] = entry;
+    if (baseUpper && !hlSpotIsBadTokenName(baseUpper)) spotMetaMap[baseUpper] = entry;
     if (pairLabel && !String(pairLabel).startsWith('@')) spotMetaMap[pairLabel] = entry;
     const baseIdx = pair.tokens?.[0];
     const spotLbl = walletSpotAssetLabel(baseName, pairLabel);
     if (baseIdx != null) {
       const prev = spotTokenMeta[baseIdx] || { name: baseName, markPx: 0, midPx: 0, pairKey: null };
+      const effectiveBase = baseName || entry.baseToken || (pairLabel.includes('/') ? pairLabel.split('/')[0] : '') || prev.name;
       const nextPx = markPx > 0 ? markPx : prev.markPx;
       spotTokenMeta[baseIdx] = {
-        name: baseName,
+        name: effectiveBase,
         markPx: nextPx,
         midPx: (markPx > 0 ? midPx : prev.midPx) || nextPx,
         pairKey: key,
@@ -12218,7 +12485,7 @@ function spotFillDisplayName(coin) {
   if (!key.startsWith('@')) return key;
   const meta = spotMetaMap[key];
   if (meta?.name && !/^@\d+$/.test(String(meta.name).trim())) return meta.name;
-  if (meta?.baseToken) {
+  if (meta?.baseToken && !hlSpotIsBadTokenName(meta.baseToken)) {
     const u = String(meta.baseToken).toUpperCase();
     if (typeof SIG_SPOT_UNIT_DISPLAY !== 'undefined' && SIG_SPOT_UNIT_DISPLAY[u]) return `${SIG_SPOT_UNIT_DISPLAY[u]}/USDC`;
     if (isUnitBaseToken(meta.baseToken)) return `${u.slice(1)}/USDC`;
@@ -13000,17 +13267,11 @@ function renderWallets() {
     // "All" chip — only show if more than 1 wallet
     if (wallets.length > 1) {
       const isAll = activeWallet === null;
-      html += `<span class="wallet-chip${isAll ? ' active' : ''}" onclick="setActiveWallet(null)" style="border-color:${isAll ? 'var(--accent)' : ''}">
-        <span style="color:${isAll ? 'var(--accent)' : ''}">🌐 All wallets</span>
-      </span>`;
+      html += `<span class="wallet-chip${isAll ? ' active' : ''}" onclick="setActiveWallet(null)">${t('wallet.view.all')}</span>`;
     }
-    // Individual wallet chips
     html += wallets.map(w => {
       const isActive = activeWallet === w || wallets.length === 1;
-      const rm = isDemoWallet(w) ? '' : `<span class="x" onclick="event.stopPropagation();removeWallet('${w}')" title="Remove">×</span>`;
-      return `<span class="wallet-chip${isActive ? ' active' : ''}" onclick="setActiveWallet('${w}')" style="border-color:${isActive ? 'var(--accent)' : ''}">
-        <span style="color:${isActive ? 'var(--accent)' : ''}">${walletDisplayAddr(w)}</span>${rm}
-      </span>`;
+      return `<span class="wallet-chip${isActive ? ' active' : ''}" onclick="setActiveWallet('${w}')">${walletDisplayAddr(w)}</span>`;
     }).join('');
     chips.innerHTML = html;
   } else {
@@ -14290,7 +14551,8 @@ function walletParseHlAmount(raw) {
 
 function walletTokenName(tokenIdx, b) {
   if (tokenIdx != null && spotTokenMeta[tokenIdx]?.name) {
-    return String(spotTokenMeta[tokenIdx].name).toUpperCase();
+    const nm = String(spotTokenMeta[tokenIdx].name);
+    if (!hlSpotIsBadTokenName(nm)) return nm.toUpperCase();
   }
   return String(b?.coin || '').trim().toUpperCase();
 }
@@ -14356,7 +14618,7 @@ function walletSpotBaseSymbol(b) {
   }
   if (coin.startsWith('@')) {
     const meta = spotMetaMap[coin] || (tokenIdx != null ? spotTokenMeta[tokenIdx] : null);
-    if (meta?.baseToken) return String(meta.baseToken).toUpperCase();
+    if (meta?.baseToken && !hlSpotIsBadTokenName(meta.baseToken)) return String(meta.baseToken).toUpperCase();
     const nm = walletTokenName(tokenIdx, b);
     if (nm && !nm.startsWith('@')) return nm;
     return '';
@@ -14412,10 +14674,15 @@ function walletLetterBadgeLetters(name) {
 
 function walletAssetLogoSymbol(base, label, b) {
   let sym = String(base || '').trim().toUpperCase();
-  if (!sym && b) sym = walletSpotBaseSymbol(b);
-  if (!sym && label) {
+  if (hlSpotIsBadTokenName(sym) && b) sym = walletSpotBaseSymbol(b);
+  if (hlSpotIsBadTokenName(sym) && label) {
     const pairBase = String(label).split('/')[0].trim();
-    if (pairBase) sym = pairBase.toUpperCase();
+    if (pairBase && !hlSpotIsBadTokenName(pairBase)) sym = pairBase.toUpperCase();
+  }
+  if (hlSpotIsBadTokenName(sym) && b?.coin?.startsWith?.('@') && typeof sigSpotPairDisplayLabel === 'function') {
+    const lbl = sigSpotPairDisplayLabel(b.coin);
+    const pairBase = String(lbl).split('/')[0].trim();
+    if (pairBase && !hlSpotIsBadTokenName(pairBase)) sym = pairBase.toUpperCase();
   }
   return sym;
 }
@@ -14441,7 +14708,47 @@ function walletHlTokenIconUrl(name) {
   return `https://app.hyperliquid.xyz/coins/${encodeURIComponent(n)}.svg`;
 }
 
-function walletAssetLogoHtml(base, label, b) {
+function walletSpotHlTradeUrl(b, base, label) {
+  const coin = b?.coin
+  const lbl = String(label || '').trim()
+  const badLbl = !lbl || lbl.startsWith('?/') || lbl === '—' || hlSpotIsBadTokenName(lbl.split('/')[0])
+
+  if (coin && typeof sigHlTradeUrl === 'function') {
+    const url = sigHlTradeUrl(coin, 'spot')
+    if (url && !/\/trade\/?$/.test(url)) return url
+  }
+  const tokenIdx = b?.token
+  if (tokenIdx != null && spotTokenMeta[tokenIdx]?.pairKey && typeof sigHlTradeUrl === 'function') {
+    const url = sigHlTradeUrl(spotTokenMeta[tokenIdx].pairKey, 'spot')
+    if (url && !/\/trade\/?$/.test(url)) return url
+  }
+  if (!badLbl && lbl.includes('/')) {
+    const path = typeof sigHlTradeUrlPath === 'function'
+      ? sigHlTradeUrlPath(lbl)
+      : lbl.split('/').map(seg => encodeURIComponent(seg)).join('/')
+    return `https://app.hyperliquid.xyz/trade/${path}`
+  }
+  const sym = String(base || '').trim()
+  if (!hlSpotIsBadTokenName(sym)) {
+    const up = sym.toUpperCase()
+    const pair = (typeof isNonUnitStable === 'function' && isNonUnitStable(up)) || WALLET_STABLE_COINS.has(up)
+      ? up
+      : `${up}/USDC`
+    const path = typeof sigHlTradeUrlPath === 'function' ? sigHlTradeUrlPath(pair) : encodeURIComponent(pair)
+    return `https://app.hyperliquid.xyz/trade/${path}`
+  }
+  if (tokenIdx != null && spotTokenMeta[tokenIdx]?.name && !hlSpotIsBadTokenName(spotTokenMeta[tokenIdx].name)) {
+    const up = String(spotTokenMeta[tokenIdx].name).toUpperCase()
+    const pair = (typeof isNonUnitStable === 'function' && isNonUnitStable(up)) || WALLET_STABLE_COINS.has(up)
+      ? up
+      : `${up}/USDC`
+    const path = typeof sigHlTradeUrlPath === 'function' ? sigHlTradeUrlPath(pair) : encodeURIComponent(pair)
+    return `https://app.hyperliquid.xyz/trade/${path}`
+  }
+  return 'https://app.hyperliquid.xyz/trade'
+}
+
+function walletAssetLogoHtml(base, label, b, href) {
   const sym = walletAssetLogoSymbol(base, label, b);
   const badgeName = sym || String(label || '').split('/')[0] || '?';
   const hlUrl = sym ? (walletHlIconUrl(sym) || walletHlTokenIconUrl(sym)) : '';
@@ -14453,10 +14760,15 @@ function walletAssetLogoHtml(base, label, b) {
     : '';
   const badgeStyle = `background:${bg};color:#cfe;font-weight:600;font-size:${fs}px;font-family:system-ui,-apple-system,sans-serif;`;
   const safeLbl = escWalletHtml(label || sym);
-  return `<div class="wallet-asset-cell">
+  const cell = `<div class="wallet-asset-cell">
     <span class="wallet-asset-logo-wrap${hlUrl ? '' : ' is-fallback'}">${img}<span class="wallet-asset-fallback" style="${badgeStyle}">${escWalletHtml(letters)}</span></span>
     <span class="wallet-asset-name" title="${safeLbl}">${safeLbl}</span>
   </div>`;
+  if (href) {
+    const openLbl = typeof t === 'function' ? t('wallet.openHlTrade') : 'Open on Hyperliquid'
+    return `<a class="wallet-asset-link" href="${escWalletHtml(href)}" target="_blank" rel="noopener noreferrer" title="${escWalletHtml(openLbl)} — ${safeLbl}" aria-label="${escWalletHtml(openLbl)} — ${safeLbl}">${cell}</a>`;
+  }
+  return cell;
 }
 
 function walletCgLogoAliasKeys(base) {
@@ -14567,7 +14879,10 @@ function scheduleWalletCgEnrich(bases) {
 
 function walletSpotAssetLabel(baseName, pairLabel) {
   const u = String(baseName || '').toUpperCase();
-  if (!u) return pairLabel || '—';
+  if (!u || hlSpotIsBadTokenName(u)) {
+    const pl = String(pairLabel || '').trim();
+    return pl && !pl.startsWith('?') ? pl : '—';
+  }
   if (isNonUnitStable(u) || WALLET_STABLE_COINS.has(u)) return u;
   if (typeof sigSpotDisplayLabel === 'function') {
     return sigSpotDisplayLabel(baseName, pairLabel || `${u}/USDC`);
@@ -14580,15 +14895,15 @@ function walletSpotDisplayName(coin, tokenIdx) {
   const baseFromIdx = tokenIdx != null ? walletTokenName(tokenIdx, { token: tokenIdx }) : '';
   if (c.startsWith('@')) {
     const meta = spotMetaMap[c];
-    if (meta?.baseToken) return walletSpotAssetLabel(meta.baseToken, meta.name);
+    if (meta?.baseToken && !hlSpotIsBadTokenName(meta.baseToken)) return walletSpotAssetLabel(meta.baseToken, meta.name);
     return spotFillDisplayName(c);
   }
   const tokMeta = tokenIdx != null ? spotTokenMeta[tokenIdx] : null;
   if (tokMeta?.pairLabel) return tokMeta.pairLabel;
   if (baseFromIdx) return walletSpotAssetLabel(baseFromIdx, tokMeta?.pairLabel);
   const meta = spotMetaMap[c] || spotMetaMap[c.toUpperCase()];
-  if (meta?.baseToken) return walletSpotAssetLabel(meta.baseToken, meta.name);
-  if (meta?.name && !/^@\d+$/.test(String(meta.name).trim())) {
+  if (meta?.baseToken && !hlSpotIsBadTokenName(meta.baseToken)) return walletSpotAssetLabel(meta.baseToken, meta.name);
+  if (meta?.name && !/^@\d+$/.test(String(meta.name).trim()) && !String(meta.name).startsWith('?')) {
     return walletSpotAssetLabel(meta.baseToken || meta.name.split('/')[0], meta.name);
   }
   const cUp = c.toUpperCase();
@@ -14614,6 +14929,66 @@ function walletHlIconUrl(base) {
 
 function walletSpotRowValueUsd(b) {
   return walletSpotBalanceUsdAtMark(b);
+}
+
+function walletSpotMergeKey(b, base, lbl) {
+  const tokenIdx = b?.token;
+  if (tokenIdx != null && tokenIdx >= 0) return 't:' + tokenIdx;
+  const coin = String(b?.coin || '').trim();
+  if (coin) return 'c:' + coin;
+  const u = String(base || '').trim().toUpperCase();
+  if (u) return 'b:' + u;
+  return 'l:' + String(lbl || '').trim().toUpperCase();
+}
+
+/** Fusionne les soldes spot identiques (même paire / token) quand plusieurs wallets sont affichés. */
+function walletMergeSpotRows(rows) {
+  const byKey = new Map();
+  for (const row of rows) {
+    const key = walletSpotMergeKey(row.b, row.base, row.lbl);
+    const total = row.b._qty != null ? row.b._qty : walletParseHlAmount(row.b.total);
+    const hold = row.b._hold != null ? row.b._hold : walletParseHlAmount(row.b.hold);
+    const existing = byKey.get(key);
+    if (!existing) {
+      byKey.set(key, {
+        b: { ...row.b },
+        usd: row.usd,
+        base: row.base,
+        lbl: row.lbl,
+        unitPx: row.unitPx,
+        _qty: total,
+        _hold: hold,
+      });
+      continue;
+    }
+    existing._qty += total;
+    existing._hold += hold;
+    existing.usd += row.usd;
+    if (row.unitPx > 0 && !(existing.unitPx > 0)) existing.unitPx = row.unitPx;
+    if (!existing.b.coin && row.b.coin) existing.b.coin = row.b.coin;
+    if (existing.b.token == null && row.b.token != null) existing.b.token = row.b.token;
+  }
+  return Array.from(byKey.values()).map(r => {
+    const avail = Math.max(0, r._qty - r._hold);
+    const markPx = r.unitPx > 0 ? r.unitPx : (r.b._markPx > 0 ? r.b._markPx : 0);
+    return {
+      b: {
+        ...r.b,
+        total: String(r._qty),
+        hold: String(r._hold),
+        _qty: r._qty,
+        _hold: r._hold,
+        _avail: avail,
+        _usd: r.usd,
+        _markPx: markPx,
+      },
+      usd: r.usd,
+      w: null,
+      base: r.base,
+      lbl: r.lbl,
+      unitPx: r.unitPx > 0 ? r.unitPx : markPx,
+    };
+  });
 }
 
 function getWalletPageAddresses() {
@@ -14645,10 +15020,10 @@ function renderWalletViewBar() {
   if (!multi) { bar.innerHTML = ''; bar.style.display = 'none'; return; }
   bar.style.display = 'flex';
   const allActive = activeWallet === null;
-  let html = `<button type="button" class="wallet-view-pill${allActive ? ' active' : ''}" onclick="setWalletPageView(null)">${t('wallet.view.all')}</button>`;
+  let html = `<button type="button" class="wallet-chip${allActive ? ' active' : ''}" onclick="setWalletPageView(null)">${t('wallet.view.all')}</button>`;
   wallets.forEach(w => {
     const on = activeWallet === w;
-    html += `<button type="button" class="wallet-view-pill${on ? ' active' : ''}" onclick="setWalletPageView('${w}')">${truncAddr(w)}</button>`;
+    html += `<button type="button" class="wallet-chip${on ? ' active' : ''}" onclick="setWalletPageView('${w}')">${truncAddr(w)}</button>`;
   });
   bar.innerHTML = html;
 }
@@ -14663,8 +15038,15 @@ function isWalletPageActive() {
     || !!document.getElementById('page-wallet')?.classList.contains('active');
 }
 
+function walletPerpCoinLabel(pos) {
+  const raw = String(pos?.coin || pos?.name || '').trim()
+  if (!raw) return '—'
+  if (raw.startsWith('xyz:')) return xyzMetaMap[raw] || raw.slice(4)
+  return raw
+}
+
 function walletPerpColgroup(showWalletCol) {
-  const cols = ['<col class="wallet-col-side">', '<col class="wallet-col-asset">'];
+  const cols = ['<col class="wallet-col-position">'];
   if (showWalletCol) cols.push('<col class="wallet-col-wallet">');
   cols.push('<col class="wallet-col-dex">', '<col class="wallet-col-size">', '<col class="wallet-col-pnl">', '<col class="wallet-col-lev">');
   return `<colgroup>${cols.join('')}</colgroup>`;
@@ -14681,7 +15063,9 @@ function renderWalletPage() {
   if (!isWalletPageActive()) return;
   syncWalletDustControls();
   const addrs = getWalletPageAddresses();
-  const showWalletCol = addrs.length > 1;
+  const mergeSpotByPair = activeWallet === null && wallets.length > 1;
+  const showWalletColPerp = addrs.length > 1;
+  const showWalletColSpot = addrs.length > 1 && !mergeSpotByPair;
   renderWalletViewBar();
   const hideDust = walletHideDustEnabled();
   const dustMin = walletDustThresholdUsd();
@@ -14710,11 +15094,16 @@ function renderWalletPage() {
       const pnl = parseFloat(pos.unrealizedPnl || 0);
       const pnlClass = pnl > 0 ? 'pnl-pos' : pnl < 0 ? 'pnl-neg' : '';
       const lev = pos.leverage?.value ? `${pos.leverage.value}x` : '—';
-      const coinLbl = pos.coin?.startsWith('xyz:') ? (xyzMetaMap[pos.coin] || pos.coin.slice(4)) : (pos.coin || '—');
+      const coinLbl = walletPerpCoinLabel(pos);
+      const sideLbl = isLong ? 'LONG' : 'SHORT';
       perpRows.push(`<tr>
-        <td class="wallet-td-side"><span class="${isLong ? 'tag-long' : 'tag-short'}">${isLong ? 'LONG' : 'SHORT'}</span></td>
-        <td class="font-medium wallet-td-asset">${coinLbl}</td>
-        ${showWalletCol ? `<td class="mono wallet-td-wallet">${truncAddr(w)}</td>` : ''}
+        <td class="wallet-td-position">
+          <div class="wallet-perp-position-cell">
+            <span class="${isLong ? 'tag-long' : 'tag-short'}">${sideLbl}</span>
+            <span class="wallet-perp-asset-name">${escWalletHtml(coinLbl)}</span>
+          </div>
+        </td>
+        ${showWalletColPerp ? `<td class="mono wallet-td-wallet">${truncAddr(w)}</td>` : ''}
         <td class="mono wallet-td-dex">${pos._dex || 'HL'}</td>
         <td class="text-right mono wallet-td-size">${Math.abs(szi).toFixed(4)}</td>
         <td class="text-right ${pnlClass} font-semibold wallet-td-pnl">${pnl !== 0 ? fmtPnl(pnl) : '—'}</td>
@@ -14750,8 +15139,8 @@ function renderWalletPage() {
     if (!perpRows.length) {
       perpWrap.innerHTML = `<p class="text-sm" style="color:var(--muted)">${emptyMsg}</p>`;
     } else {
-      perpWrap.innerHTML = `<table class="hs-wallet-table hs-wallet-table--perp">${walletPerpColgroup(showWalletCol)}<thead><tr>
-        <th class="wallet-th-side"></th><th class="wallet-th-asset">${escWalletHtml(t('wallet.col.asset'))}</th>${showWalletCol ? `<th class="wallet-th-wallet">${escWalletHtml(t('wallet.col.wallet'))}</th>` : ''}
+      perpWrap.innerHTML = `<table class="hs-wallet-table hs-wallet-table--perp">${walletPerpColgroup(showWalletColPerp)}<thead><tr>
+        <th class="wallet-th-position">${escWalletHtml(t('wallet.col.position'))}</th>${showWalletColPerp ? `<th class="wallet-th-wallet">${escWalletHtml(t('wallet.col.wallet'))}</th>` : ''}
         <th class="wallet-th-dex">${escWalletHtml(t('wallet.col.dex'))}</th><th class="wallet-th-size">${escWalletHtml(t('wallet.col.perpSize'))}</th>
         <th class="wallet-th-pnl">${escWalletHtml(t('wallet.col.unrealized'))}</th><th class="wallet-th-lev">${escWalletHtml(t('wallet.col.leverage'))}</th>
       </tr></thead><tbody>${perpRows.join('')}</tbody></table>`;
@@ -14768,16 +15157,16 @@ function renderWalletPage() {
     }
   }
   if (spotWrap) {
-    const spotRows = spotRowsAll;
+    const spotRows = mergeSpotByPair ? walletMergeSpotRows(spotRowsAll) : spotRowsAll;
     if (!spotRows.length && !spotUsd) {
       spotWrap.innerHTML = `<p class="text-sm" style="color:var(--muted)">${emptyMsg}</p>`;
     } else if (!spotRows.length) {
       spotWrap.innerHTML = `<p class="text-sm" style="color:var(--muted)">${t('wallet.spotHidden').replace('{n}', String(spotHiddenCount))}</p>`;
     } else {
       spotRows.sort((a, b) => b.usd - a.usd);
-      const spotColCount = showWalletCol ? 7 : 6;
+      const spotColCount = showWalletColSpot ? 7 : 6;
       const spotFootCols = spotColCount - 1;
-      const spotTableCls = `hs-wallet-table hs-wallet-table--spot${showWalletCol ? ' has-wallet-col' : ''}`;
+      const spotTableCls = `hs-wallet-table hs-wallet-table--spot${showWalletColSpot ? ' has-wallet-col' : ''}`;
       const sBody = spotRows.map(({ b, usd, w, base, lbl, unitPx }) => {
         const total = b._qty != null ? b._qty : walletParseHlAmount(b.total);
         const hold = b._hold != null ? b._hold : walletParseHlAmount(b.hold);
@@ -14791,8 +15180,8 @@ function renderWalletPage() {
           ? `<span class="wallet-val-strong">${fmtUsd(rowUsd)}</span>`
           : `<span class="wallet-val-muted">—</span>`;
         return `<tr>
-          <td class="wallet-td-asset">${walletAssetLogoHtml(base, lbl, b)}</td>
-          ${showWalletCol ? `<td class="mono wallet-val-muted wallet-td-wallet">${escWalletHtml(truncAddr(w))}</td>` : ''}
+          <td class="wallet-td-asset">${walletAssetLogoHtml(base, lbl, b, walletSpotHlTradeUrl(b, base, lbl))}</td>
+          ${showWalletColSpot ? `<td class="mono wallet-val-muted wallet-td-wallet">${escWalletHtml(truncAddr(w))}</td>` : ''}
           <td class="mono wallet-spot-qty wallet-td-size">${walletSpotFmtQty(total)}</td>
           <td class="mono wallet-td-px">${pxCell}</td>
           <td class="mono wallet-val-muted wallet-spot-qty wallet-td-avail">${walletSpotFmtQty(avail)}</td>
@@ -14804,8 +15193,8 @@ function renderWalletPage() {
         ? `<tr><td colspan="${spotFootCols}" class="wallet-val-muted wallet-td-foot" style="font-size:.72rem;text-align:left">${escWalletHtml(t('wallet.spot.totalVisible'))}</td><td class="mono wallet-val-strong wallet-td-val">${fmtUsd(spotVisibleUsd)}</td></tr>`
         : '';
       const footAll = `<tr><td colspan="${spotFootCols}" class="wallet-td-foot" style="font-size:.72rem;color:var(--muted);text-align:left">${escWalletHtml(t('wallet.spot.priceSrc'))}</td><td class="mono wallet-val-strong wallet-td-val">${fmtUsd(spotUsd)}</td></tr>`;
-      spotWrap.innerHTML = `<div class="wallet-spot-table-scroll"><table class="${spotTableCls}">${walletSpotColgroup(showWalletCol)}<thead><tr>
-        <th class="wallet-th-asset">${escWalletHtml(t('wallet.col.asset'))}</th>${showWalletCol ? `<th class="wallet-th-wallet">${escWalletHtml(t('wallet.col.wallet'))}</th>` : ''}
+      spotWrap.innerHTML = `<div class="wallet-spot-table-scroll"><table class="${spotTableCls}">${walletSpotColgroup(showWalletColSpot)}<thead><tr>
+        <th class="wallet-th-asset">${escWalletHtml(t('wallet.col.asset'))}</th>${showWalletColSpot ? `<th class="wallet-th-wallet">${escWalletHtml(t('wallet.col.wallet'))}</th>` : ''}
         <th class="wallet-th-size">${escWalletHtml(t('wallet.col.size'))}</th>
         <th class="wallet-th-px">${escWalletHtml(t('wallet.col.price'))}</th>
         <th class="wallet-th-avail">${escWalletHtml(t('wallet.col.available'))}</th>
@@ -15274,6 +15663,13 @@ function renderHyperUnitPage(unitTrades, ops, isAll, now) {
 
   const byAsset = {};
   ops.forEach(o => { byAsset[o.asset.toUpperCase()] = (byAsset[o.asset.toUpperCase()] || 0) + bridgeOpUsd(o); });
+  unitTrades.forEach(f => {
+    const cat = categorizeFill(f);
+    const raw = (cat.baseToken || cat.display || '').toUpperCase();
+    const label = raw.startsWith('U') && raw.length > 1 ? raw.slice(1) : raw.split('/')[0];
+    if (!label) return;
+    byAsset[label] = (byAsset[label] || 0) + fillVolume(f);
+  });
   renderPie('unitAssetChart', Object.entries(byAsset).map(([label, value]) => ({ label, value: Math.round(value) })));
 
   window._unitData = { unitTrades, ops };
@@ -15402,7 +15798,7 @@ function groupFills(fills, windowMs=120000) {
 const _tradeTableStore = {};
 
 function defaultTradeFilters() {
-  return { market: '', type: 'all', dir: 'all', twapOnly: false, hideSpotDust: true };
+  return { market: '', type: 'all', dir: 'all', twapOnly: false };
 }
 
 function defaultBridgeFilters() {
@@ -15453,14 +15849,13 @@ function tradeFilterDirOptions() {
     { v: 'close', l: 'trades.filter.close' },
     { v: 'buy', l: 'tbl.buy' },
     { v: 'sell', l: 'tbl.sell' },
-    { v: 'spotdust', l: 'tbl.spotDustConversion' },
   ];
 }
 
 function tradeGroupMatchesFilter(g, filters, isXyz, isUnit) {
   const f = filters || defaultTradeFilters();
+  if (g.isSpotDust) return false;
   if (!isXyz && !isUnit && g.cat?.type === 'unit' && !g.isTwap && !f.twapOnly) return false;
-  if (f.hideSpotDust && g.isSpotDust) return false;
   if (f.twapOnly && !g.isTwap) return false;
   const mkt = (f.market || '').trim().toLowerCase();
   if (mkt && !(g.cat?.display || '').toLowerCase().includes(mkt)) return false;
@@ -15469,11 +15864,9 @@ function tradeGroupMatchesFilter(g, filters, isXyz, isUnit) {
     if (typ !== f.type) return false;
   }
   if (f.dir !== 'all') {
-    if (f.dir === 'spotdust' && !g.isSpotDust) return false;
     const lbl = (g.dirLabel || '').toLowerCase();
     const isLong = g.side === 'B';
     const isClose = g.totalPnl !== 0;
-    if (g.isSpotDust && f.dir !== 'spotdust') return false;
     if (f.dir === 'long' && (!isLong || lbl.includes('short'))) return false;
     if (f.dir === 'short' && (isLong && !lbl.includes('short'))) return false;
     if (f.dir === 'open' && isClose && !lbl.includes('open')) return false;
@@ -15649,12 +16042,10 @@ function syncTradeFilterBar(tableId) {
   const tIn = bar.querySelector('[data-f="type"]');
   const dIn = bar.querySelector('[data-f="dir"]');
   const wIn = bar.querySelector('[data-f="twap"]');
-  const dustIn = bar.querySelector('[data-f="hideSpotDust"]');
   if (mIn) mIn.value = f.market || '';
   if (tIn) tIn.value = f.type || 'all';
   if (dIn) dIn.value = f.dir || 'all';
   if (wIn) wIn.checked = !!f.twapOnly;
-  if (dustIn) dustIn.checked = !!f.hideSpotDust;
 }
 
 function ensureTradeFilterBar(tableId) {
@@ -15718,7 +16109,6 @@ function ensureTradeFilterBar(tableId) {
       <select data-f="dir">${dirOpts}</select>
     </label>
     ${!isXyz ? `<label class="hs-trade-filter-twap"><input type="checkbox" data-f="twap" /> ${t('trades.filter.twap')}</label>` : ''}
-    ${!isXyz ? `<label class="hs-trade-filter-twap"><input type="checkbox" data-f="hideSpotDust" /> ${t('trades.filter.hideSpotDust')}</label>` : ''}
     <div class="hs-trade-filter-actions">
       <span class="hs-trade-filter-count" data-f="count"></span>
       <button type="button" class="hs-trade-filter-reset" data-f="reset">${t('trades.filter.reset')}</button>
@@ -15730,7 +16120,6 @@ function ensureTradeFilterBar(tableId) {
     s.filters.type = bar.querySelector('[data-f="type"]')?.value || 'all';
     s.filters.dir = bar.querySelector('[data-f="dir"]')?.value || 'all';
     s.filters.twapOnly = !!bar.querySelector('[data-f="twap"]')?.checked;
-    s.filters.hideSpotDust = !!bar.querySelector('[data-f="hideSpotDust"]')?.checked;
     if (tableId === 'hlTable') applyHlPageFilters();
     else paintTradeTable(tableId);
   };
@@ -15738,7 +16127,6 @@ function ensureTradeFilterBar(tableId) {
   bar.querySelector('[data-f="type"]')?.addEventListener('change', onFilterChange);
   bar.querySelector('[data-f="dir"]')?.addEventListener('change', onFilterChange);
   bar.querySelector('[data-f="twap"]')?.addEventListener('change', onFilterChange);
-  bar.querySelector('[data-f="hideSpotDust"]')?.addEventListener('change', onFilterChange);
   bar.querySelector('[data-f="reset"]')?.addEventListener('click', (e) => {
     e.preventDefault();
     resetTableFilters(tableId);
@@ -15813,7 +16201,7 @@ _tradeTableStore[targetId] = {
     fills: fills || [],
     isXyz: !!isXyz,
     isUnit: targetId === 'unitTable',
-    filters: prev || defaultTradeFilters(),
+    filters: { ...defaultTradeFilters(), ...(prev || {}) },
   };
   ensureTradeFilterBar(targetId);
   syncTradeFilterBar(targetId);
@@ -16509,9 +16897,23 @@ function getPeriodLabel() {
 function getDonationAddress() {
   return HS_CONFIG?.donationAddress || '0x8271b2a500342617571dfddd69981278d96822aa'
 }
+function getSupportXHandle() {
+  return HS_CONFIG?.xHandle || 'HypersheetsXYZ'
+}
+function getSupportXFollowUrl() {
+  return `https://x.com/intent/follow?screen_name=${encodeURIComponent(getSupportXHandle())}`
+}
+function getSupportXShareUrl() {
+  const isFr = typeof currentLang !== 'undefined' && currentLang === 'fr'
+  const text = (isFr && HS_CONFIG?.tweetTextFr) ? HS_CONFIG.tweetTextFr
+    : (HS_CONFIG?.tweetText || `Hypersheets — https://hypersheets.xyz/ @${getSupportXHandle()}`)
+  return `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`
+}
 function syncSupportDonAddresses() {
   const addr = getDonationAddress()
-  document.querySelectorAll('[data-support-don-addr]').forEach(el => { el.textContent = addr })
+  document.querySelectorAll('[data-support-don-addr]').forEach(el => { el.title = addr })
+  const follow = document.getElementById('supportXFollow')
+  if (follow) follow.href = getSupportXFollowUrl()
 }
 
 const HS_SUPPORT_DISMISS_KEY = 'hs-support-banner-dismissed'
@@ -16576,11 +16978,7 @@ function copySupportDonAddr(btn) {
   const isFr = typeof currentLang !== 'undefined' && currentLang === 'fr'
   syncSupportDonAddresses()
   navigator.clipboard?.writeText(addr).then(() => {
-    if (btn?.classList.contains('hs-support-don-addr')) {
-      if (typeof toast === 'function') toast(isFr ? 'Adresse copiée' : 'Address copied', false)
-      return
-    }
-    if (btn?.classList.contains('hs-don-addr-copy-link')) {
+    if (btn?.hasAttribute('data-support-don-addr') || btn?.classList.contains('hs-don-addr-copy-link')) {
       if (typeof toast === 'function') toast(isFr ? 'Adresse copiée' : 'Address copied', false)
       return
     }
@@ -19911,7 +20309,7 @@ function renderMultiTFMetrics(multiTF, type, sr, aiTrends) {
               <td style="padding:7px 10px;border-top:1px solid var(--border);text-align:center;color:var(--danger);font-weight:600;font-family:'JetBrains Mono',monospace;font-size:.75rem">${fp(res)}</td>`:''}
               <td style="padding:6px 10px;border-top:1px solid var(--border);text-align:center">
                 ${trend
-                  ? `<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;background:${trendColor(trend.direction)}15;border:1px solid ${trendColor(trend.direction)}44;font-size:.72rem;font-weight:700;color:${trendColor(trend.direction)}">
+                  ? `<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:6px;background:${trendColor(trend.direction)}15;border:1px solid ${trendColor(trend.direction)}44;font-size:.72rem;font-weight:700;color:${trendColor(trend.direction)}">
                       <span style="width:6px;height:6px;border-radius:50%;background:${trendColor(trend.direction)};flex-shrink:0"></span>
                       ${trendLabel(trend.direction)}${trend.force!=null?' · '+trend.force+'%':''}
                     </span>`
@@ -22319,7 +22717,7 @@ function renderTradePlan(label, type, sig, oiData, oiSignal, tech, tfMap, sr, cu
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
       <div class="kpi-label">Confluence MTF</div>
       <div style="display:flex;align-items:center;gap:6px">
-        ${dir ? `<span style="padding:2px 14px;border-radius:20px;border:1.5px solid ${dirColor};font-size:.78rem;font-weight:700;color:${dirColor}">${dirLabel}</span>` : ''}
+        ${dir ? `<span style="padding:2px 14px;border-radius:6px;border:1.5px solid ${dirColor};font-size:.78rem;font-weight:700;color:${dirColor}">${dirLabel}</span>` : ''}
         <span style="font-size:.72rem;color:${scoreCol};font-weight:600">${scoreLabel}</span>
       </div>
     </div>
@@ -22361,7 +22759,7 @@ function renderTradePlan(label, type, sig, oiData, oiSignal, tech, tfMap, sr, cu
   <div class="surface p-4" style="margin-bottom:12px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
       <div class="kpi-label">${isFr?'Plan de trade':'Trade plan'}</div>
-      ${dir?`<span style="padding:2px 12px;border-radius:20px;background:${dirColor}15;border:1px solid ${dirColor}33;font-size:.75rem;font-weight:700;color:${dirColor}">${dirLabel}</span>`:''}
+      ${dir?`<span style="padding:2px 12px;border-radius:6px;background:${dirColor}15;border:1px solid ${dirColor}33;font-size:.75rem;font-weight:700;color:${dirColor}">${dirLabel}</span>`:''}
     </div>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
       <div style="display:flex;align-items:center;gap:6px">
@@ -23028,10 +23426,11 @@ function sigResolveSpotCatalogEntry(asset) {
   if (hit) return hit
   if (key.startsWith('@') && spotMetaMap?.[key]) {
     const m = spotMetaMap[key]
+    const bt = String(m.baseToken || '').toUpperCase()
     return {
       coin: key,
       label: m.name || key,
-      baseName: String(m.baseToken || '').toUpperCase(),
+      baseName: bt && !hlSpotIsBadTokenName(bt) ? bt : '',
       idx: parseInt(key.slice(1), 10),
     }
   }
@@ -24049,13 +24448,8 @@ function sigScanFmtVolUsd(v) {
   if (typeof fmtLbVol === 'function') return fmtLbVol(v)
   return sigFmtPriceUsd(v).replace(/ \$/, '')
 }
-function sigSpotPairLabel(pair, tokens) {
-  const baseTok = tokens[pair.tokens?.[0]]
-  const quoteTok = tokens[pair.tokens?.[1]]
-  const baseName = baseTok?.name || '?'
-  const quoteName = quoteTok?.name || '?'
-  if (pair.name && !String(pair.name).startsWith('@')) return pair.name
-  return `${baseName}/${quoteName}`
+function sigSpotPairLabel(pair, tokens, ctx) {
+  return hlSpotPairLabel(pair, tokens || [], ctx)
 }
 function sigSpotDisplayLabel(baseName, pairLabel) {
   const u = String(baseName || '').toUpperCase()
@@ -24266,6 +24660,7 @@ async function loadSigSpotCatalog(force) {
   const meta = data[0] || {}
   const ctxs = data[1] || []
   const tokens = meta.tokens || []
+  const tokenByIdx = hlSpotBuildTokenIndexMap(tokens)
   if (!Object.keys(spotMetaMap).length && meta.universe) {
     buildSpotMetaMapFromHl(meta, ctxs)
   }
@@ -24275,10 +24670,9 @@ async function loadSigSpotCatalog(force) {
     if (idx == null || idx < 0) continue
     const c = Array.isArray(ctxs) ? ctxs[idx] : null
     if (!c) continue
-    const baseTok = tokens[pair.tokens?.[0]]
-    const quoteTok = tokens[pair.tokens?.[1]]
-    const baseName = baseTok?.name || '?'
-    const quoteName = (quoteTok?.name || '').toUpperCase()
+    const { baseName: resolvedBase, quoteName: resolvedQuote } = hlSpotResolveTokenNames(pair, tokens, c, tokenByIdx)
+    const baseName = resolvedBase || ''
+    const quoteName = (resolvedQuote || '').toUpperCase()
     const baseUp = String(baseName).toUpperCase()
     if (!baseUp || SIG_SPOT_STABLES.has(baseUp) || SIG_SPOT_LIST_EXCLUDE.has(baseUp)) continue
     if (sigAssetIsGhostSymbol(baseUp)) continue
@@ -24287,7 +24681,7 @@ async function loadSigSpotCatalog(force) {
     const markPx = parseFloat(c.markPx || 0)
     if (!isFinite(markPx) || markPx <= 0) continue
     const coin = String(c.coin || pair.name || ('@' + idx))
-    const pairLabel = sigSpotPairLabel(pair, tokens)
+    const pairLabel = sigSpotPairLabel(pair, tokens, c)
     const label = quoteName === 'USDC'
       ? sigSpotDisplayLabel(baseName, pairLabel)
       : pairLabel
@@ -24302,7 +24696,7 @@ async function loadSigSpotCatalog(force) {
       prevPx: parseFloat(c.prevDayPx || markPx),
       idx,
     })
-    spotMetaMap['@' + idx] = { name: row.label, baseToken: baseName }
+    spotMetaMap['@' + idx] = { name: row.label, baseToken: baseName || row.label.split('/')[0] || '' }
     if (typeof isUnitBaseToken === 'function' && isUnitBaseToken(baseName) && quoteName === 'USDC') {
       unitTokenSet.add(baseUp)
     }
@@ -28449,12 +28843,118 @@ function setSigTab(tab, btn) {
 }
 
 let _sigCompareMode = 'perp'
+const SIG_COMPARE_MAX = 6
+const SIG_COMPARE_MIN = 2
+const SIG_COMPARE_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F']
+let _sigCompareSlotValues = ['', '']
+let _sigCompareCatalogOpts = []
+let _sigCompareChartMeta = null
+
+function sigCompareColors() {
+  return [
+    hsVar('accent') || '#6ee7ff',
+    hsVar('warning-brand') || '#fbbf24',
+    '#22c55e',
+    '#f87171',
+    '#a78bfa',
+    '#f472b6',
+  ]
+}
 
 function sigCompareParseValue(v) {
   const s = String(v || '')
   const i = s.indexOf('|')
   if (i < 0) return { mode: _sigCompareMode, coin: s }
   return { mode: s.slice(0, i), coin: s.slice(i + 1) }
+}
+
+function sigCompareSlotChange(i, val) {
+  if (i >= 0 && i < _sigCompareSlotValues.length) _sigCompareSlotValues[i] = val
+}
+
+function sigCompareAddSlot() {
+  if (_sigCompareSlotValues.length >= SIG_COMPARE_MAX) return
+  _sigCompareSlotValues.push('')
+  sigCompareAssignDefaults(_sigCompareCatalogOpts, _sigCompareMode)
+  sigCompareRenderSlots(_sigCompareCatalogOpts)
+  sigCompareSyncAddBtn()
+}
+
+function sigCompareRemoveSlot(i) {
+  if (_sigCompareSlotValues.length <= SIG_COMPARE_MIN) return
+  _sigCompareSlotValues.splice(i, 1)
+  sigCompareAssignDefaults(_sigCompareCatalogOpts, _sigCompareMode)
+  sigCompareRenderSlots(_sigCompareCatalogOpts)
+  sigCompareSyncAddBtn()
+}
+
+function sigCompareSyncAddBtn() {
+  const addBtn = document.getElementById('sigCompareAddBtn')
+  if (!addBtn) return
+  const atMax = _sigCompareSlotValues.length >= SIG_COMPARE_MAX
+  addBtn.disabled = atMax
+  addBtn.style.display = atMax ? 'none' : ''
+}
+
+function sigCompareAssignDefaults(opts, mode) {
+  if (!opts?.length) return
+  while (_sigCompareSlotValues.length < SIG_COMPARE_MIN) _sigCompareSlotValues.push('')
+  if (_sigCompareSlotValues.length > SIG_COMPARE_MAX) _sigCompareSlotValues.length = SIG_COMPARE_MAX
+  const used = new Set()
+  const pickDefault = (needles) => {
+    for (const n of needles) {
+      const o = sigCompareFindOption(opts, n)
+      if (o && !used.has(o.value)) return o
+    }
+    return opts.find(o => !used.has(o.value))
+  }
+  const defaultNeedles = [
+    mode === 'perp' ? ['HYPE'] : mode === 'spot' ? ['PURR'] : [],
+    mode === 'perp' ? ['BTC'] : mode === 'spot' ? ['HYPE'] : [],
+    ['ETH'],
+    ['SOL'],
+    ['ARB'],
+    ['DOGE'],
+  ]
+  for (let i = 0; i < _sigCompareSlotValues.length; i++) {
+    const v = _sigCompareSlotValues[i]
+    if (v && opts.some(o => o.value === v) && !used.has(v)) {
+      used.add(v)
+      continue
+    }
+    const o = pickDefault(defaultNeedles[i] || []) || opts.find(x => !used.has(x.value))
+    _sigCompareSlotValues[i] = o?.value || ''
+    if (o?.value) used.add(o.value)
+  }
+}
+
+function sigCompareRenderSlots(opts) {
+  const wrap = document.getElementById('sigComparePicks')
+  if (!wrap) return
+  const colors = sigCompareColors()
+  const ph = typeof t === 'function' ? t('sig.selectAsset') : '— Sélectionner —'
+  const optHtml = opts?.length
+    ? opts.map(o => `<option value="${escSigHtml(o.value)}">${escSigHtml(o.label)}</option>`).join('')
+    : `<option value="">${escSigHtml(ph)}</option>`
+  const assetLbl = (n) => (typeof t === 'function' ? t('sig.compareAsset').replace('{n}', n) : `Actif ${n}`)
+  const removeLbl = (n) => (typeof t === 'function' ? t('sig.compareRemove').replace('{n}', n) : `Retirer l'actif ${n}`)
+  wrap.innerHTML = _sigCompareSlotValues.map((val, i) => {
+    const color = colors[i % colors.length]
+    const letter = SIG_COMPARE_LETTERS[i] || String(i + 1)
+    const canRemove = _sigCompareSlotValues.length > SIG_COMPARE_MIN
+    return `<div class="sig-compare-pick" style="border-left-color:${color}">
+      <label for="sigCompareSelect${i}">
+        <span class="sig-compare-dot" style="background:${color};box-shadow:0 0 8px ${color}" aria-hidden="true"></span>
+        <span>${escSigHtml(assetLbl(letter))}</span>
+        ${canRemove ? `<button type="button" class="sig-compare-pick-remove" onclick="sigCompareRemoveSlot(${i})" aria-label="${escSigHtml(removeLbl(letter))}">×</button>` : ''}
+      </label>
+      <select id="sigCompareSelect${i}" data-slot="${i}" onchange="sigCompareSlotChange(${i}, this.value)">${optHtml}</select>
+    </div>`
+  }).join('')
+  _sigCompareSlotValues.forEach((val, i) => {
+    const sel = document.getElementById(`sigCompareSelect${i}`)
+    if (sel && val) sel.value = val
+  })
 }
 
 async function sigCompareEnsureCatalog(mode) {
@@ -28501,33 +29001,10 @@ function sigCompareFindOption(opts, needle) {
 async function sigPopulateCompareSelects() {
   const mode = await sigCompareEnsureCatalog(_sigCompareMode)
   const opts = sigCompareBuildOptions(mode)
-  const selA = document.getElementById('sigCompareSelectA')
-  const selB = document.getElementById('sigCompareSelectB')
-  const ph = '— Sélectionner —'
-  const html = opts.length
-    ? opts.map(o => `<option value="${escSigHtml(o.value)}">${escSigHtml(o.label)}</option>`).join('')
-    : `<option value="">${ph}</option>`
-  const prevA = selA?.value
-  const prevB = selB?.value
-  if (selA) selA.innerHTML = html
-  if (selB) selB.innerHTML = html
-  if (!opts.length) return
-  const stillA = prevA && opts.some(o => o.value === prevA)
-  const stillB = prevB && opts.some(o => o.value === prevB)
-  if (stillA && selA) selA.value = prevA
-  else {
-    const defA = mode === 'perp' ? sigCompareFindOption(opts, 'HYPE')
-      : mode === 'spot' ? sigCompareFindOption(opts, 'PURR')
-      : opts[0]
-    if (selA && defA) selA.value = defA.value
-  }
-  if (stillB && selB) selB.value = prevB
-  else {
-    const defB = mode === 'spot' ? (sigCompareFindOption(opts, 'HYPE') || opts.find(o => o.value !== selA?.value))
-      : mode === 'perp' ? (sigCompareFindOption(opts, 'BTC') || opts.find(o => o.value !== selA?.value))
-      : (opts.find(o => o.value !== selA?.value) || opts[1])
-    if (selB && defB) selB.value = defB.value
-  }
+  _sigCompareCatalogOpts = opts
+  sigCompareAssignDefaults(opts, mode)
+  sigCompareRenderSlots(opts)
+  sigCompareSyncAddBtn()
 }
 
 function sigCompareCandleCloseSeries(raw) {
@@ -28538,36 +29015,36 @@ function sigCompareCandleCloseSeries(raw) {
   return rows
 }
 
-/** Aligne les deux séries sur les timestamps communs, puis indexe à 100 au premier point commun. */
-function sigCompareAlignAndIndex(rawA, rawB) {
-  const a = sigCompareCandleCloseSeries(rawA)
-  const b = sigCompareCandleCloseSeries(rawB)
-  const mapB = new Map(b.map(p => [p.t, p.c]))
-  const labels = []
-  const pxA = []
-  const pxB = []
-  for (const p of a) {
-    if (!mapB.has(p.t)) continue
-    labels.push(p.t)
-    pxA.push(p.c)
-    pxB.push(mapB.get(p.t))
+/** Aligne N séries sur les timestamps communs, puis indexe à 100 au premier point commun. */
+function sigCompareAlignMulti(rawList) {
+  const series = (Array.isArray(rawList) ? rawList : []).map(r => sigCompareCandleCloseSeries(r))
+  if (series.length < SIG_COMPARE_MIN || series.some(s => !s.length)) return null
+  let commonTs = new Set(series[0].map(p => p.t))
+  for (let i = 1; i < series.length; i++) {
+    const ts = new Set(series[i].map(p => p.t))
+    commonTs = new Set([...commonTs].filter(t => ts.has(t)))
   }
+  const labels = [...commonTs].sort((a, b) => a - b)
   if (labels.length < 3) return null
-  const baseA = pxA[0]
-  const baseB = pxB[0]
-  if (!baseA || !baseB) return null
-  const seriesA = pxA.map(c => (c / baseA) * 100)
-  const seriesB = pxB.map(c => (c / baseB) * 100)
+  const maps = series.map(s => new Map(s.map(p => [p.t, p.c])))
+  const pricesByTime = labels.map(t => maps.map(m => m.get(t)))
+  const bases = pricesByTime[0]
+  if (bases.some(b => !b)) return null
+  const indexed = maps.map((_, assetIdx) =>
+    labels.map((_, ptIdx) => (pricesByTime[ptIdx][assetIdx] / bases[assetIdx]) * 100)
+  )
+  const prices = maps.map((_, assetIdx) =>
+    labels.map((_, ptIdx) => pricesByTime[ptIdx][assetIdx])
+  )
+  const perfs = indexed.map(row => row[row.length - 1] - 100)
   return {
     labels,
-    seriesA,
-    seriesB,
-    perfA: seriesA[seriesA.length - 1] - 100,
-    perfB: seriesB[seriesB.length - 1] - 100,
+    prices,
+    indexed,
+    perfs,
     tStart: labels[0],
     tEnd: labels[labels.length - 1],
-    nA: a.length,
-    nB: b.length,
+    nCandles: series.map(s => s.length),
   }
 }
 
@@ -28584,15 +29061,17 @@ function sigCompareShortLabel(name) {
   return head || t
 }
 
-function sigCompareRenderChart(labels, seriesA, seriesB, nameA, nameB) {
+function sigCompareFmtIndex(n) {
+  if (!isFinite(n)) return '—'
+  return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 3 })
+}
+
+function sigCompareRenderChart(aligned, assets) {
   const ctx = document.getElementById('sigCompareChart')
   if (!ctx || typeof Chart === 'undefined') return
   sigCompareDestroyChart()
-  const colorA = hsVar('accent') || '#6ee7ff'
-  const colorB = hsVar('warning-brand') || '#fbbf24'
-  const lblA = sigCompareShortLabel(nameA)
-  const lblB = sigCompareShortLabel(nameB)
-  const lbl = labels.map(t => {
+  _sigCompareChartMeta = { labels: aligned.labels, prices: aligned.prices, assets }
+  const lbl = aligned.labels.map(t => {
     try { return new Date(t).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit' }) }
     catch { return String(t) }
   })
@@ -28600,32 +29079,18 @@ function sigCompareRenderChart(labels, seriesA, seriesB, nameA, nameB) {
     type: 'line',
     data: {
       labels: lbl,
-      datasets: [
-        {
-          label: lblA,
-          data: seriesA,
-          borderColor: colorA,
-          backgroundColor: colorA + '22',
-          borderWidth: 2.5,
-          tension: 0.15,
-          pointRadius: 0,
-          pointHoverRadius: 5,
-          pointHoverBackgroundColor: colorA,
-          pointHoverBorderColor: '#0d1117',
-        },
-        {
-          label: lblB,
-          data: seriesB,
-          borderColor: colorB,
-          backgroundColor: colorB + '22',
-          borderWidth: 2.5,
-          tension: 0.15,
-          pointRadius: 0,
-          pointHoverRadius: 5,
-          pointHoverBackgroundColor: colorB,
-          pointHoverBorderColor: '#0d1117',
-        },
-      ],
+      datasets: assets.map((a, i) => ({
+        label: a.short,
+        data: aligned.indexed[i],
+        borderColor: a.color,
+        backgroundColor: a.color + '22',
+        borderWidth: 2.5,
+        tension: 0.15,
+        pointRadius: 0,
+        pointHoverRadius: 5,
+        pointHoverBackgroundColor: a.color,
+        pointHoverBorderColor: '#0d1117',
+      })),
     },
     options: {
       responsive: true,
@@ -28637,9 +29102,40 @@ function sigCompareRenderChart(labels, seriesA, seriesB, nameA, nameB) {
           labels: { color: hsVar('muted'), boxWidth: 12, usePointStyle: true, pointStyle: 'line' },
         },
         tooltip: {
+          backgroundColor: 'rgba(0,0,0,0.92)',
+          titleColor: '#fff',
+          bodyColor: '#e6edf3',
+          borderColor: 'rgba(255,255,255,.08)',
+          borderWidth: 1,
+          padding: 10,
+          titleFont: { weight: '700', size: 12 },
+          bodyFont: { family: "'JetBrains Mono', monospace", size: 11 },
           callbacks: {
+            title(items) {
+              const i = items[0]?.dataIndex
+              const ts = _sigCompareChartMeta?.labels?.[i]
+              if (!ts) return ''
+              try {
+                return new Date(ts).toLocaleString(undefined, {
+                  day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+                })
+              } catch { return '' }
+            },
+            label(ctx) {
+              const i = ctx.dataIndex
+              const assetIdx = ctx.datasetIndex
+              const meta = _sigCompareChartMeta
+              const idx = ctx.parsed.y
+              const perf = idx - 100
+              const raw = meta?.prices?.[assetIdx]?.[i]
+              const refPx = meta?.prices?.[assetIdx]?.[0]
+              const idxStr = sigCompareFmtIndex(idx)
+              const perfStr = typeof sigFmtPct === 'function' ? sigFmtPct(perf, true) : ((perf >= 0 ? '+' : '') + perf.toFixed(2) + '%')
+              const pxStr = typeof sigFmtPriceUsd === 'function' ? sigFmtPriceUsd(raw, refPx) : String(raw)
+              return ` ${ctx.dataset.label}: ${pxStr} · ${idxStr} (${perfStr})`
+            },
             labelColor(ctx) {
-              const c = ctx.datasetIndex === 0 ? colorA : colorB
+              const c = _sigCompareChartMeta?.assets?.[ctx.datasetIndex]?.color || '#6ee7ff'
               return { borderColor: c, backgroundColor: c, borderWidth: 2 }
             },
           },
@@ -28654,20 +29150,17 @@ function sigCompareRenderChart(labels, seriesA, seriesB, nameA, nameB) {
 }
 
 async function sigCompareRun() {
-  const selA = document.getElementById('sigCompareSelectA')
-  const selB = document.getElementById('sigCompareSelectB')
   const statusEl = document.getElementById('sigCompareStatus')
   const summaryEl = document.getElementById('sigCompareSummary')
   const btn = document.getElementById('sigCompareRunBtn')
-  const va = selA?.value
-  const vb = selB?.value
+  const values = _sigCompareSlotValues.filter(Boolean)
   const period = document.getElementById('sigComparePeriod')?.value || '7d'
-  if (!va || !vb) {
-    if (statusEl) statusEl.textContent = 'Sélectionnez deux actifs.'
+  if (values.length < SIG_COMPARE_MIN) {
+    if (statusEl) statusEl.textContent = typeof t === 'function' ? t('sig.compareMinAssets') : 'Sélectionnez au moins deux actifs.'
     return
   }
-  if (va === vb) {
-    if (statusEl) statusEl.textContent = 'Choisissez deux actifs différents.'
+  if (new Set(values).size !== values.length) {
+    if (statusEl) statusEl.textContent = typeof t === 'function' ? t('sig.compareDupAssets') : 'Chaque actif ne peut être sélectionné qu\'une fois.'
     return
   }
   const cfgMap = {
@@ -28680,46 +29173,53 @@ async function sigCompareRun() {
     '730d': { interval: '1d', ms: 730 * 24 * 3600000 },
   }
   const cfg = cfgMap[period] || cfgMap['7d']
-  const a = sigCompareParseValue(va)
-  const b = sigCompareParseValue(vb)
-  const nameA = selA?.selectedOptions?.[0]?.textContent?.replace(/^\[[^\]]+\]\s*/, '') || a.coin
-  const nameB = selB?.selectedOptions?.[0]?.textContent?.replace(/^\[[^\]]+\]\s*/, '') || b.coin
+  const colors = sigCompareColors()
+  const assets = values.map((v, idx) => {
+    const parsed = sigCompareParseValue(v)
+    const opt = (_sigCompareCatalogOpts || []).find(o => o.value === v)
+    const name = opt?.label || parsed.coin
+    return { ...parsed, name, short: sigCompareShortLabel(name), color: colors[idx % colors.length], value: v }
+  })
   const start = Date.now() - cfg.ms
   if (statusEl) statusEl.textContent = 'Chargement des chandeliers…'
   if (btn) btn.disabled = true
   try {
-    const [rawA, rawB] = await Promise.all([
-      fetchSigCandles(a.coin, cfg.interval, start, a.mode),
-      new Promise(r => setTimeout(r, SIG_ANALYSIS_CANDLE_GAP_MS)).then(() => fetchSigCandles(b.coin, cfg.interval, start, b.mode)),
-    ])
-    const aligned = sigCompareAlignAndIndex(rawA, rawB)
+    const raws = []
+    for (let i = 0; i < assets.length; i++) {
+      if (i > 0) await new Promise(r => setTimeout(r, SIG_ANALYSIS_CANDLE_GAP_MS))
+      raws.push(await fetchSigCandles(assets[i].coin, cfg.interval, start, assets[i].mode))
+    }
+    const aligned = sigCompareAlignMulti(raws)
     if (!aligned) {
-      if (statusEl) statusEl.textContent = 'Données insuffisantes ou pas assez de dates communes entre les deux actifs.'
+      if (statusEl) statusEl.textContent = 'Données insuffisantes ou pas assez de dates communes entre les actifs.'
       sigCompareDestroyChart()
       if (summaryEl) summaryEl.innerHTML = ''
       return
     }
-    const perfA = aligned.perfA
-    const perfB = aligned.perfB
-    const winner = perfA > perfB ? 'A' : perfA < perfB ? 'B' : 'tie'
     const fmtPct = (x) => (x >= 0 ? '+' : '') + x.toFixed(2) + '%'
+    const winnerIdx = aligned.perfs.reduce((best, p, i) => (p > aligned.perfs[best] ? i : best), 0)
+    const hasWinner = aligned.perfs.some((p, i) => i !== winnerIdx && p !== aligned.perfs[winnerIdx])
     if (summaryEl) {
-      summaryEl.innerHTML = `
-        <div class="sig-compare-kpi sig-compare-kpi--a${winner === 'A' ? ' winner' : ''}"><div class="lbl">${escSigHtml(sigCompareShortLabel(nameA))}</div><div class="val" style="color:${perfA >= 0 ? 'var(--success)' : 'var(--danger)'}">${fmtPct(perfA)}</div></div>
-        <div class="sig-compare-kpi sig-compare-kpi--b${winner === 'B' ? ' winner' : ''}"><div class="lbl">${escSigHtml(sigCompareShortLabel(nameB))}</div><div class="val" style="color:${perfB >= 0 ? 'var(--success)' : 'var(--danger)'}">${fmtPct(perfB)}</div></div>
-        <div class="sig-compare-kpi"><div class="lbl">Écart</div><div class="val">${fmtPct(perfA - perfB)}</div></div>
-        <div class="sig-compare-kpi"><div class="lbl">Meilleur</div><div class="val">${winner === 'tie' ? '—' : escSigHtml(sigCompareShortLabel(winner === 'A' ? nameA : nameB))}</div></div>`
+      const kpis = assets.map((a, i) => `
+        <div class="sig-compare-kpi${hasWinner && i === winnerIdx ? ' winner' : ''}" style="border-left-color:${a.color}">
+          <div class="lbl">${escSigHtml(a.short)}</div>
+          <div class="val" style="color:${aligned.perfs[i] >= 0 ? 'var(--success)' : 'var(--danger)'}">${fmtPct(aligned.perfs[i])}</div>
+        </div>`).join('')
+      const spread = Math.max(...aligned.perfs) - Math.min(...aligned.perfs)
+      summaryEl.innerHTML = kpis + `
+        <div class="sig-compare-kpi"><div class="lbl">Meilleur</div><div class="val">${hasWinner ? escSigHtml(assets[winnerIdx].short) : '—'}</div></div>
+        <div class="sig-compare-kpi"><div class="lbl">Écart max</div><div class="val">${fmtPct(spread)}</div></div>`
     }
-    sigCompareRenderChart(aligned.labels, aligned.seriesA, aligned.seriesB, nameA, nameB)
+    sigCompareRenderChart(aligned, assets)
     const fmtRange = (ts) => {
       try { return new Date(ts).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) }
       catch { return '' }
     }
     const rangeDays = Math.round((aligned.tEnd - aligned.tStart) / 86400000)
     const reqDays = Math.round(cfg.ms / 86400000)
-    let status = `Comparaison du ${fmtRange(aligned.tStart)} au ${fmtRange(aligned.tEnd)} (${rangeDays} j) · ${aligned.labels.length} points · base 100 au début commun`
+    let status = `Comparaison du ${fmtRange(aligned.tStart)} au ${fmtRange(aligned.tEnd)} (${rangeDays} j) · ${aligned.labels.length} points · ${assets.length} actifs · base 100 au début commun`
     if (rangeDays < reqDays * 0.85) {
-      status += ` · historique limité (demandé ~${reqDays} j, A:${aligned.nA} / B:${aligned.nB} bougies)`
+      status += ` · historique limité (demandé ~${reqDays} j)`
     }
     if (statusEl) statusEl.textContent = status
   } catch (e) {
