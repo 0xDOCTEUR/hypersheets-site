@@ -2206,6 +2206,23 @@ const HS_CONFIG = {
     #page-wallet .hs-wallet-table--spot {
       min-width: 720px;
     }
+    #page-wallet .hs-wallet-table--perp {
+      min-width: 640px;
+    }
+    #page-wallet .hs-wallet-table--perp col.wallet-col-side { width: 76px; }
+    #page-wallet .hs-wallet-table--perp col.wallet-col-asset { width: 16%; }
+    #page-wallet .hs-wallet-table--perp col.wallet-col-wallet { width: 11%; }
+    #page-wallet .hs-wallet-table--perp col.wallet-col-dex { width: 10%; }
+    #page-wallet .hs-wallet-table--perp col.wallet-col-size { width: 14%; }
+    #page-wallet .hs-wallet-table--perp col.wallet-col-pnl { width: 22%; }
+    #page-wallet .hs-wallet-table--perp col.wallet-col-lev { width: 10%; }
+    #page-wallet .hs-wallet-table--spot col.wallet-col-asset { width: 22%; }
+    #page-wallet .hs-wallet-table--spot col.wallet-col-wallet { width: 10%; }
+    #page-wallet .hs-wallet-table--spot col.wallet-col-size { width: 17%; }
+    #page-wallet .hs-wallet-table--spot col.wallet-col-px { width: 15%; }
+    #page-wallet .hs-wallet-table--spot col.wallet-col-avail { width: 16%; }
+    #page-wallet .hs-wallet-table--spot col.wallet-col-hold { width: 14%; }
+    #page-wallet .hs-wallet-table--spot col.wallet-col-val { width: 18%; }
     #page-wallet .hs-wallet-table th {
       font-size: .68rem;
       font-weight: 600;
@@ -2229,14 +2246,10 @@ const HS_CONFIG = {
     #page-wallet .hs-wallet-table--spot th.wallet-th-asset,
     #page-wallet .hs-wallet-table--spot td.wallet-td-asset {
       text-align: left;
-      width: 20%;
-      max-width: 0;
     }
     #page-wallet .hs-wallet-table--spot.has-wallet-col th.wallet-th-wallet,
     #page-wallet .hs-wallet-table--spot.has-wallet-col td.wallet-td-wallet {
       text-align: left;
-      width: 9%;
-      max-width: 0;
       font-size: .72rem;
     }
     #page-wallet .hs-wallet-table--spot th.wallet-th-size,
@@ -2253,26 +2266,35 @@ const HS_CONFIG = {
       text-align: right;
       white-space: nowrap;
     }
-    #page-wallet .hs-wallet-table--spot:not(.has-wallet-col) th.wallet-th-size,
-    #page-wallet .hs-wallet-table--spot:not(.has-wallet-col) td.wallet-td-size { width: 17%; }
-    #page-wallet .hs-wallet-table--spot:not(.has-wallet-col) th.wallet-th-px,
-    #page-wallet .hs-wallet-table--spot:not(.has-wallet-col) td.wallet-td-px { width: 15%; }
-    #page-wallet .hs-wallet-table--spot:not(.has-wallet-col) th.wallet-th-avail,
-    #page-wallet .hs-wallet-table--spot:not(.has-wallet-col) td.wallet-td-avail { width: 16%; }
-    #page-wallet .hs-wallet-table--spot:not(.has-wallet-col) th.wallet-th-hold,
-    #page-wallet .hs-wallet-table--spot:not(.has-wallet-col) td.wallet-td-hold { width: 14%; }
-    #page-wallet .hs-wallet-table--spot:not(.has-wallet-col) th.wallet-th-val,
-    #page-wallet .hs-wallet-table--spot:not(.has-wallet-col) td.wallet-td-val { width: 18%; }
-    #page-wallet .hs-wallet-table--spot.has-wallet-col th.wallet-th-size,
-    #page-wallet .hs-wallet-table--spot.has-wallet-col td.wallet-td-size { width: 15%; }
-    #page-wallet .hs-wallet-table--spot.has-wallet-col th.wallet-th-px,
-    #page-wallet .hs-wallet-table--spot.has-wallet-col td.wallet-td-px { width: 13%; }
-    #page-wallet .hs-wallet-table--spot.has-wallet-col th.wallet-th-avail,
-    #page-wallet .hs-wallet-table--spot.has-wallet-col td.wallet-td-avail { width: 14%; }
-    #page-wallet .hs-wallet-table--spot.has-wallet-col th.wallet-th-hold,
-    #page-wallet .hs-wallet-table--spot.has-wallet-col td.wallet-td-hold { width: 12%; }
-    #page-wallet .hs-wallet-table--spot.has-wallet-col th.wallet-th-val,
-    #page-wallet .hs-wallet-table--spot.has-wallet-col td.wallet-td-val { width: 17%; }
+    #page-wallet .hs-wallet-table--perp th.wallet-th-side,
+    #page-wallet .hs-wallet-table--perp td.wallet-td-side {
+      text-align: left;
+      white-space: nowrap;
+    }
+    #page-wallet .hs-wallet-table--perp th.wallet-th-asset,
+    #page-wallet .hs-wallet-table--perp td.wallet-td-asset {
+      text-align: left;
+    }
+    #page-wallet .hs-wallet-table--perp th.wallet-th-wallet,
+    #page-wallet .hs-wallet-table--perp td.wallet-td-wallet {
+      text-align: left;
+      font-size: .72rem;
+      color: var(--muted);
+    }
+    #page-wallet .hs-wallet-table--perp th.wallet-th-dex,
+    #page-wallet .hs-wallet-table--perp td.wallet-td-dex {
+      text-align: left;
+      color: var(--muted);
+    }
+    #page-wallet .hs-wallet-table--perp th.wallet-th-size,
+    #page-wallet .hs-wallet-table--perp td.wallet-td-size,
+    #page-wallet .hs-wallet-table--perp th.wallet-th-pnl,
+    #page-wallet .hs-wallet-table--perp td.wallet-td-pnl,
+    #page-wallet .hs-wallet-table--perp th.wallet-th-lev,
+    #page-wallet .hs-wallet-table--perp td.wallet-td-lev {
+      text-align: right;
+      white-space: nowrap;
+    }
     #page-wallet .hs-wallet-table tbody tr:hover td {
       background: rgba(151, 252, 228, .03);
     }
@@ -9469,6 +9491,7 @@ const I18N = {
     'wallet.col.asset': 'Pair',
     'wallet.col.wallet': 'Wallet',
     'wallet.col.size': 'Balance (tokens)',
+    'wallet.col.perpSize': 'Size',
     'wallet.col.price': 'HL mark ($/unit)',
     'wallet.col.value': 'Value (mark)',
     'wallet.col.available': 'Free',
@@ -10068,6 +10091,7 @@ const I18N = {
     'wallet.col.asset': 'Paire',
     'wallet.col.wallet': 'Wallet',
     'wallet.col.size': 'Solde (tokens)',
+    'wallet.col.perpSize': 'Taille',
     'wallet.col.price': 'Mark HL ($/unité)',
     'wallet.col.value': 'Valeur (mark)',
     'wallet.col.available': 'Libre',
@@ -14583,10 +14607,25 @@ function isWalletPageActive() {
     || !!document.getElementById('page-wallet')?.classList.contains('active');
 }
 
+function walletPerpColgroup(showWalletCol) {
+  const cols = ['<col class="wallet-col-side">', '<col class="wallet-col-asset">'];
+  if (showWalletCol) cols.push('<col class="wallet-col-wallet">');
+  cols.push('<col class="wallet-col-dex">', '<col class="wallet-col-size">', '<col class="wallet-col-pnl">', '<col class="wallet-col-lev">');
+  return `<colgroup>${cols.join('')}</colgroup>`;
+}
+
+function walletSpotColgroup(showWalletCol) {
+  const cols = ['<col class="wallet-col-asset">'];
+  if (showWalletCol) cols.push('<col class="wallet-col-wallet">');
+  cols.push('<col class="wallet-col-size">', '<col class="wallet-col-px">', '<col class="wallet-col-avail">', '<col class="wallet-col-hold">', '<col class="wallet-col-val">');
+  return `<colgroup>${cols.join('')}</colgroup>`;
+}
+
 function renderWalletPage() {
   if (!isWalletPageActive()) return;
   syncWalletDustControls();
   const addrs = getWalletPageAddresses();
+  const showWalletCol = addrs.length > 1;
   renderWalletViewBar();
   const hideDust = walletHideDustEnabled();
   const dustMin = walletDustThresholdUsd();
@@ -14617,13 +14656,13 @@ function renderWalletPage() {
       const lev = pos.leverage?.value ? `${pos.leverage.value}x` : '—';
       const coinLbl = pos.coin?.startsWith('xyz:') ? (xyzMetaMap[pos.coin] || pos.coin.slice(4)) : (pos.coin || '—');
       perpRows.push(`<tr>
-        <td><span class="${isLong ? 'tag-long' : 'tag-short'}">${isLong ? 'LONG' : 'SHORT'}</span></td>
-        <td class="font-medium">${coinLbl}</td>
-        <td class="mono" style="color:var(--muted);font-size:.75rem">${truncAddr(w)}</td>
-        <td class="mono" style="color:var(--muted)">${pos._dex || 'HL'}</td>
-        <td class="text-right mono">${Math.abs(szi).toFixed(4)}</td>
-        <td class="text-right ${pnlClass} font-semibold">${pnl !== 0 ? fmtPnl(pnl) : '—'}</td>
-        <td class="text-right mono" style="color:var(--muted)">${lev}</td>
+        <td class="wallet-td-side"><span class="${isLong ? 'tag-long' : 'tag-short'}">${isLong ? 'LONG' : 'SHORT'}</span></td>
+        <td class="font-medium wallet-td-asset">${coinLbl}</td>
+        ${showWalletCol ? `<td class="mono wallet-td-wallet">${truncAddr(w)}</td>` : ''}
+        <td class="mono wallet-td-dex">${pos._dex || 'HL'}</td>
+        <td class="text-right mono wallet-td-size">${Math.abs(szi).toFixed(4)}</td>
+        <td class="text-right ${pnlClass} font-semibold wallet-td-pnl">${pnl !== 0 ? fmtPnl(pnl) : '—'}</td>
+        <td class="text-right mono wallet-td-lev">${lev}</td>
       </tr>`);
     }
   }
@@ -14655,11 +14694,10 @@ function renderWalletPage() {
     if (!perpRows.length) {
       perpWrap.innerHTML = `<p class="text-sm" style="color:var(--muted)">${emptyMsg}</p>`;
     } else {
-      const showWalletCol = addrs.length > 1;
-      perpWrap.innerHTML = `<table class="hs-wallet-table"><thead><tr>
-        <th></th><th>${t('wallet.col.asset')}</th>${showWalletCol ? `<th>${t('wallet.col.wallet')}</th>` : ''}
-        <th>${t('wallet.col.dex')}</th><th class="text-right">${t('wallet.col.size')}</th>
-        <th class="text-right">${t('wallet.col.unrealized')}</th><th class="text-right">${t('wallet.col.leverage')}</th>
+      perpWrap.innerHTML = `<table class="hs-wallet-table hs-wallet-table--perp">${walletPerpColgroup(showWalletCol)}<thead><tr>
+        <th class="wallet-th-side"></th><th class="wallet-th-asset">${escWalletHtml(t('wallet.col.asset'))}</th>${showWalletCol ? `<th class="wallet-th-wallet">${escWalletHtml(t('wallet.col.wallet'))}</th>` : ''}
+        <th class="wallet-th-dex">${escWalletHtml(t('wallet.col.dex'))}</th><th class="wallet-th-size">${escWalletHtml(t('wallet.col.perpSize'))}</th>
+        <th class="wallet-th-pnl">${escWalletHtml(t('wallet.col.unrealized'))}</th><th class="wallet-th-lev">${escWalletHtml(t('wallet.col.leverage'))}</th>
       </tr></thead><tbody>${perpRows.join('')}</tbody></table>`;
     }
   }
@@ -14681,7 +14719,6 @@ function renderWalletPage() {
       spotWrap.innerHTML = `<p class="text-sm" style="color:var(--muted)">${t('wallet.spotHidden').replace('{n}', String(spotHiddenCount))}</p>`;
     } else {
       spotRows.sort((a, b) => b.usd - a.usd);
-      const showWalletCol = addrs.length > 1;
       const spotColCount = showWalletCol ? 7 : 6;
       const spotFootCols = spotColCount - 1;
       const spotTableCls = `hs-wallet-table hs-wallet-table--spot${showWalletCol ? ' has-wallet-col' : ''}`;
@@ -14711,7 +14748,7 @@ function renderWalletPage() {
         ? `<tr><td colspan="${spotFootCols}" class="wallet-val-muted wallet-td-foot" style="font-size:.72rem;text-align:left">${escWalletHtml(t('wallet.spot.totalVisible'))}</td><td class="mono wallet-val-strong wallet-td-val">${fmtUsd(spotVisibleUsd)}</td></tr>`
         : '';
       const footAll = `<tr><td colspan="${spotFootCols}" class="wallet-td-foot" style="font-size:.72rem;color:var(--muted);text-align:left">${escWalletHtml(t('wallet.spot.priceSrc'))}</td><td class="mono wallet-val-strong wallet-td-val">${fmtUsd(spotUsd)}</td></tr>`;
-      spotWrap.innerHTML = `<div class="wallet-spot-table-scroll"><table class="${spotTableCls}"><thead><tr>
+      spotWrap.innerHTML = `<div class="wallet-spot-table-scroll"><table class="${spotTableCls}">${walletSpotColgroup(showWalletCol)}<thead><tr>
         <th class="wallet-th-asset">${escWalletHtml(t('wallet.col.asset'))}</th>${showWalletCol ? `<th class="wallet-th-wallet">${escWalletHtml(t('wallet.col.wallet'))}</th>` : ''}
         <th class="wallet-th-size">${escWalletHtml(t('wallet.col.size'))}</th>
         <th class="wallet-th-px">${escWalletHtml(t('wallet.col.price'))}</th>
