@@ -1,0 +1,14 @@
+    [data-theme="light"] #sidebar .nav-tab[data-tab="variational"].active {
+      color: #4c9af8;
+      background: rgba(76, 154, 248, .12);
+    }
+    [data-theme="light"] #navTabs .nav-tab[data-tab="variational"].active {
+      color: #4c9af8;
+    }
+    #page-variational { --var-accent: #4c9af8; }
+    #sidebar .nav-tab[data-tab="variational"].active {
+      color: #4c9af8;
+      background: rgba(76, 154, 248, .1);
+    }
+    #navTabs .nav-tab[data-tab="variational"].active { color: #4c9af8; }
+    body[data-page="variational"] { --accent: #4c9af8; --accent-soft: rgba(76, 154, 248, .12); }

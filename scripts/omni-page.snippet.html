@@ -1,0 +1,98 @@
+<!-- PAGE : VARIATIONAL OMNI                                          -->
+  <!-- --------------------------------------------------------------- -->
+  <section id="page-variational" class="page">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+      <div class="kpi kpi-accent"><div class="kpi-label" data-i18n="var.kpiVol">Omni volume</div><div class="kpi-val" id="varKpiVol">—</div><div class="kpi-sub" id="varKpiVolSub">24h</div></div>
+      <div class="kpi"><div class="kpi-label" data-i18n="var.kpiTvl">TVL</div><div class="kpi-val" id="varKpiTvl">—</div><div class="kpi-sub" id="varKpiTvlSub"></div></div>
+      <div class="kpi"><div class="kpi-label" data-i18n="var.kpiOi">Open interest</div><div class="kpi-val" id="varKpiOi">—</div><div class="kpi-sub" id="varKpiOiSub"></div></div>
+      <div class="kpi"><div class="kpi-label" data-i18n="var.kpiMkts">Markets</div><div class="kpi-val" id="varKpiMkts">—</div><div class="kpi-sub" id="varKpiMktsSub"></div></div>
+    </div>
+    <p class="hl-vol-hint mb-4" style="margin-top:0">
+      <span data-i18n="var.hint">Public Omni stats + manual hedge leg vs Hyperliquid · import portfolio CSV from</span>
+      <a href="https://omni.variational.io" target="_blank" rel="noopener" style="color:var(--var-accent,#4c9af8);margin-left:4px">omni.variational.io</a>
+    </p>
+
+    <div class="surface overflow-hidden mb-6">
+      <div class="px-5 py-3 border-b flex items-center justify-between flex-wrap gap-3" style="border-color:var(--border)">
+        <div style="display:flex;gap:4px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:4px">
+          <span class="var-sub-tab active" data-varsub="radar" onclick="varSetSub('radar',this)" style="padding:6px 18px;border-radius:7px;font-size:.82rem;font-weight:600;cursor:pointer;transition:all .18s;background:var(--var-accent,#4c9af8);color:#0b0d14" data-i18n="var.subRadar">Market radar</span>
+          <span class="var-sub-tab" data-varsub="hedge" onclick="varSetSub('hedge',this)" style="padding:6px 18px;border-radius:7px;font-size:.82rem;font-weight:600;cursor:pointer;transition:all .18s;background:transparent;color:var(--muted)" data-i18n="var.subHedge">Delta-neutral</span>
+          <span class="var-sub-tab" data-varsub="activity" onclick="varSetSub('activity',this)" style="padding:6px 18px;border-radius:7px;font-size:.82rem;font-weight:600;cursor:pointer;transition:all .18s;background:transparent;color:var(--muted)" data-i18n="var.subActivity">Activity</span>
+        </div>
+      </div>
+
+      <div class="var-sub-panel" data-varpanel="radar">
+        <div class="px-5 py-3 border-b flex flex-wrap items-center gap-3" style="border-color:var(--border)">
+          <label class="text-sm" style="color:var(--muted)" data-i18n="var.sortLabel">Sort</label>
+          <select id="varRadarSort" onchange="renderVarRadar()" class="hs-select" style="font-size:.82rem;min-width:160px">
+            <option value="funding" data-i18n="var.sortFunding">Funding rate</option>
+            <option value="spread" data-i18n="var.sortSpread">Spread (bps)</option>
+            <option value="volume" data-i18n="var.sortVolume">24h volume</option>
+            <option value="compare" data-i18n="var.sortCompare">Omni vs HL funding</option>
+          </select>
+          <span style="font-size:.75rem;color:var(--muted);margin-left:auto">
+            <span data-i18n="var.updated">Updated</span> <span id="varRadarUpdated" class="mono">—</span>
+          </span>
+        </div>
+        <div class="overflow-x-auto max-h-[min(62vh,680px)] overflow-y-auto hs-table-wrap px-5 py-2" id="varRadarTable"></div>
+      </div>
+
+      <div class="var-sub-panel" data-varpanel="hedge" style="display:none">
+        <div class="px-5 py-4 border-b" style="border-color:var(--border)">
+          <div class="section-h mb-3"><span class="bar" style="background:var(--var-accent,#4c9af8)"></span><span data-i18n="var.hedgeTitle">Manual Omni leg (farming / delta-neutral)</span></div>
+          <p style="font-size:.8rem;color:var(--muted);margin:0 0 12px" data-i18n="var.hedgeDesc">Enter your Variational position; Hyperliquid leg is read from connected wallet positions.</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+            <div>
+              <label class="text-xs" style="color:var(--muted)" data-i18n="var.legTicker">Ticker</label>
+              <input id="varLegTicker" type="text" placeholder="BTC" class="hs-input w-full" style="margin-top:4px;text-transform:uppercase"/>
+            </div>
+            <div>
+              <label class="text-xs" style="color:var(--muted)" data-i18n="var.legSide">Side</label>
+              <select id="varLegSide" class="hs-select w-full" style="margin-top:4px">
+                <option value="short" data-i18n="var.sideShort">Short</option>
+                <option value="long" data-i18n="var.sideLong">Long</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-xs" style="color:var(--muted)" data-i18n="var.legNotional">Notional (USD)</label>
+              <input id="varLegNotional" type="number" min="0" step="any" placeholder="10000" class="hs-input w-full" style="margin-top:4px"/>
+            </div>
+            <div>
+              <label class="text-xs" style="color:var(--muted)" data-i18n="var.legEntry">Entry price (opt.)</label>
+              <input id="varLegEntry" type="number" min="0" step="any" class="hs-input w-full" style="margin-top:4px"/>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button type="button" class="btn btn-ac" onclick="varSaveLegFromForm()" data-i18n="var.saveLeg">Save leg</button>
+            <button type="button" class="btn btn-ghost" onclick="varLegClear()" data-i18n="var.clearLeg">Clear</button>
+          </div>
+        </div>
+        <div class="px-5 py-4" id="varHedgeSummary"></div>
+      </div>
+
+      <div class="var-sub-panel" data-varpanel="activity" style="display:none">
+        <div class="px-5 py-4 border-b" style="border-color:var(--border)">
+          <div class="section-h mb-3"><span class="bar" style="background:var(--var-accent,#4c9af8)"></span><span data-i18n="var.activityTitle">Portfolio activity (CSV)</span></div>
+          <p style="font-size:.8rem;color:var(--muted);margin:0 0 12px" data-i18n="var.csvHint">Import trades + transfers exports from Omni (stored locally in your browser).</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
+            <label class="btn btn-ac" style="cursor:pointer;margin:0">
+              <span data-i18n="var.importCsv">Import CSV</span>
+              <input type="file" accept=".csv,text/csv" multiple style="display:none" onchange="varImportCsvFiles(this)"/>
+            </label>
+            <button type="button" class="btn btn-ghost" onclick="varClearCsv()" data-i18n="var.clearCsv">Clear data</button>
+          </div>
+          <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
+            <div class="card2 p3"><div class="kpi-label" data-i18n="var.actVol">Trade volume</div><div class="kpi-val" id="varActVol" style="font-size:1rem">—</div></div>
+            <div class="card2 p3"><div class="kpi-label" data-i18n="var.actTrades">Trades</div><div class="kpi-val" id="varActTrades" style="font-size:1rem">—</div></div>
+            <div class="card2 p3"><div class="kpi-label" data-i18n="var.actFunding">Funding</div><div class="kpi-val" id="varActFunding" style="font-size:1rem">—</div></div>
+            <div class="card2 p3"><div class="kpi-label" data-i18n="var.actPnl">Realized PnL</div><div class="kpi-val" id="varActPnl" style="font-size:1rem">—</div></div>
+            <div class="card2 p3"><div class="kpi-label" data-i18n="var.actFees">Fees</div><div class="kpi-val" id="varActFees" style="font-size:1rem">—</div></div>
+          </div>
+        </div>
+        <div class="overflow-x-auto max-h-[min(50vh,520px)] overflow-y-auto hs-table-wrap px-5 py-2" id="varActivityTable"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- --------------------------------------------------------------- -->
+  
