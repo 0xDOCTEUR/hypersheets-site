@@ -8774,13 +8774,13 @@ const HS_CONFIG = {
   <!-- --------------------------------------------------------------- -->
   <section id="page-variational" class="page">
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-      <div class="kpi kpi-accent"><div class="kpi-label" data-i18n="var.kpiVol">Omni volume</div><div class="kpi-val" id="varKpiVol">?</div><div class="kpi-sub" id="varKpiVolSub">24h</div></div>
-      <div class="kpi"><div class="kpi-label" data-i18n="var.kpiTvl">TVL</div><div class="kpi-val" id="varKpiTvl">?</div><div class="kpi-sub" id="varKpiTvlSub"></div></div>
-      <div class="kpi"><div class="kpi-label" data-i18n="var.kpiOi">Open interest</div><div class="kpi-val" id="varKpiOi">?</div><div class="kpi-sub" id="varKpiOiSub"></div></div>
-      <div class="kpi"><div class="kpi-label" data-i18n="var.kpiMkts">Markets</div><div class="kpi-val" id="varKpiMkts">?</div><div class="kpi-sub" id="varKpiMktsSub"></div></div>
+      <div class="kpi kpi-accent"><div class="kpi-label" data-i18n="var.kpiVol">Omni volume</div><div class="kpi-val" id="varKpiVol">—</div><div class="kpi-sub" id="varKpiVolSub">24h</div></div>
+      <div class="kpi"><div class="kpi-label" data-i18n="var.kpiTvl">TVL</div><div class="kpi-val" id="varKpiTvl">—</div><div class="kpi-sub" id="varKpiTvlSub"></div></div>
+      <div class="kpi"><div class="kpi-label" data-i18n="var.kpiOi">Open interest</div><div class="kpi-val" id="varKpiOi">—</div><div class="kpi-sub" id="varKpiOiSub"></div></div>
+      <div class="kpi"><div class="kpi-label" data-i18n="var.kpiMkts">Markets</div><div class="kpi-val" id="varKpiMkts">—</div><div class="kpi-sub" id="varKpiMktsSub"></div></div>
     </div>
     <p class="hl-vol-hint mb-4" style="margin-top:0">
-      <span data-i18n="var.hint">Public Omni stats + manual hedge leg vs Hyperliquid ? import portfolio CSV from</span>
+      <span data-i18n="var.hint">Public Omni stats + manual hedge leg vs Hyperliquid · import portfolio CSV from</span>
       <a href="https://omni.variational.io" target="_blank" rel="noopener" style="color:var(--var-accent,#4c9af8);margin-left:4px">omni.variational.io</a>
     </p>
 
@@ -8802,9 +8802,8 @@ const HS_CONFIG = {
             <option value="volume" data-i18n="var.sortVolume">24h volume</option>
             <option value="compare" data-i18n="var.sortCompare">Omni vs HL funding</option>
           </select>
-          <button type="button" class="btn btn-ghost btn-sm" onclick="initVarPage(true)" data-i18n="var.refresh">Refresh</button>
           <span style="font-size:.75rem;color:var(--muted);margin-left:auto">
-            <span data-i18n="var.updated">Updated</span> <span id="varRadarUpdated" class="mono">?</span>
+            <span data-i18n="var.updated">Updated</span> <span id="varRadarUpdated" class="mono">—</span>
           </span>
         </div>
         <div class="overflow-x-auto max-h-[min(62vh,680px)] overflow-y-auto hs-table-wrap px-5 py-2" id="varRadarTable"></div>
@@ -8855,11 +8854,11 @@ const HS_CONFIG = {
             <button type="button" class="btn btn-ghost" onclick="varClearCsv()" data-i18n="var.clearCsv">Clear data</button>
           </div>
           <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
-            <div class="card2 p3"><div class="kpi-label" data-i18n="var.actVol">Trade volume</div><div class="kpi-val" id="varActVol" style="font-size:1rem">?</div></div>
-            <div class="card2 p3"><div class="kpi-label" data-i18n="var.actTrades">Trades</div><div class="kpi-val" id="varActTrades" style="font-size:1rem">?</div></div>
-            <div class="card2 p3"><div class="kpi-label" data-i18n="var.actFunding">Funding</div><div class="kpi-val" id="varActFunding" style="font-size:1rem">?</div></div>
-            <div class="card2 p3"><div class="kpi-label" data-i18n="var.actPnl">Realized PnL</div><div class="kpi-val" id="varActPnl" style="font-size:1rem">?</div></div>
-            <div class="card2 p3"><div class="kpi-label" data-i18n="var.actFees">Fees</div><div class="kpi-val" id="varActFees" style="font-size:1rem">?</div></div>
+            <div class="card2 p3"><div class="kpi-label" data-i18n="var.actVol">Trade volume</div><div class="kpi-val" id="varActVol" style="font-size:1rem">—</div></div>
+            <div class="card2 p3"><div class="kpi-label" data-i18n="var.actTrades">Trades</div><div class="kpi-val" id="varActTrades" style="font-size:1rem">—</div></div>
+            <div class="card2 p3"><div class="kpi-label" data-i18n="var.actFunding">Funding</div><div class="kpi-val" id="varActFunding" style="font-size:1rem">—</div></div>
+            <div class="card2 p3"><div class="kpi-label" data-i18n="var.actPnl">Realized PnL</div><div class="kpi-val" id="varActPnl" style="font-size:1rem">—</div></div>
+            <div class="card2 p3"><div class="kpi-label" data-i18n="var.actFees">Fees</div><div class="kpi-val" id="varActFees" style="font-size:1rem">—</div></div>
           </div>
         </div>
         <div class="overflow-x-auto max-h-[min(50vh,520px)] overflow-y-auto hs-table-wrap px-5 py-2" id="varActivityTable"></div>
@@ -9491,12 +9490,12 @@ const I18N = {
     'tab.tradexyz': 'Trade XYZ',
     'tab.hyperunit': 'HyperUnit',
     'tab.variational': 'Omni',
-    'loading': 'Loading?',
+    'loading': 'Loading…',
     'var.kpiVol': 'Omni volume',
     'var.kpiTvl': 'TVL',
     'var.kpiOi': 'Open interest',
     'var.kpiMkts': 'Markets',
-    'var.hint': 'Public Omni stats + manual hedge leg vs Hyperliquid ? import portfolio CSV from',
+    'var.hint': 'Public Omni stats + manual hedge leg vs Hyperliquid · import portfolio CSV from',
     'var.subRadar': 'Market radar',
     'var.subHedge': 'Delta-neutral',
     'var.subActivity': 'Activity',
@@ -9531,9 +9530,9 @@ const I18N = {
     'var.noData': 'No data',
     'var.noCompare': 'No comparable markets (min $50k vol + HL listing)',
     'var.hedgeEmpty': 'Save an Omni leg to compare with your Hyperliquid position.',
-    'var.driftWarn': 'Delta drift &gt; 5% ? rebalance or resize legs.',
+    'var.driftWarn': 'Delta drift &gt; 5% — rebalance or resize legs.',
     'var.hedgeHint': 'Target: opposite side on HL with similar notional for funding farming.',
-    'var.legInvalid': 'Invalid leg ? ticker and notional required.',
+    'var.legInvalid': 'Invalid leg — ticker and notional required.',
     'var.legSaved': 'Omni leg saved',
     'var.legCleared': 'Omni leg cleared',
     'var.csvEmpty': 'Import Omni portfolio CSV (trades + transfers) for an activity overview.',
@@ -10026,7 +10025,7 @@ const I18N = {
     'welcome.tag.multi': 'Agr?gation',
     'welcome.cta': 'Ajouter votre wallet pour commencer',
     'welcome.hint': 'Lecture seule ? 100% local ? Aucune cl? API requise',
-    'btn.load': 'Rafra?chir',
+    'btn.load': 'Rafraîchir',
     'btn.wallets': 'Wallets',
     'btn.share': 'Partager',
     'wallets.active': 'Wallets actifs :',
@@ -10091,54 +10090,53 @@ const I18N = {
     'tab.tradexyz': 'Trade XYZ',
     'tab.hyperunit': 'HyperUnit',
     'tab.variational': 'Omni',
-    'loading': 'Chargement?',
+    'loading': 'Chargement…',
     'var.kpiVol': 'Volume Omni',
     'var.kpiTvl': 'TVL',
     'var.kpiOi': 'Open interest',
-    'var.kpiMkts': 'March?s',
-    'var.hint': 'Stats publiques Omni + jambe manuelle vs Hyperliquid ? import CSV portfolio depuis',
-    'var.subRadar': 'Radar march?',
+    'var.kpiMkts': 'Marchés',
+    'var.hint': 'Stats publiques Omni + jambe manuelle vs Hyperliquid · import CSV portfolio depuis',
+    'var.subRadar': 'Radar marché',
     'var.subHedge': 'Delta-neutral',
-    'var.subActivity': 'Activit?',
+    'var.subActivity': 'Activité',
     'var.sortLabel': 'Tri',
     'var.sortFunding': 'Funding',
     'var.sortSpread': 'Spread (bps)',
     'var.sortVolume': 'Volume 24h',
     'var.sortCompare': 'Funding Omni vs HL',
-    'var.refresh': 'Rafra?chir',
-    'var.updated': 'M?j',
+    'var.updated': 'Màj',
     'var.hedgeTitle': 'Jambe Omni manuelle (farming / delta-neutral)',
-    'var.hedgeDesc': 'Saisis ta position Variational ; la jambe HL est lue depuis les positions du wallet connect?.',
+    'var.hedgeDesc': 'Saisis ta position Variational ; la jambe HL est lue depuis les positions du wallet connecté.',
     'var.legTicker': 'Ticker',
     'var.legSide': 'Sens',
     'var.legNotional': 'Notionnel (USD)',
-    'var.legEntry': 'Prix d\'entr?e (opt.)',
+    'var.legEntry': 'Prix d\'entrée (opt.)',
     'var.sideShort': 'Short',
     'var.sideLong': 'Long',
     'var.saveLeg': 'Enregistrer',
     'var.clearLeg': 'Effacer',
-    'var.activityTitle': 'Activit? portfolio (CSV)',
-    'var.csvHint': 'Importe les exports trades + transfers Omni (stock?s localement dans le navigateur).',
+    'var.activityTitle': 'Activité portfolio (CSV)',
+    'var.csvHint': 'Importe les exports trades + transfers Omni (stockés localement dans le navigateur).',
     'var.importCsv': 'Importer CSV',
-    'var.clearCsv': 'Effacer les donn?es',
+    'var.clearCsv': 'Effacer les données',
     'var.actVol': 'Volume trades',
     'var.actTrades': 'Trades',
     'var.actFunding': 'Funding',
-    'var.actPnl': 'PnL r?alis?',
+    'var.actPnl': 'PnL réalisé',
     'var.actFees': 'Frais',
     'var.lossRefund': 'Remboursement pertes 24h',
     'var.apiError': 'Erreur API Omni',
-    'var.noData': 'Aucune donn?e',
-    'var.noCompare': 'Pas de march?s comparables (vol min. 50 k$ + listing HL)',
-    'var.hedgeEmpty': 'Enregistre une jambe Omni pour la comparer ? ta position Hyperliquid.',
-    'var.driftWarn': 'D?rive delta &gt; 5 % ? r??quilibre ou ajuste les jambes.',
-    'var.hedgeHint': 'Objectif : sens oppos? sur HL avec un notionnel similaire pour le farming de funding.',
-    'var.legInvalid': 'Jambe invalide ? ticker et notionnel requis.',
-    'var.legSaved': 'Jambe Omni enregistr?e',
-    'var.legCleared': 'Jambe Omni effac?e',
+    'var.noData': 'Aucune donnée',
+    'var.noCompare': 'Pas de marchés comparables (vol min. 50 k$ + listing HL)',
+    'var.hedgeEmpty': 'Enregistre une jambe Omni pour la comparer à ta position Hyperliquid.',
+    'var.driftWarn': 'Dérive delta &gt; 5 % — rééquilibre ou ajuste les jambes.',
+    'var.hedgeHint': 'Objectif : sens opposé sur HL avec un notionnel similaire pour le farming de funding.',
+    'var.legInvalid': 'Jambe invalide — ticker et notionnel requis.',
+    'var.legSaved': 'Jambe Omni enregistrée',
+    'var.legCleared': 'Jambe Omni effacée',
     'var.csvEmpty': 'Importe le CSV portfolio Omni (trades + transfers) pour une vue d\'ensemble.',
-    'var.csvImported': 'CSV import?',
-    'var.csvCleared': 'Donn?es CSV effac?es',
+    'var.csvImported': 'CSV importé',
+    'var.csvCleared': 'Données CSV effacées',
     'theme.light': 'Mode clair',
     'theme.dark': 'Mode sombre',
     'theme.toggle': 'Mode clair / sombre',
@@ -12904,6 +12902,10 @@ async function loadAllWallets() {
 }
 
 async function loadDataFromConnect() {
+  if (currentPage === 'variational' && typeof initVarPage === 'function') {
+    await initVarPage(true);
+    return;
+  }
   if (isDemoWalletMode()) {
     activateDemoWalletSession();
     if (isWelcomeMode()) _pendingDashboardReveal = true;

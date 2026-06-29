@@ -112,11 +112,19 @@
     return map;
   }
 
+  /** API funding_rate = % paid per interval (see Variational /metadata/stats docs). */
   function varFundingDailyPct(rate, intervalS) {
     const r = parseFloat(rate || 0);
     const iv = parseFloat(intervalS || 28800);
     if (!isFinite(r) || !isFinite(iv) || iv <= 0) return null;
-    return r * (86400 / iv) * 100;
+    return r * (86400 / iv);
+  }
+  function varFmtMark(px) {
+    const n = parseFloat(px);
+    if (!isFinite(n) || n <= 0) return '—';
+    if (n >= 1000) return n.toLocaleString(varLoc(), { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (n >= 1) return n.toLocaleString(varLoc(), { maximumFractionDigits: 2 });
+    return n.toLocaleString(varLoc(), { maximumFractionDigits: 4 });
   }
   function hlFundingDailyPct(fundingHr) {
     const f = parseFloat(fundingHr || 0);
@@ -353,7 +361,7 @@
       const varD = varFundingDailyPct(L.funding_rate, L.funding_interval_s);
       const hl = hlMap[varHlCoinForTicker(tick)] || hlMap[tick];
       const hlD = hl ? hlFundingDailyPct(hl.fundingHr) : null;
-      let cells = `<td class="font-medium">${tick}</td><td class="text-right mono">${mark > 0 ? mark.toLocaleString(varLoc(), { maximumFractionDigits: 4 }) : '—'}</td>`;
+      let cells = `<td class="font-medium">${tick}</td><td class="text-right mono">${mark > 0 ? varFmtMark(mark) : '—'}</td>`;
       if (mode === 'funding') {
         const diff = varD != null && hlD != null ? varD - hlD : null;
         const diffCls = diff > 0 ? 'color:var(--success)' : diff < 0 ? 'color:var(--danger)' : '';
