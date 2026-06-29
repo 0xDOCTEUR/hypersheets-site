@@ -361,7 +361,57 @@ const HS_CONFIG = {
         [data-theme="light"] #navTabs .nav-tab[data-tab="variational"].active {
           color: #4c9af8;
         }
-        #page-variational { --var-accent: #4c9af8; }
+        #page-variational { --var-accent: #4c9af8; --var-omni: #4c9af8; --var-hl: #5eead4; }
+        .var-hedge-lead { font-size: .84rem; color: var(--muted); line-height: 1.55; margin: 0 0 12px; }
+        .var-hedge-steps { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+        .var-hedge-step { font-size: .72rem; padding: 5px 11px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); color: var(--muted); }
+        .var-hedge-step b { color: var(--text); font-weight: 600; }
+        .var-hedge-grid { display: grid; grid-template-columns: 1fr; gap: 18px; align-items: start; }
+        @media (min-width: 1024px) { .var-hedge-grid { grid-template-columns: minmax(300px, 400px) 1fr; } }
+        .var-hedge-form-card { padding: 16px 18px; border-radius: 12px; }
+        .var-hedge-form-title { font-size: .82rem; font-weight: 600; margin: 0 0 14px; display: flex; align-items: center; gap: 8px; }
+        .var-hedge-form-title::before { content: ''; width: 3px; height: 14px; border-radius: 2px; background: var(--var-omni); }
+        .var-hedge-status { margin-bottom: 14px; font-size: .78rem; }
+        .var-hedge-status-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); }
+        .var-hedge-status-pill.ok { border-color: rgba(46,204,113,.4); color: var(--success); }
+        .var-hedge-status-pill.warn { border-color: rgba(255,193,7,.4); color: var(--warning-brand); }
+        .var-hedge-pill { display: inline-block; font-size: .68rem; font-weight: 700; padding: 3px 9px; border-radius: 6px; letter-spacing: .04em; }
+        .var-hedge-pill-long { background: rgba(46,204,113,.14); color: #3ddc84; }
+        .var-hedge-pill-short { background: rgba(255,107,107,.14); color: #ff6b6b; }
+        .var-hedge-bridge { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: stretch; margin-bottom: 16px; }
+        .var-hedge-leg { border-radius: 12px; padding: 14px 16px; border: 1px solid var(--border); background: var(--surface-2); min-height: 88px; }
+        .var-hedge-leg--omni { border-color: rgba(76,154,248,.4); background: linear-gradient(160deg, rgba(76,154,248,.07), var(--surface-2)); }
+        .var-hedge-leg--hl { border-color: rgba(94,234,212,.35); background: linear-gradient(160deg, rgba(94,234,212,.06), var(--surface-2)); }
+        .var-hedge-leg-label { font-size: .65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; margin-bottom: 8px; }
+        .var-hedge-leg--omni .var-hedge-leg-label { color: var(--var-omni); }
+        .var-hedge-leg--hl .var-hedge-leg-label { color: var(--var-hl); }
+        .var-hedge-leg-val { font-size: 1.05rem; font-weight: 600; line-height: 1.3; margin-bottom: 6px; }
+        .var-hedge-leg-sub { font-size: .74rem; color: var(--muted); line-height: 1.35; }
+        .var-hedge-bridge-mid { display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--muted); font-size: 1.1rem; padding: 0 2px; gap: 4px; }
+        .var-hedge-bridge-mid span { font-size: .6rem; text-transform: uppercase; letter-spacing: .08em; }
+        .var-hedge-hero { text-align: center; padding: 20px 16px; border-radius: 14px; margin-bottom: 14px; background: linear-gradient(135deg, rgba(76,154,248,.1), rgba(94,234,212,.07)); border: 1px solid var(--border); }
+        .var-hedge-hero-label { font-size: .7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+        .var-hedge-hero-val { font-size: 1.75rem; font-weight: 700; line-height: 1.2; }
+        .var-hedge-hero-sub { font-size: .8rem; color: var(--muted); margin-top: 6px; }
+        .var-hedge-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+        .var-hedge-metric { padding: 12px 14px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); }
+        .var-hedge-metric-label { font-size: .68rem; color: var(--muted); margin-bottom: 5px; line-height: 1.3; }
+        .var-hedge-metric-val { font-size: 1.02rem; font-weight: 600; }
+        .var-hedge-drift-track { height: 5px; border-radius: 3px; background: var(--border); margin-top: 8px; overflow: hidden; }
+        .var-hedge-drift-fill { height: 100%; border-radius: 3px; max-width: 100%; }
+        .var-hedge-rec-card { border-radius: 12px; padding: 14px 16px; margin-top: 14px; border: 1px solid rgba(46,204,113,.35); background: linear-gradient(180deg, rgba(46,204,113,.08), transparent); }
+        .var-hedge-rec-card.muted { border-color: var(--border); background: var(--surface-2); }
+        .var-hedge-rec-title { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--success); margin-bottom: 10px; }
+        .var-hedge-rec-bridge { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; margin: 8px 0 10px; font-size: .88rem; }
+        .var-hedge-rec-arrow { color: var(--muted); font-size: 1rem; }
+        .var-hedge-action-card { padding: 14px 16px; border-radius: 12px; border: 1px solid var(--border); border-left: 3px solid var(--var-accent); background: var(--surface-2); }
+        .var-hedge-action-title { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 8px; color: var(--var-accent); }
+        .var-hedge-split-title { font-size: .82rem; font-weight: 600; margin: 0 0 12px; color: var(--muted); }
+        .var-hedge-earn-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+        @media (max-width: 640px) { .var-hedge-earn-grid { grid-template-columns: 1fr; } }
+        .var-hedge-earn-item { padding: 10px; border-radius: 8px; background: var(--surface-1, var(--bg)); border: 1px solid var(--border); text-align: center; }
+        .var-hedge-earn-item strong { display: block; font-size: .85rem; margin-top: 4px; }
+        .var-hedge-earn-item span { font-size: .65rem; color: var(--muted); }
         #sidebar .nav-tab[data-tab="variational"].active {
           color: #4c9af8;
           background: rgba(76, 154, 248, .1);
@@ -9074,44 +9124,58 @@ const HS_CONFIG = {
         <div class="overflow-x-auto max-h-[min(62vh,680px)] overflow-y-auto hs-table-wrap px-5 py-2" id="varRadarTable"></div>
       </div>
 
-      <div class="var-sub-panel" data-varpanel="hedge" style="display:none">
-        <div class="px-5 py-4 border-b" style="border-color:var(--border)">
-          <div class="section-h mb-3"><span class="bar" style="background:var(--var-accent,#4c9af8)"></span><span data-i18n="var.hedgeTitle">Suivi delta-neutre Omni ↔ Hyperliquid</span></div>
-          <p style="font-size:.8rem;color:var(--muted);margin:0 0 10px;line-height:1.45" data-i18n="var.hedgeDesc">Indique ta position sur Variational Omni : Hypersheets compare en direct avec ta jambe Hyperliquid (wallet chargé) et calcule l’écart de delta et de funding.</p>
-          <p id="varHedgeStatus" style="font-size:.78rem;margin:0 0 12px;min-height:1.2em"></p>
-          <div id="varHedgeRec" style="display:none;margin:0 0 14px"></div>
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
-            <div>
-              <label class="text-xs" style="color:var(--muted)" data-i18n="var.legTicker">Actif</label>
-              <input id="varLegTicker" type="text" list="varLegTickerList" placeholder="BTC" class="hs-input w-full" style="margin-top:4px;text-transform:uppercase" autocomplete="off"/>
-              <datalist id="varLegTickerList"></datalist>
-            </div>
-            <div>
-              <label class="text-xs" style="color:var(--muted)" data-i18n="var.legSide">Sens Omni</label>
-              <select id="varLegSide" class="hs-select w-full" style="margin-top:4px">
-                <option value="short" data-i18n="var.sideShort">Short</option>
-                <option value="long" data-i18n="var.sideLong">Long</option>
-              </select>
-            </div>
-            <div>
-              <label class="text-xs" style="color:var(--muted)" data-i18n="var.legNotional">Taille (USD)</label>
-              <input id="varLegNotional" type="number" min="0" step="any" placeholder="10000" class="hs-input w-full" style="margin-top:4px"/>
-            </div>
-            <div>
-              <label class="text-xs" style="color:var(--muted)" data-i18n="var.legEntry">Prix d'entrée (opt.)</label>
-              <input id="varLegEntry" type="number" min="0" step="any" class="hs-input w-full" style="margin-top:4px"/>
-            </div>
+            <div class="var-sub-panel" data-varpanel="hedge" style="display:none">
+        <div class="var-hedge-wrap px-5 py-4">
+          <div class="section-h mb-2"><span class="bar" style="background:var(--var-accent,#4c9af8)"></span><span data-i18n="var.hedgeTitle">Suivi delta-neutre Omni ↔ Hyperliquid</span></div>
+          <p class="var-hedge-lead" data-i18n="var.hedgeDesc">Indique ta position sur Variational Omni : Hypersheets compare en direct avec ta jambe Hyperliquid (wallet chargé) et calcule l'écart de delta et de funding.</p>
+          <div class="var-hedge-steps">
+            <span class="var-hedge-step" data-i18n="var.hedgeStep1"><b>1</b> Saisis ta jambe Omni</span>
+            <span class="var-hedge-step" data-i18n="var.hedgeStep2"><b>2</b> Vérifie la jambe HL</span>
+            <span class="var-hedge-step" data-i18n="var.hedgeStep3"><b>3</b> Farme le funding</span>
           </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button type="button" class="btn btn-ac" onclick="varSaveLegFromForm()" data-i18n="var.saveLeg">Enregistrer</button>
-            <button type="button" class="btn btn-ghost" onclick="varRefreshHlLeg()" data-i18n="var.refreshHl">Rafraîchir jambe HL</button>
-            <button type="button" class="btn btn-ghost" onclick="varLegClear()" data-i18n="var.clearLeg">Effacer</button>
+          <div id="varHedgeStatus" class="var-hedge-status"></div>
+          <div class="var-hedge-grid">
+            <div class="var-hedge-col-form">
+              <div class="card2 var-hedge-form-card">
+                <div class="var-hedge-form-title" data-i18n="var.hedgeFormTitle">Ta position Omni</div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                  <div class="sm:col-span-2">
+                    <label class="text-xs" style="color:var(--muted)" data-i18n="var.legTicker">Actif</label>
+                    <input id="varLegTicker" type="text" list="varLegTickerList" placeholder="XAU, BTC…" class="hs-input w-full" style="margin-top:4px;text-transform:uppercase" autocomplete="off"/>
+                    <datalist id="varLegTickerList"></datalist>
+                  </div>
+                  <div>
+                    <label class="text-xs" style="color:var(--muted)" data-i18n="var.legSide">Sens Omni</label>
+                    <select id="varLegSide" class="hs-select w-full" style="margin-top:4px">
+                      <option value="short" data-i18n="var.sideShort">Short</option>
+                      <option value="long" data-i18n="var.sideLong">Long</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="text-xs" style="color:var(--muted)" data-i18n="var.legNotional">Taille (USD)</label>
+                    <input id="varLegNotional" type="number" min="0" step="any" placeholder="1000" class="hs-input w-full" style="margin-top:4px"/>
+                  </div>
+                  <div class="sm:col-span-2">
+                    <label class="text-xs" style="color:var(--muted)" data-i18n="var.legEntry">Prix d'entrée (opt.)</label>
+                    <input id="varLegEntry" type="number" min="0" step="any" class="hs-input w-full" style="margin-top:4px"/>
+                  </div>
+                </div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                  <button type="button" class="btn btn-ac" onclick="varSaveLegFromForm()" data-i18n="var.saveLeg">Enregistrer</button>
+                  <button type="button" class="btn btn-ghost" onclick="varRefreshHlLeg()" data-i18n="var.refreshHl">Rafraîchir jambe HL</button>
+                  <button type="button" class="btn btn-ghost" onclick="varLegClear()" data-i18n="var.clearLeg">Effacer</button>
+                </div>
+              </div>
+              <div id="varHedgeRec"></div>
+            </div>
+            <div class="var-hedge-col-result">
+              <div id="varHedgeSummary"></div>
+            </div>
           </div>
         </div>
-        <div class="px-5 py-4" id="varHedgeSummary"></div>
       </div>
 
-      <div class="var-sub-panel" data-varpanel="activity" style="display:none">
+<div class="var-sub-panel" data-varpanel="activity" style="display:none">
         <div class="px-5 py-4 border-b" style="border-color:var(--border)">
           <div class="section-h mb-3"><span class="bar" style="background:var(--var-accent,#4c9af8)"></span><span data-i18n="var.activityTitle">Portfolio activity (CSV)</span></div>
           <p style="font-size:.8rem;color:var(--muted);margin:0 0 12px" data-i18n="var.csvHint">Import trades + transfers exports from Omni (stored locally in your browser).</p>
@@ -9793,6 +9857,11 @@ const I18N = {
     'var.updated': 'Updated',
     'var.hedgeTitle': 'Delta-neutral tracker (Omni ↔ Hyperliquid)',
     'var.hedgeDesc': 'Enter your Variational Omni position — Hypersheets compares it live with your Hyperliquid wallet and shows delta + funding gap.',
+    'var.hedgeStep1': '<b>1</b> Enter your Omni leg',
+    'var.hedgeStep2': '<b>2</b> Check HL leg',
+    'var.hedgeStep3': '<b>3</b> Farm funding',
+    'var.hedgeFormTitle': 'Your Omni position',
+    'var.hedgeResultTitle': 'Live comparison',
     'var.legTicker': 'Ticker',
     'var.legSide': 'Side',
     'var.legNotional': 'Notional (USD)',
@@ -9868,6 +9937,11 @@ const I18N = {
     'var.cardFundingGap': 'Funding gap (24h)',
     'var.cardFundingEarn': 'Est. funding / day',
     'var.fundingUsdDay': '≈ {usd} / day on ~{size}',
+    'var.fundingUsdMonth': '~{usd} / month',
+    'var.sizeMatch': 'Size match',
+    'var.earnDeltaShort': 'Aim near $0 — price neutral',
+    'var.earnPrice': 'Price exposure',
+    'var.recNetLine': 'Est. net funding {net} / day on notional',
     'var.earnTitle': 'What you earn (vs price PnL)',
     'var.earnExplain': 'UPnL on each exchange moves with the price — they mostly cancel out when delta-neutral. Funding is paid/received on a schedule; the lines below estimate your net funding on current rates.',
     'var.earnDelta': 'Price exposure (delta net): {usd} — aim near $0',
@@ -10486,6 +10560,11 @@ const I18N = {
     'var.updated': 'Màj',
     'var.hedgeTitle': 'Suivi delta-neutre Omni ↔ Hyperliquid',
     'var.hedgeDesc': 'Indique ta position sur Variational Omni : Hypersheets compare en direct avec ta jambe Hyperliquid (wallet chargé) et calcule l’écart de delta et de funding.',
+    'var.hedgeStep1': '<b>1</b> Saisis ta jambe Omni',
+    'var.hedgeStep2': '<b>2</b> Vérifie la jambe HL',
+    'var.hedgeStep3': '<b>3</b> Farme le funding',
+    'var.hedgeFormTitle': 'Ta position Omni',
+    'var.hedgeResultTitle': 'Comparaison en direct',
     'var.legTicker': 'Actif',
     'var.legSide': 'Sens Omni',
     'var.legNotional': 'Taille (USD)',
@@ -10561,6 +10640,11 @@ const I18N = {
     'var.cardFundingGap': 'Écart funding (24 h)',
     'var.cardFundingEarn': 'Funding estimé / j',
     'var.fundingUsdDay': '≈ {usd} / jour sur ~{size}',
+    'var.fundingUsdMonth': '~{usd} / mois',
+    'var.sizeMatch': 'Alignement tailles',
+    'var.earnDeltaShort': 'Vise ~0 $ — neutre au prix',
+    'var.earnPrice': 'Exposition prix',
+    'var.recNetLine': 'Funding net estimé {net} / j sur le notionnel',
     'var.earnTitle': 'Ce que tu gagnes (vs PnL prix)',
     'var.earnExplain': 'L’UPnL sur chaque exchange bouge avec le prix — ça se compense en delta-neutre. Le funding est versé/prélevé à intervalles réguliers ; les lignes ci-dessous estiment ton funding net aux taux actuels.',
     'var.earnDelta': 'Exposition prix (delta net) : {usd} — vise ~0 $',
