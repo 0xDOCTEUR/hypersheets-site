@@ -9070,6 +9070,7 @@ const HS_CONFIG = {
           <div class="section-h mb-3"><span class="bar" style="background:var(--var-accent,#4c9af8)"></span><span data-i18n="var.hedgeTitle">Suivi delta-neutre Omni ↔ Hyperliquid</span></div>
           <p style="font-size:.8rem;color:var(--muted);margin:0 0 10px;line-height:1.45" data-i18n="var.hedgeDesc">Indique ta position sur Variational Omni : Hypersheets compare en direct avec ta jambe Hyperliquid (wallet chargé) et calcule l’écart de delta et de funding.</p>
           <p id="varHedgeStatus" style="font-size:.78rem;margin:0 0 12px;min-height:1.2em"></p>
+          <div id="varHedgeRec" style="display:none;margin:0 0 14px"></div>
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
             <div>
               <label class="text-xs" style="color:var(--muted)" data-i18n="var.legTicker">Actif</label>
@@ -9836,6 +9837,13 @@ const I18N = {
     'var.hlMissing': 'No HL position',
     'var.actionTitle': 'What to do on Hyperliquid',
     'var.actionBody': 'Target a {hlSide} of ~{usd} on {hlTicker} (Hyperliquid) to offset your Omni {ticker} leg and farm the funding spread.',
+    'var.recTitle': 'Recommended sides (funding)',
+    'var.recBody': 'Short {omniTicker} on Omni + Long {hlTicker} on HL — est. funding ~{net}/day on notional.',
+    'var.recBodyAlt': 'Long {omniTicker} on Omni + Short {hlTicker} on HL — est. funding ~{net}/day on notional.',
+    'var.recWhy': 'Rule: short the venue paying more funding, long the other (positive rate = longs pay shorts).',
+    'var.recApply': 'Apply to form',
+    'var.recNoData': 'Pick an asset — funding rates will suggest long/short on each venue.',
+    'var.recMismatch': 'Your Omni side is opposite to the funding-optimal setup (est. funding {net}/day).',
     'var.hlMissingHint': 'No matching position on Hyperliquid — open the opposite leg or refresh after trading.',
     'var.sizeGapWarn': 'HL size differs by {pct}% from Omni — adjust notional for a tighter hedge.',
     'var.driftPct': 'Drift {pct}%',
@@ -10491,6 +10499,13 @@ const I18N = {
     'var.hlMissing': 'Pas de position HL',
     'var.actionTitle': 'À faire sur Hyperliquid',
     'var.actionBody': 'Vise un {hlSide} d’environ {usd} sur {hlTicker} (Hyperliquid) pour compenser ta jambe Omni {ticker} et farmer l’écart de funding.',
+    'var.recTitle': 'Sens recommandés (funding)',
+    'var.recBody': 'Short {omniTicker} sur Omni + Long {hlTicker} sur HL — funding estimé ~{net}/j sur le notionnel.',
+    'var.recBodyAlt': 'Long {omniTicker} sur Omni + Short {hlTicker} sur HL — funding estimé ~{net}/j sur le notionnel.',
+    'var.recWhy': 'Règle : shorter la plateforme où le funding est le plus élevé, longer l’autre (taux positif = les longs paient les shorts).',
+    'var.recApply': 'Appliquer au formulaire',
+    'var.recNoData': 'Choisis un actif — les taux de funding indiqueront long/short sur chaque venue.',
+    'var.recMismatch': 'Ton sens Omni est inverse du setup optimal funding (est. {net}/j).',
     'var.hlMissingHint': 'Aucune position correspondante sur Hyperliquid — ouvre la jambe opposée ou rafraîchis après ton trade.',
     'var.sizeGapWarn': 'La taille HL diffère de {pct}% d’Omni — ajuste le notionnel pour un hedge plus serré.',
     'var.driftPct': 'Dérive {pct}%',

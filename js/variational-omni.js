@@ -544,6 +544,63 @@
     _varLegPreviewTimer = setTimeout(() => renderVarHedge(true), 280);
   }
 
+  function varRecommendSides(ticker, listings, hlMap) {
+    const fund = varFundingForTicker(ticker, listings, hlMap);
+    const { varD, hlD } = fund;
+    if (varD == null || hlD == null) return null;
+    const diff = varD - hlD;
+    if (diff >= 0) {
+      return { omniSide: 'short', hlSide: 'long', netDaily: diff, varD, hlD };
+    }
+    return { omniSide: 'long', hlSide: 'short', netDaily: -diff, varD, hlD };
+  }
+
+  function varApplyRecommendSide() {
+    const tick = (document.getElementById('varLegTicker')?.value || '').trim().toUpperCase();
+    const rec = varRecommendSides(tick, _varListingsCache, _varHlFunding?.map);
+    if (!rec) return;
+    const sideEl = document.getElementById('varLegSide');
+    if (sideEl) sideEl.value = rec.omniSide;
+    renderVarHedge(true);
+  }
+
+  function varRenderHedgeRec(ticker, legSide) {
+    const host = document.getElementById('varHedgeRec');
+    if (!host) return;
+    const tick = String(ticker || '').trim().toUpperCase();
+    if (!tick) {
+      host.style.display = 'none';
+      return;
+    }
+    const rec = varRecommendSides(tick, _varListingsCache, _varHlFunding?.map);
+    if (!rec) {
+      host.style.display = 'block';
+      host.innerHTML = `<div class="card2 p3" style="border-left:3px solid var(--muted)"><div style="font-size:.78rem;font-weight:600;margin-bottom:4px">${varT('var.recTitle')}</div><p style="font-size:.8rem;color:var(--muted);margin:0">${varT('var.recNoData')}</p></div>`;
+      return;
+    }
+    const hlTick = varHlCoinShort(tick);
+    const netLbl = varFmtFundingDaily(rec.netDaily, true);
+    const bodyKey = rec.omniSide === 'short' ? 'var.recBody' : 'var.recBodyAlt';
+    const omniLbl = rec.omniSide === 'short' ? varT('var.sideShort') : varT('var.sideLong');
+    const hlLbl = rec.hlSide === 'short' ? varT('var.sideShort') : varT('var.sideLong');
+    const mismatch = legSide && legSide !== rec.omniSide;
+    host.style.display = 'block';
+    host.innerHTML = `
+      <div class="card2 p3" style="border-left:3px solid var(--success)">
+        <div style="font-size:.78rem;font-weight:600;margin-bottom:6px">${varT('var.recTitle')}</div>
+        <p style="font-size:.9rem;margin:0 0 6px;line-height:1.45">
+          <strong>${omniLbl}</strong> ${tick} <span style="color:var(--muted)">(Omni)</span>
+          &nbsp;+&nbsp;
+          <strong>${hlLbl}</strong> ${hlTick} <span style="color:var(--muted)">(HL)</span>
+        </p>
+        <p style="font-size:.8rem;color:var(--muted);margin:0 0 8px">${varT(bodyKey)
+          .replace('{omniTicker}', tick).replace('{hlTicker}', hlTick).replace('{net}', netLbl)}</p>
+        <p style="font-size:.75rem;color:var(--muted);margin:0 0 8px">Omni ${varFmtFundingDaily(rec.varD, true)} · HL ${varFmtFundingDaily(rec.hlD, true)} — ${varT('var.recWhy')}</p>
+        ${mismatch ? `<p style="font-size:.78rem;color:var(--warning-brand);margin:0 0 8px">${varT('var.recMismatch').replace('{net}', varFmtFundingDaily(rec.netDaily, true))}</p>` : ''}
+        <button type="button" class="btn btn-ghost text-xs" style="padding:4px 12px" onclick="varApplyRecommendSide()">${varT('var.recApply')}</button>
+      </div>`;
+  }
+
   function varSuggestedHlSide(omniSide) {
     return omniSide === 'short' ? 'long' : 'short';
   }
@@ -584,6 +641,9 @@
     }
     const sum = document.getElementById('varHedgeSummary');
     const statusEl = document.getElementById('varHedgeStatus');
+    const tickPreview = (document.getElementById('varLegTicker')?.value || '').trim().toUpperCase();
+    const sidePreview = document.getElementById('varLegSide')?.value;
+    varRenderHedgeRec(tickPreview || leg?.ticker, leg?.side || sidePreview);
     if (!sum) return;
 
     if (!varHasWallets()) {
@@ -797,6 +857,7 @@
   }
 
   window.varRefreshHlLeg = varRefreshHlLeg;
+  window.varApplyRecommendSide = varApplyRecommendSide;
   window.varSetSub = varSetSub;
   window.renderVarRadar = renderVarRadar;
   window.renderVarHedge = renderVarHedge;
