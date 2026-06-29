@@ -440,6 +440,13 @@ const HS_CONFIG = {
       flex-wrap: wrap;
       justify-content: center;
     }
+    .hs-footer-x-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
     .hs-footer-x:hover .hs-footer-x-handle { text-decoration: underline; }
     .hs-footer-x-muted {
       font-size: .75rem;
@@ -8291,15 +8298,6 @@ const HS_CONFIG = {
   <div class="sidebar-resources-block" style="padding:10px 8px;border-top:1px solid rgba(255,255,255,.06);margin-bottom:4px">
     <div class="sidebar-section-label" style="font-size:.58rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.09em;margin-bottom:8px" data-i18n="sidebar.resources">Resources</div>
     <div style="display:flex;flex-direction:column;gap:2px">
-      <a href="https://hl.eco/projects" target="_blank" rel="noopener" class="sidebar-resource-link">
-        <img src="https://www.google.com/s2/favicons?domain=hl.eco&sz=32" width="14" height="14" style="border-radius:3px;flex-shrink:0" onerror="this.style.display='none'"><span class="sidebar-link-label">HL.eco Projects</span>
-      </a>
-      <a href="https://hypurrintel.xyz" target="_blank" rel="noopener" class="sidebar-resource-link">
-        <img src="https://www.google.com/s2/favicons?domain=hypurrintel.xyz&sz=32" width="14" height="14" style="border-radius:3px;flex-shrink:0" onerror="this.style.display='none'"><span class="sidebar-link-label">Hypurr Intel</span>
-      </a>
-      <a href="https://hypurrmium.xyz" target="_blank" rel="noopener" class="sidebar-resource-link">
-        <img src="https://www.google.com/s2/favicons?domain=hypurrmium.xyz&sz=32" width="14" height="14" style="border-radius:3px;flex-shrink:0" onerror="this.style.display='none'"><span class="sidebar-link-label">Hypurrmium</span>
-      </a>
       <a href="https://defillama.com" target="_blank" rel="noopener" class="sidebar-resource-link">
         <img src="https://www.google.com/s2/favicons?domain=defillama.com&sz=32" width="14" height="14" style="border-radius:3px;flex-shrink:0" onerror="this.style.display='none'"><span class="sidebar-link-label">DeFi Llama</span>
       </a>
@@ -22053,14 +22051,19 @@ function toggleTheme() {
 
   <!-- Bandeau bas : crédit X -->
   <footer id="hsFooterBar" role="contentinfo">
-    <a class="hs-footer-x" href="https://x.com/0xDOCTEUR" target="_blank" rel="noopener">
-      <svg class="hs-footer-x-icon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.75l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-      <span id="footerCreatedBy" class="hs-footer-x-muted">Dashboard créé par</span>
-      <span class="hs-footer-x-handle">@0xDOCTEUR</span>
+    <div class="hs-footer-x-row">
+      <a class="hs-footer-x" href="https://x.com/0xDOCTEUR" target="_blank" rel="noopener">
+        <svg class="hs-footer-x-icon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.75l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+        <span id="footerCreatedBy" class="hs-footer-x-muted">Dashboard créé par</span>
+        <span class="hs-footer-x-handle">@0xDOCTEUR</span>
+      </a>
       <span class="hs-footer-x-sep" aria-hidden="true">·</span>
-      <span id="footerFollow" class="hs-footer-x-follow">Suivre pour les dernières mises à jour</span>
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" class="hs-footer-x-arrow" aria-hidden="true"><path d="M7 17 L17 7 M7 7 H17 V17"/></svg>
-    </a>
+      <a class="hs-footer-x" href="https://x.com/HypersheetsXYZ" target="_blank" rel="noopener">
+        <span id="footerFollow" class="hs-footer-x-follow">Suivre pour les dernières mises à jour</span>
+        <span class="hs-footer-x-handle">@HypersheetsXYZ</span>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" class="hs-footer-x-arrow" aria-hidden="true"><path d="M7 17 L17 7 M7 7 H17 V17"/></svg>
+      </a>
+    </div>
   </footer>
 
 <div id="hs-global-tip"></div>
