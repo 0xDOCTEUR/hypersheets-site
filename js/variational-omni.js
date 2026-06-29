@@ -656,6 +656,18 @@
     return omniSide === 'short' ? 'long' : 'short';
   }
 
+  function varFundingLegDailyPct(side, rateDaily) {
+    if (rateDaily == null || !isFinite(rateDaily)) return null;
+    return side === 'long' ? -rateDaily : rateDaily;
+  }
+
+  function varFundingNetForSides(omniSide, hlSide, varD, hlD) {
+    const o = varFundingLegDailyPct(omniSide, varD);
+    const h = varFundingLegDailyPct(hlSide, hlD);
+    if (o == null || h == null) return null;
+    return o + h;
+  }
+
   function varFundingForTicker(ticker, listings, hlMap) {
     const tick = String(ticker || '').toUpperCase();
     const L = (listings || _varListingsCache || []).find(x => String(x.ticker || '').toUpperCase() === tick);
@@ -714,12 +726,18 @@
     const delta = varComputeDelta(leg, hlPos);
     const fund = varFundingForTicker(leg.ticker, _varListingsCache, _varHlFunding?.map);
     const suggested = varSuggestedHlSide(leg.side);
+    const hlSideActual = hlPos ? (hlPos.szi > 0 ? 'long' : 'short') : suggested;
+    const fundNet = varFundingNetForSides(leg.side, hlSideActual, fund.varD, fund.hlD);
     const targetUsd = Math.abs(parseFloat(leg.notional || 0));
     const hlUsd = hlPos ? hlPos.notionalUsd : 0;
+    const fundBaseUsd = hlPos ? (targetUsd + hlUsd) / 2 : targetUsd;
+    const fundUsdDay = fundNet != null && fundBaseUsd > 0 ? fundBaseUsd * fundNet / 100 : null;
     const sizeGap = targetUsd > 0 ? Math.abs(targetUsd - hlUsd) / targetUsd * 100 : 0;
     const driftWarn = delta && delta.driftPct > 5;
     const sizeWarn = sizeGap > 15;
-    const fundCls = fund.diff > 0 ? 'color:var(--success)' : fund.diff < 0 ? 'color:var(--danger)' : '';
+    const fundCls = fundNet > 0 ? 'color:var(--success)' : fundNet < 0 ? 'color:var(--danger)' : '';
+    const omniFundLeg = varFundingLegDailyPct(leg.side, fund.varD);
+    const hlFundLeg = varFundingLegDailyPct(hlSideActual, fund.hlD);
 
     sum.innerHTML = `
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
@@ -739,10 +757,20 @@
           <div class="kpi-sub">${delta ? varT('var.driftPct').replace('{pct}', delta.driftPct.toFixed(1)) : ''}</div>
         </div>
         <div class="card2 p3">
-          <div class="kpi-label">${varT('var.cardFundingGap')}</div>
-          <div class="kpi-val" style="font-size:1.05rem;${fundCls}">${fund.diff != null ? varFmtFundingDaily(fund.diff, true) : '—'}</div>
-          <div class="kpi-sub">${fund.varD != null ? 'Omni ' + varFmtFundingDaily(fund.varD, true) : ''}${fund.hlD != null ? ' · HL ' + varFmtFundingDaily(fund.hlD, true) : ''}</div>
+          <div class="kpi-label">${varT('var.cardFundingEarn')}</div>
+          <div class="kpi-val" style="font-size:1.05rem;${fundCls}">${fundNet != null ? varFmtFundingDaily(fundNet, true) : '—'}</div>
+          <div class="kpi-sub">${fundUsdDay != null ? varT('var.fundingUsdDay').replace('{usd}', varFmtUsd(fundUsdDay)).replace('{size}', varFmtUsd(fundBaseUsd)) : ''}</div>
         </div>
+      </div>
+      <div class="card2 p3 mb-3" style="border-left:3px solid var(--muted)">
+        <div style="font-size:.78rem;font-weight:600;margin-bottom:6px">${varT('var.earnTitle')}</div>
+        <p style="font-size:.8rem;color:var(--muted);margin:0 0 8px;line-height:1.5">${varT('var.earnExplain')}</p>
+        <ul style="font-size:.78rem;color:var(--muted);margin:0;padding-left:1.1rem;line-height:1.55">
+          <li>${varT('var.earnDelta').replace('{usd}', delta ? varFmtUsd(delta.net) : '—')}</li>
+          <li>${varT('var.earnOmniLeg').replace('{pct}', omniFundLeg != null ? varFmtFundingDaily(omniFundLeg, true) : '—')}</li>
+          <li>${varT('var.earnHlLeg').replace('{pct}', hlFundLeg != null ? varFmtFundingDaily(hlFundLeg, true) : '—')}</li>
+          <li><strong style="color:${fundNet > 0 ? 'var(--success)' : fundNet < 0 ? 'var(--danger)' : 'inherit'}">${varT('var.earnNet').replace('{pct}', fundNet != null ? varFmtFundingDaily(fundNet, true) : '—').replace('{usd}', fundUsdDay != null ? varFmtUsd(fundUsdDay) : '—')}</strong></li>
+        </ul>
       </div>
       <div class="card2 p3 mb-3" style="border-left:3px solid var(--var-accent,#4c9af8)">
         <div style="font-size:.78rem;font-weight:600;margin-bottom:6px">${varT('var.actionTitle')}</div>
