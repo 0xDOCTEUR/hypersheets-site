@@ -9058,6 +9058,15 @@ const HS_CONFIG = {
             <option value="volume" data-i18n="var.sortVolume">24h volume</option>
             <option value="compare" data-i18n="var.sortCompare">Omni vs HL funding</option>
           </select>
+          <label class="text-sm" style="color:var(--muted)" data-i18n="var.catLabel">Category</label>
+          <select id="varRadarCat" onchange="renderVarRadar()" class="hs-select" style="font-size:.82rem;min-width:140px">
+            <option value="all" data-i18n="var.catAll">All</option>
+            <option value="crypto" data-i18n="var.cat.crypto">Crypto</option>
+            <option value="stocks" data-i18n="var.cat.stocks">Stocks</option>
+            <option value="commodities" data-i18n="var.cat.commodities">Commodities</option>
+            <option value="indices" data-i18n="var.cat.indices">Indices</option>
+            <option value="forex" data-i18n="var.cat.forex">Forex</option>
+          </select>
           <span style="font-size:.75rem;color:var(--muted);margin-left:auto">
             <span data-i18n="var.updated">Updated</span> <span id="varRadarUpdated" class="mono">—</span>
           </span>
@@ -9774,6 +9783,13 @@ const I18N = {
     'var.sortSpread': 'Spread (bps)',
     'var.sortVolume': '24h volume',
     'var.sortCompare': 'Omni vs HL funding',
+    'var.catLabel': 'Category',
+    'var.catAll': 'All (grouped)',
+    'var.cat.crypto': 'Crypto',
+    'var.cat.stocks': 'Stocks',
+    'var.cat.commodities': 'Commodities',
+    'var.cat.indices': 'Indices',
+    'var.cat.forex': 'Forex',
     'var.updated': 'Updated',
     'var.hedgeTitle': 'Delta-neutral tracker (Omni ↔ Hyperliquid)',
     'var.hedgeDesc': 'Enter your Variational Omni position — Hypersheets compares it live with your Hyperliquid wallet and shows delta + funding gap.',
@@ -9829,7 +9845,7 @@ const I18N = {
     'var.radarIntroCompare': 'Same idea as the Funding view, but only liquid pairs on both venues — sorted by the biggest estimated daily gain.',
     'var.radarIntroSpread': 'Bid/ask spread on Omni — useful for execution cost, not funding farming.',
     'var.radarIntroVolume': 'Most traded Omni markets in the last 24 hours.',
-    'var.radarHintFunding': 'Only assets on both Omni and HL, min. $25k Omni volume. Rates are estimates — DYOR.',
+    'var.radarHintFunding': 'Omni + HL only, min. $25k Omni volume. Grouped by category — filter above.',
     'var.radarHintSpread': 'Sorted by widest spread on Omni.',
     'var.radarHintVolume': 'Sorted by 24h volume on Omni.',
     'var.colVol24h': '24h volume',
@@ -10460,6 +10476,13 @@ const I18N = {
     'var.sortSpread': 'Spread (bps)',
     'var.sortVolume': 'Volume 24h',
     'var.sortCompare': 'Funding Omni vs HL',
+    'var.catLabel': 'Catégorie',
+    'var.catAll': 'Toutes (groupées)',
+    'var.cat.crypto': 'Crypto',
+    'var.cat.stocks': 'Actions',
+    'var.cat.commodities': 'Matières premières',
+    'var.cat.indices': 'Indices',
+    'var.cat.forex': 'Forex',
     'var.updated': 'Màj',
     'var.hedgeTitle': 'Suivi delta-neutre Omni ↔ Hyperliquid',
     'var.hedgeDesc': 'Indique ta position sur Variational Omni : Hypersheets compare en direct avec ta jambe Hyperliquid (wallet chargé) et calcule l’écart de delta et de funding.',
@@ -10515,7 +10538,7 @@ const I18N = {
     'var.radarIntroCompare': 'Même logique que la vue Funding, mais uniquement les paires liquides sur les deux venues — triées par gain journalier estimé.',
     'var.radarIntroSpread': 'Écart achat/vente sur Omni — utile pour les frais d’exécution, pas le farming de funding.',
     'var.radarIntroVolume': 'Marchés Omni les plus tradés sur 24 h.',
-    'var.radarHintFunding': 'Uniquement les actifs sur Omni et HL, vol. Omni min. 25 k$. Taux estimés — DYOR.',
+    'var.radarHintFunding': 'Uniquement les actifs sur Omni et HL, vol. Omni min. 25 k$. Groupés par catégorie — filtre ou tri au-dessus.',
     'var.radarHintSpread': 'Tri par spread le plus large sur Omni.',
     'var.radarHintVolume': 'Tri par volume 24 h sur Omni.',
     'var.colVol24h': 'Volume 24 h',

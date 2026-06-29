@@ -36,6 +36,52 @@
     AVGO: 'xyz:AVGO', BABA: 'xyz:BABA', GME: 'xyz:GME', ORCL: 'xyz:ORCL',
   };
 
+  const VAR_CAT_ORDER = ['crypto', 'stocks', 'commodities', 'indices', 'forex'];
+  const VAR_CAT_COMMODITIES = new Set([
+    'XAU', 'XAG', 'XPT', 'XPD', 'GOLD', 'SILVER', 'PLATINUM', 'PALLADIUM', 'PAXG', 'XAUT',
+    'CL', 'BRENTOIL', 'NATGAS', 'COPPER', 'ALUM', 'ALUMINIUM', 'WHEAT', 'CORN', 'URANIUM', 'URNM', 'TTF',
+  ]);
+  const VAR_CAT_INDICES = new Set([
+    'US500', 'SP500', 'SPX', 'NDX', 'QQQ', 'XYZ100', 'NIFTY', 'JP225', 'KR200', 'IBOV', 'SMH', 'VIX', 'VOL', 'DXY', 'EWJ', 'EWY', 'EWZ', 'XLE',
+  ]);
+  const VAR_CAT_FOREX = new Set(['EUR', 'GBP', 'JPY', 'KRW', 'CHF', 'AUD', 'CAD']);
+  const VAR_CAT_STOCKS = new Set([
+    'AAPL', 'NVDA', 'TSLA', 'MSFT', 'META', 'GOOGL', 'AMZN', 'COIN', 'PLTR', 'MSTR', 'MU', 'NFLX',
+    'AMD', 'INTC', 'TSM', 'ARM', 'HOOD', 'HIMS', 'RKLB', 'CBRS', 'SPCX', 'LLY', 'CRCL', 'MRVL',
+    'LITE', 'SNDK', 'SKHX', 'DRAM', 'NOK', 'QCOM', 'AVGO', 'BABA', 'GME', 'ORCL', 'AMAT', 'ASML',
+    'BB', 'BE', 'BIRD', 'BOT', 'BX', 'COST', 'CRWV', 'DELL', 'DKNG', 'EBAY', 'H100', 'HYUNDAI',
+    'IBM', 'KIOXIA', 'MINIMAX', 'NBIS', 'NOW', 'PURRDAT', 'QNT', 'RIVN', 'SMSN', 'SOFTBANK', 'STRC',
+    'USAR', 'WDC', 'ZHIPU', 'ZM', 'RIVN', 'SMCI', 'RIVN',
+  ]);
+  Object.keys(VAR_HL_TICKER_ALIASES).forEach(k => {
+    if (!VAR_CAT_INDICES.has(k) && !VAR_CAT_FOREX.has(k)) VAR_CAT_STOCKS.add(k);
+  });
+
+  function varAssetCategory(ticker) {
+    const u = String(ticker || '').toUpperCase();
+    const hl = varHlCoinShort(u);
+    const test = (sym) => {
+      if (VAR_CAT_COMMODITIES.has(sym)) return 'commodities';
+      if (VAR_CAT_INDICES.has(sym)) return 'indices';
+      if (VAR_CAT_FOREX.has(sym)) return 'forex';
+      if (VAR_CAT_STOCKS.has(sym)) return 'stocks';
+      return null;
+    };
+    return test(hl) || test(u) || 'crypto';
+  }
+
+  function varCatLabel(cat) {
+    return varT('var.cat.' + cat) || cat;
+  }
+
+  function varCatBadge(cat) {
+    const colors = {
+      crypto: '#7c6cf0', stocks: '#4c9af8', commodities: '#d4a017', indices: '#2ecc71', forex: '#e67e22',
+    };
+    const c = colors[cat] || 'var(--muted)';
+    return `<span style="display:inline-block;font-size:.65rem;font-weight:600;padding:1px 6px;border-radius:4px;background:${c}22;color:${c};margin-right:6px;vertical-align:middle">${varCatLabel(cat)}</span>`;
+  }
+
   let _varStatsCache = null;
   let _varStatsTime = 0;
   let _varHlFunding = null;
@@ -364,7 +410,7 @@
     return { varNotional, hlNotional, net, driftPct };
   }
 
-  function varRadarSort(listings, mode) {
+  function varRadarSort(listings, mode, noSlice) {
     let rows = [...(listings || [])];
     if (mode === 'funding' || mode === 'spread') {
       rows = rows.filter(L => parseFloat(L.volume_24h || 0) >= 25000);
@@ -376,7 +422,27 @@
     } else {
       rows.sort((a, b) => parseFloat(b.volume_24h || 0) - parseFloat(a.volume_24h || 0));
     }
-    return rows.slice(0, 60);
+    return noSlice ? rows : rows.slice(0, 60);
+  }
+
+  function varRadarFilterCategory(rows, catFilter) {
+    if (!catFilter || catFilter === 'all') return rows;
+    return rows.filter(L => varAssetCategory(L.ticker) === catFilter);
+  }
+
+  function varRadarGroupByCategory(rows, perCat) {
+    const groups = {};
+    VAR_CAT_ORDER.forEach(c => { groups[c] = []; });
+    rows.forEach(L => {
+      const c = varAssetCategory(L.ticker);
+      if (groups[c]) groups[c].push(L);
+    });
+    const out = [];
+    VAR_CAT_ORDER.forEach(c => {
+      const slice = groups[c].slice(0, perCat || 12);
+      if (slice.length) out.push({ cat: c, rows: slice });
+    });
+    return out;
   }
 
   function varCompareRows(listings, hlMap, minVol) {
@@ -463,10 +529,51 @@
     return pct > 0 ? varT('var.fundingLongsPay') : varT('var.fundingShortsPay');
   }
 
-  function varRadarTableHtml(rows, mode, hlMap) {
+  function varRadarListingRow(L, mode, hlMap) {
+    const tick = String(L.ticker || '').toUpperCase();
+    const cat = varAssetCategory(tick);
+    const mark = parseFloat(L.mark_price || 0);
+    const vol = parseFloat(L.volume_24h || 0);
+    const varD = varFundingDailyPct(L.funding_rate, L.funding_interval_s);
+    const hl = varHlMapLookup(hlMap, tick);
+    const hlD = hl ? hlFundingDailyPct(hl.fundingHr) : null;
+    const assetCell = `${varCatBadge(cat)}<span class="font-medium" title="${varHlCoinShort(tick)}">${varHlAssetLabel(tick)}</span>`;
+    if (mode === 'funding') {
+      const rec = hlD != null && varD != null ? varRecommendSides(tick, [L], hlMap) : null;
+      const net = rec ? rec.netDaily : null;
+      const diffCls = net > 0 ? 'color:var(--success)' : net < 0 ? 'color:var(--danger)' : '';
+      const setup = rec
+        ? `<span style="font-size:.78rem;line-height:1.35">${varFmtSetupShort(rec, tick)}</span>`
+        : `<span style="font-size:.78rem;color:var(--muted)">${varT('var.hlNa')}</span>`;
+      return `<tr>
+        <td>${assetCell}</td>
+        <td>${setup}</td>
+        <td class="text-right mono" title="${varFundingWhoPays(varD)}">${varD != null ? varFmtFundingDaily(varD, true) : '—'}</td>
+        <td class="text-right mono" title="${hlD != null ? varFundingWhoPays(hlD) : ''}">${hlD != null ? varFmtFundingDaily(hlD, true) : varT('var.hlNa')}</td>
+        <td class="text-right mono" style="${diffCls}" title="${varT('var.colNetFundingHint')}">${net != null ? varFmtFundingDaily(net, true) : '—'}</td>
+        <td class="text-right mono">${varFmtVol(vol)}</td>
+      </tr>`;
+    }
+    let cells = `<td>${assetCell}</td><td class="text-right mono">${mark > 0 ? varFmtMark(mark) : '—'}</td>`;
+    if (mode === 'spread') {
+      cells += `<td class="text-right mono">${parseFloat(L.base_spread_bps || 0).toFixed(1)}</td>`;
+      cells += `<td class="text-right mono">${varFmtVol(vol)}</td>`;
+    } else {
+      cells += `<td class="text-right mono">${varFmtVol(vol)}</td>`;
+      cells += `<td class="text-right mono">${varD != null ? varFmtFundingDaily(varD, true) : '—'}</td>`;
+    }
+    return `<tr>${cells}</tr>`;
+  }
+
+  function varRadarSectionRow(cat, colSpan) {
+    return `<tr class="var-radar-cat-row"><td colspan="${colSpan}" style="background:var(--surface-2);font-weight:600;font-size:.75rem;padding:8px 12px;color:var(--text);border-top:1px solid var(--border)">${varCatLabel(cat)}</td></tr>`;
+  }
+
+  function varRadarTableHtml(rows, mode, hlMap, catFilter) {
     if (!rows.length) {
       return `<div class="text-center text-sm py-10" style="color:var(--muted)">${varT('var.noData')}</div>`;
     }
+    const colSpan = mode === 'funding' ? 6 : (mode === 'spread' ? 4 : 4);
     let head = `<tr><th>${varT('var.colAsset')}</th>`;
     if (mode === 'funding') {
       head += `<th>${varT('var.colSetup')}</th>`;
@@ -483,39 +590,15 @@
       }
     }
     head += '</tr>';
-    const body = rows.map(L => {
-      const tick = String(L.ticker || '').toUpperCase();
-      const mark = parseFloat(L.mark_price || 0);
-      const vol = parseFloat(L.volume_24h || 0);
-      const varD = varFundingDailyPct(L.funding_rate, L.funding_interval_s);
-      const hl = varHlMapLookup(hlMap, tick);
-      const hlD = hl ? hlFundingDailyPct(hl.fundingHr) : null;
-      if (mode === 'funding') {
-        const rec = hlD != null && varD != null ? varRecommendSides(tick, [L], hlMap) : null;
-        const net = rec ? rec.netDaily : null;
-        const diffCls = net > 0 ? 'color:var(--success)' : net < 0 ? 'color:var(--danger)' : '';
-        const setup = rec
-          ? `<span style="font-size:.78rem;line-height:1.35">${varFmtSetupShort(rec, tick)}</span>`
-          : `<span style="font-size:.78rem;color:var(--muted)">${varT('var.hlNa')}</span>`;
-        return `<tr>
-          <td class="font-medium" title="${varHlCoinShort(tick)}">${varHlAssetLabel(tick)}</td>
-          <td>${setup}</td>
-          <td class="text-right mono" title="${varFundingWhoPays(varD)}">${varD != null ? varFmtFundingDaily(varD, true) : '—'}</td>
-          <td class="text-right mono" title="${hlD != null ? varFundingWhoPays(hlD) : ''}">${hlD != null ? varFmtFundingDaily(hlD, true) : varT('var.hlNa')}</td>
-          <td class="text-right mono" style="${diffCls}" title="${varT('var.colNetFundingHint')}">${net != null ? varFmtFundingDaily(net, true) : '—'}</td>
-          <td class="text-right mono">${varFmtVol(vol)}</td>
-        </tr>`;
-      }
-      let cells = `<td class="font-medium" title="${varHlCoinShort(tick)}">${varHlAssetLabel(tick)}</td><td class="text-right mono">${mark > 0 ? varFmtMark(mark) : '—'}</td>`;
-      if (mode === 'spread') {
-        cells += `<td class="text-right mono">${parseFloat(L.base_spread_bps || 0).toFixed(1)}</td>`;
-        cells += `<td class="text-right mono">${varFmtVol(vol)}</td>`;
-      } else {
-        cells += `<td class="text-right mono">${varFmtVol(vol)}</td>`;
-        cells += `<td class="text-right mono">${varD != null ? varFmtFundingDaily(varD, true) : '—'}</td>`;
-      }
-      return `<tr>${cells}</tr>`;
-    }).join('');
+    let body = '';
+    if (!catFilter || catFilter === 'all') {
+      varRadarGroupByCategory(rows, 15).forEach(g => {
+        body += varRadarSectionRow(g.cat, colSpan);
+        body += g.rows.map(L => varRadarListingRow(L, mode, hlMap)).join('');
+      });
+    } else {
+      body = rows.slice(0, 60).map(L => varRadarListingRow(L, mode, hlMap)).join('');
+    }
     const hintKey = mode === 'funding' ? 'var.radarHintFunding' : mode === 'spread' ? 'var.radarHintSpread' : 'var.radarHintVolume';
     return `${varRadarIntroHtml(mode)}<p class="text-xs" style="color:var(--muted);padding:0 0 6px;margin:0">${varT(hintKey)}</p><table class="hs-trades-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
   }
@@ -523,8 +606,10 @@
   async function renderVarRadar() {
     const host = document.getElementById('varRadarTable');
     const modeSel = document.getElementById('varRadarSort');
+    const catSel = document.getElementById('varRadarCat');
     if (!host) return;
     const mode = modeSel?.value || 'funding';
+    const catFilter = catSel?.value || 'all';
     host.innerHTML = `<div class="text-center text-sm py-10" style="color:var(--muted)">${varT('loading')}</div>`;
     try {
       const [stats, hlMap] = await Promise.all([fetchVarStats(false), fetchHlFundingMap()]);
@@ -532,17 +617,18 @@
       const listings = stats?.listings || [];
       _varListingsCache = listings;
       varPopulateLegTickers(listings);
-      let rows;
       if (mode === 'compare') {
-        rows = varCompareRows(listings, hlMap, 50000);
-        host.innerHTML = varCompareTableHtml(rows);
+        let rows = varCompareRows(listings, hlMap, 50000);
+        rows = catFilter === 'all' ? rows : rows.filter(r => varAssetCategory(r.ticker) === catFilter);
+        host.innerHTML = varCompareTableHtml(rows, catFilter);
       } else {
         let list = listings;
         if (mode === 'funding') {
           list = listings.filter(L => varHlMapLookup(hlMap, L.ticker) && parseFloat(L.volume_24h || 0) >= 25000);
         }
-        rows = varRadarSort(list, mode);
-        host.innerHTML = varRadarTableHtml(rows, mode, hlMap);
+        let rows = varRadarSort(list, mode, true);
+        rows = varRadarFilterCategory(rows, catFilter);
+        host.innerHTML = varRadarTableHtml(rows, mode, hlMap, catFilter);
       }
       const ts = document.getElementById('varRadarUpdated');
       if (ts) ts.textContent = new Date().toLocaleTimeString(varLoc());
@@ -551,24 +637,40 @@
     }
   }
 
-  function varCompareTableHtml(rows) {
+  function varCompareTableHtml(rows, catFilter) {
     if (!rows.length) return `<div class="text-center text-sm py-10" style="color:var(--muted)">${varT('var.noCompare')}</div>`;
-    const body = rows.map(r => {
+    const colSpan = 6;
+    let body = '';
+    const renderCompareRow = (r) => {
       const net = Math.abs(r.diff);
       const cls = r.diff >= 0 ? 'color:var(--success)' : 'color:var(--danger)';
       const fakeRec = {
         omniSide: r.diff >= 0 ? 'short' : 'long',
         hlSide: r.diff >= 0 ? 'long' : 'short',
       };
+      const cat = varAssetCategory(r.ticker);
       return `<tr>
-        <td class="font-medium" title="${varHlCoinShort(r.ticker)}">${varHlAssetLabel(r.ticker)}</td>
+        <td>${varCatBadge(cat)}<span class="font-medium" title="${varHlCoinShort(r.ticker)}">${varHlAssetLabel(r.ticker)}</span></td>
         <td><span style="font-size:.78rem;line-height:1.35">${varFmtSetupShort(fakeRec, r.ticker)}</span></td>
         <td class="text-right mono">${varFmtFundingDaily(r.varDaily, true)}</td>
         <td class="text-right mono">${varFmtFundingDaily(r.hlDaily, true)}</td>
         <td class="text-right mono" style="${cls}">${varFmtFundingDaily(net, true)}</td>
         <td class="text-right mono">${varFmtVol(r.vol)}</td>
       </tr>`;
-    }).join('');
+    };
+    if (!catFilter || catFilter === 'all') {
+      const groups = {};
+      VAR_CAT_ORDER.forEach(c => { groups[c] = []; });
+      rows.forEach(r => { const c = varAssetCategory(r.ticker); if (groups[c]) groups[c].push(r); });
+      VAR_CAT_ORDER.forEach(c => {
+        const slice = groups[c].slice(0, 15);
+        if (!slice.length) return;
+        body += varRadarSectionRow(c, colSpan);
+        body += slice.map(renderCompareRow).join('');
+      });
+    } else {
+      body = rows.slice(0, 40).map(renderCompareRow).join('');
+    }
     return `${varRadarIntroHtml('compare')}<p class="text-xs" style="color:var(--muted);padding:0 0 6px;margin:0">${varT('var.compareHint')}</p><table class="hs-trades-table"><thead><tr>
       <th>${varT('var.colAsset')}</th>
       <th>${varT('var.colSetup')}</th>
