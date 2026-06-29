@@ -268,9 +268,45 @@
     try { localStorage.removeItem(HS_VAR_LEG_KEY); } catch (_) {}
   }
 
+  function varCsvEmptyBundle() {
+    return { v: 2, trades: [], funding: [], realizedPnl: [], transfers: [], files: {} };
+  }
+
+  function varCsvNormalize(bundle) {
+    if (!bundle) return null;
+    if (bundle.v === 2) {
+      return {
+        v: 2,
+        trades: bundle.trades || [],
+        funding: bundle.funding || [],
+        realizedPnl: bundle.realizedPnl || [],
+        transfers: bundle.transfers || [],
+        files: bundle.files || {},
+      };
+    }
+    const funding = [];
+    const realizedPnl = [];
+    const transfers = [];
+    for (const row of bundle.transfers || []) {
+      const tt = (row.transfer_type || '').toLowerCase();
+      if (tt === 'funding') funding.push(row);
+      else if (tt === 'realized_pnl') realizedPnl.push(row);
+      else transfers.push(row);
+    }
+    return {
+      v: 2,
+      trades: bundle.trades || [],
+      funding,
+      realizedPnl,
+      transfers,
+      files: {},
+    };
+  }
+
   function varCsvLoad() {
     try {
-      return JSON.parse(localStorage.getItem(HS_VAR_CSV_KEY) || 'null') || null;
+      const raw = JSON.parse(localStorage.getItem(HS_VAR_CSV_KEY) || 'null') || null;
+      return varCsvNormalize(raw);
     } catch {
       return null;
     }
@@ -279,6 +315,110 @@
     try {
       localStorage.setItem(HS_VAR_CSV_KEY, JSON.stringify(bundle));
     } catch (_) {}
+  }
+
+  const VAR_CSV_KINDS = ['trades', 'funding', 'realizedPnl', 'transfers'];
+  const VAR_CSV_KIND_I18N = {
+    trades: 'var.csvKindTrades',
+    funding: 'var.csvKindFunding',
+    realizedPnl: 'var.csvKindPnl',
+    transfers: 'var.csvKindTransfers',
+  };
+
+  function varDedupeRows(rows) {
+    const seen = new Set();
+    const out = [];
+    for (const row of rows || []) {
+      const id = row?.id;
+      if (id) {
+        if (seen.has(id)) continue;
+        seen.add(id);
+      }
+      out.push(row);
+    }
+    return out;
+  }
+
+  function varDetectCsvKind(objs, fileName) {
+    if (!objs?.length) return null;
+    const first = objs[0];
+    const name = (fileName || '').toLowerCase();
+    if (first.price != null && first.qty != null && (first.side || first.trade_type)) return 'trades';
+    if (first.transfer_type) {
+      const types = new Set(objs.map(r => String(r.transfer_type || '').toLowerCase()).filter(Boolean));
+      if (types.size === 1) {
+        const only = [...types][0];
+        if (only === 'funding') return 'funding';
+        if (only === 'realized_pnl') return 'realizedPnl';
+        return 'transfers';
+      }
+      return 'mixed';
+    }
+    if (name.includes('trade')) return 'trades';
+    if (name.includes('fund')) return 'funding';
+    if (name.includes('pnl') || name.includes('realized')) return 'realizedPnl';
+    if (name.includes('transfer') || name.includes('deposit') || name.includes('withdraw')) return 'transfers';
+    return null;
+  }
+
+  function varSplitTransferRows(objs) {
+    const funding = [];
+    const realizedPnl = [];
+    const transfers = [];
+    for (const row of objs || []) {
+      const tt = (row.transfer_type || '').toLowerCase();
+      if (tt === 'funding') funding.push(row);
+      else if (tt === 'realized_pnl') realizedPnl.push(row);
+      else transfers.push(row);
+    }
+    return { funding, realizedPnl, transfers };
+  }
+
+  function varApplyCsvImport(bundle, kind, rows, fileName) {
+    const next = varCsvNormalize(bundle) || varCsvEmptyBundle();
+    const deduped = varDedupeRows(rows);
+    const meta = { name: fileName || '', at: Date.now(), rows: deduped.length };
+    if (kind === 'mixed') {
+      const split = varSplitTransferRows(deduped);
+      if (split.funding.length) {
+        next.funding = split.funding;
+        next.files.funding = { ...meta, rows: split.funding.length };
+      }
+      if (split.realizedPnl.length) {
+        next.realizedPnl = split.realizedPnl;
+        next.files.realizedPnl = { ...meta, rows: split.realizedPnl.length };
+      }
+      if (split.transfers.length) {
+        next.transfers = split.transfers;
+        next.files.transfers = { ...meta, rows: split.transfers.length };
+      }
+      return next;
+    }
+    next[kind] = deduped;
+    next.files[kind] = meta;
+    return next;
+  }
+
+  function varRenderCsvImportStatus(bundle) {
+    const norm = varCsvNormalize(bundle);
+    const slots = {
+      trades: 'varCsvMetaTrades',
+      funding: 'varCsvMetaFunding',
+      realizedPnl: 'varCsvMetaPnl',
+      transfers: 'varCsvMetaTransfers',
+    };
+    for (const kind of VAR_CSV_KINDS) {
+      const el = document.getElementById(slots[kind]);
+      const slot = document.querySelector(`.var-csv-slot[data-csv-kind="${kind}"]`);
+      const meta = norm?.files?.[kind];
+      const rows = norm?.[kind]?.length || 0;
+      if (el) {
+        el.innerHTML = meta?.name
+          ? varT('var.csvMeta').replace('{rows}', String(meta.rows || rows)).replace('{file}', meta.name)
+          : varT('var.csvNotImported');
+      }
+      if (slot) slot.classList.toggle('var-csv-slot--ok', !!(meta?.name || rows));
+    }
   }
 
   function parseCsvText(text) {
@@ -326,12 +466,14 @@
     return out;
   }
 
-  function aggregateVarCsv(trades, transfers) {
+  function aggregateVarCsv(bundle) {
+    const b = varCsvNormalize(bundle);
+    if (!b) return null;
     const agg = {
       tradeVol: 0, tradeCount: 0, funding: 0, realizedPnl: 0, fees: 0,
       deposits: 0, withdrawals: 0, lastAt: 0,
     };
-    for (const row of trades || []) {
+    for (const row of b.trades || []) {
       if (row.status && row.status !== 'confirmed') continue;
       const px = parseFloat(row.price || 0);
       const qty = parseFloat(row.qty || 0);
@@ -340,13 +482,23 @@
       const ts = Date.parse(row.created_at || 0);
       if (ts > agg.lastAt) agg.lastAt = ts;
     }
-    for (const row of transfers || []) {
+    for (const row of b.funding || []) {
+      if (row.status && row.status !== 'confirmed') continue;
+      agg.funding += parseFloat(row.qty || 0);
+      const ts = Date.parse(row.created_at || 0);
+      if (ts > agg.lastAt) agg.lastAt = ts;
+    }
+    for (const row of b.realizedPnl || []) {
+      if (row.status && row.status !== 'confirmed') continue;
+      agg.realizedPnl += parseFloat(row.qty || 0);
+      const ts = Date.parse(row.created_at || 0);
+      if (ts > agg.lastAt) agg.lastAt = ts;
+    }
+    for (const row of b.transfers || []) {
       if (row.status && row.status !== 'confirmed') continue;
       const qty = parseFloat(row.qty || 0);
       const tt = (row.transfer_type || '').toLowerCase();
-      if (tt === 'funding') agg.funding += qty;
-      else if (tt === 'realized_pnl') agg.realizedPnl += qty;
-      else if (tt === 'fee') agg.fees += Math.abs(qty);
+      if (tt === 'fee') agg.fees += Math.abs(qty);
       else if (tt === 'deposit') agg.deposits += qty;
       else if (tt === 'withdrawal') agg.withdrawals += Math.abs(qty);
       const ts = Date.parse(row.created_at || 0);
@@ -939,9 +1091,10 @@
 
   function renderVarActivity() {
     const bundle = varCsvLoad();
-    const agg = bundle ? aggregateVarCsv(bundle.trades, bundle.transfers) : null;
+    varRenderCsvImportStatus(bundle);
+    const agg = bundle ? aggregateVarCsv(bundle) : null;
     const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
-    if (!agg) {
+    if (!agg || (!bundle.trades?.length && !bundle.funding?.length && !bundle.realizedPnl?.length && !bundle.transfers?.length)) {
       set('varActVol', '—'); set('varActTrades', '—'); set('varActFunding', '—');
       set('varActPnl', '—'); set('varActFees', '—');
       const tbl = document.getElementById('varActivityTable');
@@ -958,6 +1111,12 @@
     const events = [];
     (bundle.trades || []).forEach(r => {
       events.push({ t: Date.parse(r.created_at || 0), type: 'trade', row: r });
+    });
+    (bundle.funding || []).forEach(r => {
+      events.push({ t: Date.parse(r.created_at || 0), type: 'funding', row: r });
+    });
+    (bundle.realizedPnl || []).forEach(r => {
+      events.push({ t: Date.parse(r.created_at || 0), type: 'realizedPnl', row: r });
     });
     (bundle.transfers || []).forEach(r => {
       events.push({ t: Date.parse(r.created_at || 0), type: 'transfer', row: r });
@@ -981,9 +1140,10 @@
           <td class="text-right mono">${varFmtUsd(px * qty)}</td>
         </tr>`;
       }
+      const tt = ev.type === 'funding' ? 'funding' : ev.type === 'realizedPnl' ? 'realized_pnl' : (r.transfer_type || 'transfer');
       return `<tr>
         <td style="color:var(--muted)" class="mono">${r.created_at ? new Date(r.created_at).toLocaleString(varLoc()) : '—'}</td>
-        <td>${varTranslateTransferType(r.transfer_type || 'transfer')}</td>
+        <td>${varTranslateTransferType(tt)}</td>
         <td class="font-medium">${(r.underlying || r.asset || '').toUpperCase()}</td>
         <td>—</td>
         <td class="text-right mono">${varFmtUsd(parseFloat(r.qty || 0))}</td>
@@ -994,18 +1154,24 @@
     </tr></thead><tbody>${body}</tbody></table>`;
   }
 
-  function varImportCsvFiles(input) {
+  function varImportCsvFiles(input, forcedKind) {
     const files = input?.files;
     if (!files?.length) return;
-    let trades = [];
-    let transfers = [];
+    let bundle = varCsvLoad() || varCsvEmptyBundle();
     let pending = files.length;
+    let hadError = false;
+    const importedKinds = new Set();
     const onDone = () => {
       pending--;
       if (pending > 0) return;
-      const bundle = { trades, transfers, importedAt: Date.now() };
       varCsvSave(bundle);
-      if (typeof toast === 'function') toast(varT('var.csvImported'));
+      if (typeof toast === 'function') {
+        if (hadError) toast(varT('var.csvUnknown'), true);
+        else if (importedKinds.size === 1) {
+          const k = [...importedKinds][0];
+          toast(varT('var.csvImportedKind').replace('{kind}', varT(VAR_CSV_KIND_I18N[k] || k)));
+        } else toast(varT('var.csvImported'));
+      }
       renderVarActivity();
       input.value = '';
     };
@@ -1015,14 +1181,41 @@
         try {
           const matrix = parseCsvText(reader.result);
           const objs = csvRowsToObjects(matrix);
-          const name = (file.name || '').toLowerCase();
-          if (name.includes('transfer') || objs[0]?.transfer_type) transfers = transfers.concat(objs);
-          else trades = trades.concat(objs);
-        } catch (_) {}
+          let kind = forcedKind || varDetectCsvKind(objs, file.name);
+          if (!kind) {
+            hadError = true;
+          } else {
+            bundle = varApplyCsvImport(bundle, kind, objs, file.name);
+            if (kind === 'mixed') {
+              ['funding', 'realizedPnl', 'transfers'].forEach(k => { if (bundle[k]?.length) importedKinds.add(k); });
+            } else {
+              importedKinds.add(kind);
+            }
+          }
+        } catch (_) {
+          hadError = true;
+        }
         onDone();
       };
       reader.readAsText(file);
     }
+  }
+
+  function varClearCsvKind(kind) {
+    const bundle = varCsvLoad() || varCsvEmptyBundle();
+    if (!VAR_CSV_KINDS.includes(kind)) return;
+    bundle[kind] = [];
+    if (bundle.files) delete bundle.files[kind];
+    const empty = !VAR_CSV_KINDS.some(k => (bundle[k] || []).length);
+    if (empty) {
+      try { localStorage.removeItem(HS_VAR_CSV_KEY); } catch (_) {}
+    } else {
+      varCsvSave(bundle);
+    }
+    if (typeof toast === 'function') {
+      toast(varT('var.csvClearedKind').replace('{kind}', varT(VAR_CSV_KIND_I18N[kind] || kind)));
+    }
+    renderVarActivity();
   }
 
   function varClearCsv() {
@@ -1067,5 +1260,6 @@
   window.varLegClear = function () { varLegClear(); renderVarHedge(); if (typeof toast === 'function') toast(varT('var.legCleared')); };
   window.varImportCsvFiles = varImportCsvFiles;
   window.varClearCsv = varClearCsv;
+  window.varClearCsvKind = varClearCsvKind;
   window.initVarPage = initVarPage;
 })();

@@ -412,6 +412,16 @@ const HS_CONFIG = {
         .var-hedge-earn-item { padding: 10px; border-radius: 8px; background: var(--surface-1, var(--bg)); border: 1px solid var(--border); text-align: center; }
         .var-hedge-earn-item strong { display: block; font-size: .85rem; margin-top: 4px; }
         .var-hedge-earn-item span { font-size: .65rem; color: var(--muted); }
+        .var-csv-imports { display: grid; grid-template-columns: 1fr; gap: 10px; margin-bottom: 16px; }
+        @media (min-width: 640px) { .var-csv-imports { grid-template-columns: 1fr 1fr; } }
+        @media (min-width: 1100px) { .var-csv-imports { grid-template-columns: repeat(4, 1fr); } }
+        .var-csv-slot { border-radius: 12px; border: 1px solid var(--border); background: var(--surface-2); padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; min-height: 108px; }
+        .var-csv-slot--ok { border-color: rgba(46,204,113,.35); }
+        .var-csv-slot-title { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text); }
+        .var-csv-slot-meta { font-size: .72rem; color: var(--muted); line-height: 1.4; flex: 1; }
+        .var-csv-slot-meta strong { color: var(--text); font-weight: 600; }
+        .var-csv-slot-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+        .var-csv-slot-actions .btn { font-size: .72rem; padding: 4px 10px; }
         #sidebar .nav-tab[data-tab="variational"].active {
           color: #4c9af8;
           background: rgba(76, 154, 248, .1);
@@ -9178,13 +9188,59 @@ const HS_CONFIG = {
 <div class="var-sub-panel" data-varpanel="activity" style="display:none">
         <div class="px-5 py-4 border-b" style="border-color:var(--border)">
           <div class="section-h mb-3"><span class="bar" style="background:var(--var-accent,#4c9af8)"></span><span data-i18n="var.activityTitle">Portfolio activity (CSV)</span></div>
-          <p style="font-size:.8rem;color:var(--muted);margin:0 0 12px" data-i18n="var.csvHint">Import trades + transfers exports from Omni (stored locally in your browser).</p>
+          <p style="font-size:.8rem;color:var(--muted);margin:0 0 12px" data-i18n="var.csvHint">Import each Omni export separately (trades, funding, realized PnL, transfers) — stored locally in your browser.</p>
+          <div class="var-csv-imports" id="varCsvImports">
+            <div class="var-csv-slot" data-csv-kind="trades">
+              <div class="var-csv-slot-title" data-i18n="var.csvKindTrades">Trades</div>
+              <div class="var-csv-slot-meta" id="varCsvMetaTrades" data-i18n="var.csvNotImported">Not imported yet</div>
+              <div class="var-csv-slot-actions">
+                <label class="btn btn-ac" style="cursor:pointer;margin:0">
+                  <span data-i18n="var.importCsv">Import</span>
+                  <input type="file" accept=".csv,text/csv" style="display:none" onchange="varImportCsvFiles(this,'trades')"/>
+                </label>
+                <button type="button" class="btn btn-ghost" onclick="varClearCsvKind('trades')" data-i18n="var.csvClearKind">Clear</button>
+              </div>
+            </div>
+            <div class="var-csv-slot" data-csv-kind="funding">
+              <div class="var-csv-slot-title" data-i18n="var.csvKindFunding">Funding</div>
+              <div class="var-csv-slot-meta" id="varCsvMetaFunding" data-i18n="var.csvNotImported">Not imported yet</div>
+              <div class="var-csv-slot-actions">
+                <label class="btn btn-ac" style="cursor:pointer;margin:0">
+                  <span data-i18n="var.importCsv">Import</span>
+                  <input type="file" accept=".csv,text/csv" style="display:none" onchange="varImportCsvFiles(this,'funding')"/>
+                </label>
+                <button type="button" class="btn btn-ghost" onclick="varClearCsvKind('funding')" data-i18n="var.csvClearKind">Clear</button>
+              </div>
+            </div>
+            <div class="var-csv-slot" data-csv-kind="realizedPnl">
+              <div class="var-csv-slot-title" data-i18n="var.csvKindPnl">Realized PnL</div>
+              <div class="var-csv-slot-meta" id="varCsvMetaPnl" data-i18n="var.csvNotImported">Not imported yet</div>
+              <div class="var-csv-slot-actions">
+                <label class="btn btn-ac" style="cursor:pointer;margin:0">
+                  <span data-i18n="var.importCsv">Import</span>
+                  <input type="file" accept=".csv,text/csv" style="display:none" onchange="varImportCsvFiles(this,'realizedPnl')"/>
+                </label>
+                <button type="button" class="btn btn-ghost" onclick="varClearCsvKind('realizedPnl')" data-i18n="var.csvClearKind">Clear</button>
+              </div>
+            </div>
+            <div class="var-csv-slot" data-csv-kind="transfers">
+              <div class="var-csv-slot-title" data-i18n="var.csvKindTransfers">Transfers &amp; fees</div>
+              <div class="var-csv-slot-meta" id="varCsvMetaTransfers" data-i18n="var.csvNotImported">Not imported yet</div>
+              <div class="var-csv-slot-actions">
+                <label class="btn btn-ac" style="cursor:pointer;margin:0">
+                  <span data-i18n="var.importCsv">Import</span>
+                  <input type="file" accept=".csv,text/csv" style="display:none" onchange="varImportCsvFiles(this,'transfers')"/>
+                </label>
+                <button type="button" class="btn btn-ghost" onclick="varClearCsvKind('transfers')" data-i18n="var.csvClearKind">Clear</button>
+              </div>
+            </div>
+          </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
-            <label class="btn btn-ac" style="cursor:pointer;margin:0">
-              <span data-i18n="var.importCsv">Import CSV</span>
+            <label class="btn btn-ghost" style="cursor:pointer;margin:0">
+              <span data-i18n="var.importCsvMulti">Import multiple (auto-detect)</span>
               <input type="file" accept=".csv,text/csv" multiple style="display:none" onchange="varImportCsvFiles(this)"/>
             </label>
-            <button type="button" class="btn btn-ghost" onclick="varClearCsv()" data-i18n="var.clearCsv">Clear data</button>
+            <button type="button" class="btn btn-ghost" onclick="varClearCsv()" data-i18n="var.clearCsv">Clear all</button>
           </div>
           <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
             <div class="card2 p3"><div class="kpi-label" data-i18n="var.actVol">Trade volume</div><div class="kpi-val" id="varActVol" style="font-size:1rem">—</div></div>
@@ -9871,9 +9927,20 @@ const I18N = {
     'var.saveLeg': 'Save leg',
     'var.clearLeg': 'Clear',
     'var.activityTitle': 'Portfolio activity (CSV)',
-    'var.csvHint': 'Import trades + transfers exports from Omni (stored locally in your browser).',
-    'var.importCsv': 'Import CSV',
-    'var.clearCsv': 'Clear data',
+    'var.csvHint': 'Import each Omni export separately (trades, funding, realized PnL, transfers) — stored locally in your browser.',
+    'var.importCsv': 'Import',
+    'var.importCsvMulti': 'Import multiple (auto-detect)',
+    'var.clearCsv': 'Clear all',
+    'var.csvClearKind': 'Clear',
+    'var.csvKindTrades': 'Trades',
+    'var.csvKindFunding': 'Funding',
+    'var.csvKindPnl': 'Realized PnL',
+    'var.csvKindTransfers': 'Transfers & fees',
+    'var.csvNotImported': 'Not imported yet',
+    'var.csvMeta': '{rows} rows · {file}',
+    'var.csvImportedKind': '{kind} imported',
+    'var.csvClearedKind': '{kind} cleared',
+    'var.csvUnknown': 'Unrecognized CSV format — expected Omni trades or transfer export.',
     'var.actVol': 'Trade volume',
     'var.actTrades': 'Trades',
     'var.actFunding': 'Funding',
@@ -9889,7 +9956,7 @@ const I18N = {
     'var.legInvalid': 'Invalid leg — ticker and notional required.',
     'var.legSaved': 'Omni leg saved',
     'var.legCleared': 'Omni leg cleared',
-    'var.csvEmpty': 'Import Omni portfolio CSV (trades + transfers) for an activity overview.',
+    'var.csvEmpty': 'Import Omni CSV exports (trades, funding, realized PnL…) for a full activity view.',
     'var.csvImported': 'CSV imported',
     'var.csvCleared': 'CSV data cleared',
     'var.perDay': '%/day',
@@ -10574,9 +10641,20 @@ const I18N = {
     'var.saveLeg': 'Enregistrer',
     'var.clearLeg': 'Effacer',
     'var.activityTitle': 'Activité portfolio (CSV)',
-    'var.csvHint': 'Importe les exports trades + transfers Omni (stockés localement dans le navigateur).',
-    'var.importCsv': 'Importer CSV',
-    'var.clearCsv': 'Effacer les données',
+    'var.csvHint': 'Importe chaque export Omni séparément (trades, funding, PnL réalisé, transfers) — stocké localement dans le navigateur.',
+    'var.importCsv': 'Importer',
+    'var.importCsvMulti': 'Importer plusieurs (auto-détection)',
+    'var.clearCsv': 'Tout effacer',
+    'var.csvClearKind': 'Effacer',
+    'var.csvKindTrades': 'Trades',
+    'var.csvKindFunding': 'Funding',
+    'var.csvKindPnl': 'PnL réalisé',
+    'var.csvKindTransfers': 'Transfers & frais',
+    'var.csvNotImported': 'Pas encore importé',
+    'var.csvMeta': '{rows} lignes · {file}',
+    'var.csvImportedKind': '{kind} importé',
+    'var.csvClearedKind': '{kind} effacé',
+    'var.csvUnknown': 'Format CSV non reconnu — export Omni trades ou transfer attendu.',
     'var.actVol': 'Volume trades',
     'var.actTrades': 'Trades',
     'var.actFunding': 'Funding',
@@ -10592,7 +10670,7 @@ const I18N = {
     'var.legInvalid': 'Jambe invalide — ticker et notionnel requis.',
     'var.legSaved': 'Jambe Omni enregistrée',
     'var.legCleared': 'Jambe Omni effacée',
-    'var.csvEmpty': 'Importe le CSV portfolio Omni (trades + transfers) pour une vue d\'ensemble.',
+    'var.csvEmpty': 'Importe les exports CSV Omni (trades, funding, PnL réalisé…) pour une vue complète.',
     'var.csvImported': 'CSV importé',
     'var.csvCleared': 'Données CSV effacées',
     'var.perDay': '%/j',
