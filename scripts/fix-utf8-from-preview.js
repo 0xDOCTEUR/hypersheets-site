@@ -1,6 +1,5 @@
 /**
- * Fix UTF-8 corruption in index.html using clean index-signals-tabs-preview.html
- * as reference for i18n + HS_CONFIG, keeping Omni keys from current file.
+ * Fix UTF-8 corruption via i18n + HS_CONFIG only (never touch JS ternaries).
  */
 const fs = require('fs');
 const path = require('path');
@@ -30,13 +29,12 @@ function extractI18nBlock(src, lang) {
   while ((lm = lineRe.exec(body)) !== null) {
     entries[lm[1]] = lm[3].replace(/\\'/g, "'").replace(/\\n/g, '\n');
   }
-  return { start: m.index, end: i, entries };
+  return { entries };
 }
 
 function replaceI18nBlock(src, lang, entries, orderKeys) {
   const re = new RegExp(`\\b${lang}:\\s*\\{`);
   const m = re.exec(src);
-  if (!m) throw new Error(`Missing ${lang} in target`);
   let i = m.index + m[0].length;
   let depth = 1;
   while (i < src.length && depth > 0) {
@@ -70,8 +68,8 @@ function mergeOmni(cleanE, curE) {
 const mergedEn = mergeOmni(cleanEn.entries, curEn.entries);
 const mergedFr = mergeOmni(cleanFr.entries, curFr.entries);
 
-function orderKeys(cleanOrder, merged) {
-  const order = [...Object.keys(cleanOrder)];
+function orderKeys(cleanKeys, merged) {
+  const order = [...Object.keys(cleanKeys)];
   for (const k of Object.keys(merged)) {
     if (!order.includes(k)) {
       const hi = order.indexOf('tab.hyperunit');
@@ -84,121 +82,82 @@ function orderKeys(cleanOrder, merged) {
 out = replaceI18nBlock(out, 'en', mergedEn, orderKeys(cleanEn.entries, mergedEn));
 out = replaceI18nBlock(out, 'fr', mergedFr, orderKeys(cleanFr.entries, mergedFr));
 
-// HS_CONFIG from clean + variationalProxyUrl
 const cfgRe = /const HS_CONFIG = \{[\s\S]*?\n\}/;
 const cleanCfg = clean.match(cfgRe)[0];
 const proxy = (out.match(/variationalProxyUrl:\s*'[^']*',/) || ["variationalProxyUrl: '',"])[0];
-const newCfg = cleanCfg.replace(
-  /showLeaderboardImport: false,/,
-  `showLeaderboardImport: false,\n  ${proxy}`
-);
+const newCfg = cleanCfg.replace(/showLeaderboardImport: false,/, `showLeaderboardImport: false,\n  ${proxy}`);
 out = out.replace(cfgRe, newCfg);
 
-// Meta description / og tags from clean (first 30 lines area)
-function replaceMeta(src, cleanSrc, name) {
-  const re = new RegExp(`<meta[^>]+name="${name}"[^>]*>`, 'i');
-  const from = cleanSrc.match(re);
-  if (from) src = src.replace(re, from[0]);
-  return src;
+function swapMeta(src, ref, attr, val) {
+  const re = new RegExp(`<meta[^>]+${attr}="${val}"[^>]*>`, 'i');
+  const m = ref.match(re);
+  return m ? src.replace(re, m[0]) : src;
 }
-function replaceMetaProp(src, cleanSrc, prop) {
-  const re = new RegExp(`<meta[^>]+property="${prop}"[^>]*>`, 'i');
-  const from = cleanSrc.match(re);
-  if (from) src = src.replace(re, from[0]);
-  return src;
-}
-out = replaceMeta(out, clean, 'description');
-out = replaceMetaProp(out, clean, 'og:description');
-out = replaceMeta(out, clean, 'twitter:description');
+out = swapMeta(out, clean, 'name', 'description');
+out = swapMeta(out, clean, 'property', 'og:description');
+out = swapMeta(out, clean, 'name', 'twitter:description');
 
-// CONFIG comment line
+function copyBlock(src, ref, start, end) {
+  const a = ref.indexOf(start);
+  const b = ref.indexOf(end, a + start.length);
+  if (a < 0 || b < 0) return src;
+  const chunk = ref.slice(a, b + end.length);
+  const sa = src.indexOf(start);
+  const sb = src.indexOf(end, sa + start.length);
+  if (sa < 0 || sb < 0) return src;
+  return src.slice(0, sa) + chunk + src.slice(sb + end.length);
+}
+
+out = copyBlock(out, clean, "    volume: { fr: 'Activité", "    oi: { fr: 'Positions ouvertes sur le marché dérivé.', en: 'Open positions in the derivatives market.' },\n");
+out = copyBlock(out, clean, '  const interp = {', "    funding_warn:    isFr ? \" Attention: funding très élevé, risque de long squeeze.\"\n                          : \" Warning: very high funding rate, long squeeze risk.\",\n  }");
+out = copyBlock(out, clean, "  setText('lastUpdate','Mode démo", "  document.getElementById('appShell').insertBefore(banner, document.getElementById('navTabs'))\n");
 out = out.replace(
-  /\/\/ [^\n]*CONFIG[^\n]*/,
-  clean.match(/\/\/ [^\n]*CONFIG[^\n]*/)[0]
+  /showError\('Mode d\?mo : le bandeau tippers est actif\. Pour les donn\?es wallet, entre une vraie adresse Hyperliquid\.'\);/,
+  "showError('Mode démo : le bandeau tippers est actif. Pour les données wallet, entre une vraie adresse Hyperliquid.');"
 );
 
-// Fix hardcoded scanner tab labels (no data-i18n on role=tab buttons)
-const scannerFixes = [
-  [/Scanner march\?/g, 'Scanner marché'],
-  [/Scanner le march\?/g, 'Scanner le marché'],
-  [/Scan march\?/g, 'Scan marché'],
-  [/wallet connect\?/g, 'wallet connecté'],
-  [/Chargement\?/g, 'Chargement…'],
-  [/Masqu\?/g, 'Masqué'],
-  [/P\?riode/g, 'Période'],
-  [/p\?riode/g, 'période'],
-  [/d\?mo/g, 'démo'],
-  [/D\?mo/g, 'Démo'],
-  [/donn\?es/g, 'données'],
-  [/donn\?e/g, 'donnée'],
-  [/march\?s/g, 'marchés'],
-  [/march\?/g, 'marché'],
-  [/Activit\?/g, 'Activité'],
-  [/activit\?/g, 'activité'],
-  [/Rafra\?chir/g, 'Rafraîchir'],
-  [/Rafra\?chissement/g, 'Rafraîchissement'],
-  [/r\?unis/g, 'réunis'],
-  [/unifi\?/g, 'unifié'],
-  [/d\?ploy/g, 'déploy'],
-  [/d\?j\?/g, 'déjà'],
-  [/r\?alis\?/g, 'réalisé'],
-  [/entr\?e/g, 'entrée'],
-  [/stock\?s/g, 'stockés'],
-  [/enregistr\?e/g, 'enregistrée'],
-  [/effac\?e/g, 'effacée'],
-  [/import\?/g, 'importé'],
-  [/compar\?/g, 'comparer'],
-  [/oppos\?/g, 'opposé'],
-  [/D\?rive/g, 'Dérive'],
-  [/r\?\?quilibre/g, 'rééquilibre'],
-  [/cr\?\?s/g, 'créés'],
-  [/cr\?\?/g, 'créé'],
-  [/r\?duction/g, 'réduction'],
-  [/r\?compens/g, 'récompens'],
-  [/d\?p\?ts/g, 'dépôts'],
-  [/d\?riv/g, 'dériv'],
-  [/assist\?/g, 'assisté'],
-  [/prolong\?/g, 'prolongé'],
-  [/l\?inscription/g, "l'inscription"],
-  [/l\?/g, "l'"],
-  [/parrain\?s/g, 'parrainés'],
-  [/affich\?s/g, 'affichés'],
-  [/masqu\?/g, 'masqué'],
-  [/bloqu\?/g, 'bloqué'],
-  [/vid\?os/g, 'vidéos'],
-  [/s\?mantiques/g, 'sémantiques'],
-  [/r\?f\?rence/g, 'référence'],
-  [/uni\?\s*:/g, 'unié :'],
-  [/chargement unifi\?/g, 'chargement unifié'],
-  [/non backtest\?s/g, 'non backtestés'],
-  [/\?chantillon/g, 'échantillon'],
-  [/d\?pendent/g, 'dépendent'],
-  [/s\?lection/g, 'sélection'],
-  [/g\?n\?r/g, 'génér'],
-  [/pr\?t/g, 'prêt'],
-  [/acc\?s/g, 'accès'],
-  [/liquidit\?/g, 'liquidité'],
-  [/R\?compens/g, 'Récompens'],
-  [/M\?j/g, 'Màj'],
-  [/ \? /g, ' — '],
-  [/ \?$/gm, ''],
-];
-
-for (const [re, rep] of scannerFixes) {
-  out = out.replace(re, rep);
+// Demo i18n keys (added after preview snapshot)
+const demoFr = {
+  'demo.loaded': 'Données démo chargées',
+  'demo.noRemove': 'Le wallet démo ne peut pas être retiré en mode démo',
+  'demo.noAdd': 'Mode démo : ouvre sans ?demo=1 pour ajouter ton wallet',
+  'demo.listHint': 'Données fictives pour enregistrement / démo publique',
+  'demo.banner': 'Mode démo — données fictives pour tes vidéos. Tes vrais wallets sont masqués. Quitter : ?demo=0',
+};
+const demoEn = {
+  'demo.banner': 'Demo mode — fictional data for recordings. Your real wallets are hidden. Exit with ?demo=0',
+};
+for (const [k, v] of Object.entries(demoFr)) {
+  out = out.replace(new RegExp(`'${k}': '[^']*',`), `'${k}': '${v.replace(/'/g, "\\'")}',`);
+}
+for (const [k, v] of Object.entries(demoEn)) {
+  const re = new RegExp(`('${k}': ')([^']*)(',)`, 'm');
+  const first = out.search(re);
+  if (first >= 0) out = out.replace(re, `$1${v.replace(/'/g, "\\'")}$3`);
 }
 
-// Don't break URL query params like ?demo=1 or ?ref=
-out = out.replace(/avec ''demo=1/g, 'avec ?demo=1');
-out = out.replace(/sans ''demo=1/g, 'sans ?demo=1');
-out = out.replace(/avec ''demo=0/g, 'avec ?demo=0');
-out = out.replace(/''demo=/g, '?demo=');
-out = out.replace(/''ref=/g, '?ref=');
+out = out.replace(
+  /return HS_CONFIG\?\.demoWalletLabel \|\| \(currentLang === 'fr' \? 'Wallet d\?mo' : 'Demo wallet'\);/,
+  "return HS_CONFIG?.demoWalletLabel || (currentLang === 'fr' ? 'Wallet démo' : 'Demo wallet');"
+);
+out = out.replace(
+  /function setXyzPageLoading\(\) \{ \/\* chargement unifi\? : barre header \+ bouton Rafra\?chir \*\/ \}/,
+  'function setXyzPageLoading() { /* chargement unifié : barre header + bouton Rafraîchir */ }'
+);
+
+// Hardcoded HTML labels without data-i18n (safe literal replacements only)
+out = out.replace(
+  /<button[^>]*id="sigTabBtnScanner"[^>]*>Scanner march\?<\/button>/,
+  (m) => m.replace('Scanner march?', 'Scanner marché')
+);
+out = out.replace(
+  /<span data-i18n="sig\.scannerTitle">Scanner march\?<\/span>/,
+  '<span data-i18n="sig.scannerTitle">Scanner marché</span>'
+);
 
 fs.writeFileSync(currentPath, out, 'utf8');
 
 const bad = (out.match(/Rafra\?chir|march\?|Activit\?|donn\?e|p\?riode|d\?mo/g) || []).length;
-const good = (out.match(/Rafraîchir|marché|Activité/g) || []).length;
-console.log('Fixed index.html — bad patterns:', bad, '| good samples:', good);
+const brokenTernary = (out.match(/function' —/g) || []).length;
+console.log('bad fr patterns:', bad, '| broken ternaries:', brokenTernary);
 console.log('btn.load FR:', [...out.matchAll(/'btn\.load': '([^']+)'/g)].pop()?.[1]);
-console.log('variational:', out.includes('page-variational'));
