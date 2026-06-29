@@ -1912,6 +1912,23 @@ const HS_CONFIG = {
       align-self: flex-start;
       margin-top: 0.1em;
     }
+    .section-h .hs-section-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      flex-shrink: 0;
+      align-self: flex-start;
+      margin-top: 0.08em;
+      color: var(--accent);
+    }
+    .section-h .hs-section-icon svg {
+      width: 22px;
+      height: 22px;
+      display: block;
+    }
+    .section-h .hs-section-icon--leaderboard { color: #FBBF24; }
 
     input[type=text] {
       background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
@@ -5858,8 +5875,8 @@ const HS_CONFIG = {
       background: var(--accent);
       box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 42%, transparent);
     }
-    #page-signals.sig-tabs-v2 .section-h .hs-section-logo {
-      box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 35%, transparent);
+    #page-signals.sig-tabs-v2 .section-h .hs-section-icon {
+      filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 40%, transparent));
     }
     #page-signals.sig-tabs-v2 .sig-section-head-text > span:first-child,
     #page-signals.sig-tabs-v2 .sig-section-head-text > .sig-page-title-line {
@@ -9007,7 +9024,7 @@ const HS_CONFIG = {
   <section id="page-signals" class="page sig-universe-perp sig-tabs-v2">
     <div class="sig-page-head">
       <div class="section-h" style="margin-bottom:4px">
-        <img class="hs-section-logo hs-brand-icon-img" data-hs-brand-icon alt="" width="24" height="24" decoding="async" />
+        <span class="hs-section-icon hs-section-icon--signal" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
         <div class="sig-section-head-text">
           <div class="sig-page-title-line">
             <span id="sigPageTitle" data-i18n="tab.signals">Signal</span>
@@ -9027,7 +9044,7 @@ const HS_CONFIG = {
         <div id="sigTabPanelAsset" class="sig-tab-panel active" role="tabpanel" aria-labelledby="sigTabBtnAsset">
         <div class="surface sig-signal-panel">
           <div class="section-h sig-asset-section-h">
-            <img class="hs-section-logo hs-brand-icon-img" data-hs-brand-icon alt="" width="24" height="24" decoding="async" />
+            <span class="hs-section-icon hs-section-icon--signal" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
             <div class="sig-section-head-text">
               <span data-i18n="sig.assetLabel">Asset</span>
               <p class="sig-section-desc" data-i18n="sig.assetSectionDesc">Tendance multi-timeframe, confluence et niveaux sur l'actif sélectionné.</p>
@@ -9090,7 +9107,7 @@ const HS_CONFIG = {
         <div id="sigTabPanelScanner" class="sig-tab-panel" role="tabpanel" aria-labelledby="sigTabBtnScanner" hidden>
         <div class="surface sig-side-panel">
           <div class="section-h sig-scanner-section-h">
-            <img class="hs-section-logo hs-brand-icon-img" data-hs-brand-icon alt="" width="24" height="24" decoding="async" />
+            <span class="hs-section-icon hs-section-icon--signal" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
             <div class="sig-section-head-text">
               <span data-i18n="sig.scannerTitle">Scanner marché</span>
               <p class="sig-section-desc">Top movers 24h — clique une ligne pour ouvrir l’onglet Asset.</p>
@@ -9150,7 +9167,7 @@ const HS_CONFIG = {
         <div id="sigTabPanelCompare" class="sig-tab-panel" role="tabpanel" aria-labelledby="sigTabBtnCompare" hidden>
           <div class="surface sig-signal-panel">
           <div class="section-h sig-asset-section-h">
-            <img class="hs-section-logo hs-brand-icon-img" data-hs-brand-icon alt="" width="24" height="24" decoding="async" />
+            <span class="hs-section-icon hs-section-icon--signal" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
             <div class="sig-section-head-text">
               <span>Comparatif</span>
                 <p class="sig-section-desc">Performance relative indexée (base 100 au premier point commun).</p>
@@ -9249,7 +9266,7 @@ const HS_CONFIG = {
   <section id="page-leaderboard" class="page">
     <div class="surface p-5 mb-6" id="hip3LeaderboardSection">
       <div class="section-h" style="margin-bottom:16px">
-        <img class="hs-section-logo" src="img/tradexyz-logo.png" alt="" width="24" height="24" decoding="async" />
+        <span class="hs-section-icon hs-section-icon--leaderboard" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg></span>
         <span data-i18n="xyz.leaderboardTitle">Trade XYZ leaderboard</span>
       </div>
       <div id="hip3LeaderboardContent">
