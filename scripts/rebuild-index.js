@@ -49,7 +49,7 @@ if (navAnchor2 > navTabsPos) {
 html = insertAfter(html, '<!-- PAGE : HYPERUNIT', omniPage);
 
 const VAR_I18N_EN = {
-  'tab.variational': 'Omni',
+  'tab.variational': 'Variational',
   loading: 'Loading…',
   'var.kpiVol': 'Omni volume',
   'var.kpiTvl': 'TVL',
@@ -100,7 +100,7 @@ const VAR_I18N_EN = {
 };
 
 const VAR_I18N_FR = {
-  'tab.variational': 'Omni',
+  'tab.variational': 'Variational',
   loading: 'Chargement…',
   'var.kpiVol': 'Volume Omni',
   'var.kpiTvl': 'TVL',
