@@ -5823,6 +5823,38 @@ const HS_CONFIG = {
     }
     .sig-asset-section-h,
     .sig-scanner-section-h { margin-bottom: 12px; }
+    #page-signals.sig-tabs-v2 .surface.sig-signal-panel,
+    #page-signals.sig-tabs-v2 .surface.sig-side-panel {
+      padding: 16px 18px 18px;
+      box-sizing: border-box;
+    }
+    #page-signals.sig-tabs-v2 .sig-asset-section-h,
+    #page-signals.sig-tabs-v2 .sig-scanner-section-h,
+    #page-signals.sig-tabs-v2 .surface.sig-signal-panel > .section-h,
+    #page-signals.sig-tabs-v2 .surface.sig-side-panel > .section-h {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 14px;
+      position: relative;
+      z-index: 1;
+    }
+    #page-signals.sig-tabs-v2 .section-h .bar {
+      flex-shrink: 0;
+      width: 3px;
+      height: 1.05em;
+      margin-top: 0.18em;
+      align-self: flex-start;
+      border-radius: 2px;
+      background: var(--accent);
+      box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 42%, transparent);
+    }
+    #page-signals.sig-tabs-v2 .sig-section-head-text > span:first-child,
+    #page-signals.sig-tabs-v2 .sig-section-head-text > .sig-page-title-line {
+      font-size: .88rem;
+      font-weight: 700;
+      line-height: 1.25;
+    }
     .sig-toolbar-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; width: 100%; min-width: 0; }
     .sig-toolbar-label,
     .sig-scanner-controls .sig-toolbar-group-label {
@@ -6233,7 +6265,7 @@ const HS_CONFIG = {
       position: sticky;
       top: 80px;
       max-height: calc(100vh - 120px);
-      overflow: hidden;
+      overflow: visible;
     }
     #page-signals #sigScanZone.sig-scan-zone {
       flex: 1;
@@ -9105,10 +9137,10 @@ const HS_CONFIG = {
         </div>
         <div id="sigTabPanelCompare" class="sig-tab-panel" role="tabpanel" aria-labelledby="sigTabBtnCompare" hidden>
           <div class="surface sig-signal-panel">
-            <div class="section-h">
-              <span class="bar"></span>
-              <div class="sig-section-head-text">
-                <span>Comparatif</span>
+          <div class="section-h sig-asset-section-h">
+            <span class="bar"></span>
+            <div class="sig-section-head-text">
+              <span>Comparatif</span>
                 <p class="sig-section-desc">Performance relative indexée (base 100 au premier point commun).</p>
               </div>
             </div>
