@@ -112,12 +112,39 @@
     return map;
   }
 
-  /** API funding_rate = % paid per interval (see Variational /metadata/stats docs). */
-  function varFundingDailyPct(rate, intervalS) {
+  /** API funding_rate = décimal par intervalle (×100 → % par intervalle). Voir docs Variational. */
+  function varFundingIntervalPct(rate) {
     const r = parseFloat(rate || 0);
+    if (!isFinite(r)) return null;
+    if (Math.abs(r) <= 1.5) return r * 100;
+    return r;
+  }
+  function varFundingDailyPct(rate, intervalS) {
+    const pctInterval = varFundingIntervalPct(rate);
     const iv = parseFloat(intervalS || 28800);
-    if (!isFinite(r) || !isFinite(iv) || iv <= 0) return null;
-    return r * (86400 / iv);
+    if (pctInterval == null || !isFinite(iv) || iv <= 0) return null;
+    return pctInterval * (86400 / iv);
+  }
+  function varFmtFundingDaily(pct, signed) {
+    if (pct == null || !isFinite(pct)) return '—';
+    if (Math.abs(pct) >= 500) {
+      const cap = (pct > 0 ? '>' : '<') + '500';
+      return signed && pct > 0 ? '+' + cap : cap;
+    }
+    const body = Math.abs(pct).toLocaleString(varLoc(), { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const sfx = varT('var.perDay');
+    if (!signed) return body + sfx;
+    return (pct >= 0 ? '+' : '−') + body + sfx;
+  }
+  function varFundingIntervalLabel(intervalS) {
+    const iv = parseFloat(intervalS || 28800);
+    if (!isFinite(iv) || iv <= 0) return '';
+    const h = iv / 3600;
+    if (h >= 1 && Math.abs(h - Math.round(h)) < 0.01) {
+      const n = Math.round(h);
+      return n === 1 ? varT('var.interval1h') : varT('var.intervalH').replace('{h}', String(n));
+    }
+    return varT('var.intervalCustom').replace('{s}', String(Math.round(iv)));
   }
   function varFmtMark(px) {
     const n = parseFloat(px);
@@ -130,6 +157,31 @@
     const f = parseFloat(fundingHr || 0);
     if (!isFinite(f)) return null;
     return f * 24 * 100;
+  }
+
+  let _varListingsCache = [];
+  let _varLegPreviewTimer = null;
+
+  function varHasWallets() {
+    return typeof wallets !== 'undefined' && Array.isArray(wallets) && wallets.length > 0;
+  }
+
+  function varHlPositionsLoaded() {
+    return typeof allPositions !== 'undefined' && Array.isArray(allPositions) && allPositions.length > 0;
+  }
+
+  function varPopulateLegTickers(listings) {
+    const dl = document.getElementById('varLegTickerList');
+    if (!dl) return;
+    const rows = [...(listings || [])]
+      .filter(L => parseFloat(L.volume_24h || 0) >= 10000)
+      .sort((a, b) => parseFloat(b.volume_24h || 0) - parseFloat(a.volume_24h || 0))
+      .slice(0, 120);
+    dl.innerHTML = rows.map(L => {
+      const tick = String(L.ticker || '').toUpperCase();
+      const vol = varFmtVol(parseFloat(L.volume_24h || 0));
+      return `<option value="${tick}">${tick} · ${vol}</option>`;
+    }).join('');
   }
 
   function varLegLoad() {
@@ -273,9 +325,12 @@
   }
 
   function varRadarSort(listings, mode) {
-    const rows = [...(listings || [])];
+    let rows = [...(listings || [])];
+    if (mode === 'funding' || mode === 'spread') {
+      rows = rows.filter(L => parseFloat(L.volume_24h || 0) >= 25000);
+    }
     if (mode === 'funding') {
-      rows.sort((a, b) => Math.abs(parseFloat(b.funding_rate || 0)) - Math.abs(parseFloat(a.funding_rate || 0)));
+      rows.sort((a, b) => Math.abs(varFundingDailyPct(b.funding_rate, b.funding_interval_s) || 0) - Math.abs(varFundingDailyPct(a.funding_rate, a.funding_interval_s) || 0));
     } else if (mode === 'spread') {
       rows.sort((a, b) => parseFloat(b.base_spread_bps || 0) - parseFloat(a.base_spread_bps || 0));
     } else {
@@ -348,11 +403,14 @@
     if (!rows.length) {
       return `<div class="text-center text-sm py-10" style="color:var(--muted)">${varT('var.noData')}</div>`;
     }
-    const isFr = typeof currentLang !== 'undefined' && currentLang === 'fr';
-    let head = `<tr><th>${isFr ? 'Actif' : 'Asset'}</th><th class="text-right">Mark</th>`;
-    if (mode === 'funding') head += `<th class="text-right">${isFr ? 'Funding /j' : 'Fund. /day'}</th><th class="text-right">HL /j</th><th class="text-right">Δ</th>`;
-    else if (mode === 'spread') head += `<th class="text-right">Spread bps</th><th class="text-right">${isFr ? 'Vol 24h' : '24h vol'}</th>`;
-    else head += `<th class="text-right">${isFr ? 'Vol 24h' : '24h vol'}</th><th class="text-right">${isFr ? 'Funding /j' : 'Fund. /day'}</th>`;
+    let head = `<tr><th>${varT('var.colAsset')}</th><th class="text-right">${varT('var.colMark')}</th>`;
+    if (mode === 'funding') {
+      head += `<th class="text-right">${varT('var.colFundingOmni')}</th><th class="text-right">${varT('var.colFundingHl')}</th><th class="text-right">${varT('var.colFundingGap')}</th><th class="text-right">${varT('var.colVol24h')}</th>`;
+    } else if (mode === 'spread') {
+      head += `<th class="text-right">${varT('var.colSpread')}</th><th class="text-right">${varT('var.colVol24h')}</th>`;
+    } else {
+      head += `<th class="text-right">${varT('var.colVol24h')}</th><th class="text-right">${varT('var.colFundingOmni')}</th>`;
+    }
     head += '</tr>';
     const body = rows.map(L => {
       const tick = String(L.ticker || '').toUpperCase();
@@ -365,19 +423,21 @@
       if (mode === 'funding') {
         const diff = varD != null && hlD != null ? varD - hlD : null;
         const diffCls = diff > 0 ? 'color:var(--success)' : diff < 0 ? 'color:var(--danger)' : '';
-        cells += `<td class="text-right mono">${varD != null ? varFmtPct(varD, 3) : '—'}</td>`;
-        cells += `<td class="text-right mono">${hlD != null ? varFmtPct(hlD, 3) : '—'}</td>`;
-        cells += `<td class="text-right mono" style="${diffCls}">${diff != null ? (diff >= 0 ? '+' : '') + diff.toFixed(3) + '%' : '—'}</td>`;
+        const ivLbl = varFundingIntervalLabel(L.funding_interval_s);
+        cells += `<td class="text-right mono" title="${ivLbl}">${varD != null ? varFmtFundingDaily(varD, true) : '—'}</td>`;
+        cells += `<td class="text-right mono">${hlD != null ? varFmtFundingDaily(hlD, true) : varT('var.hlNa')}</td>`;
+        cells += `<td class="text-right mono" style="${diffCls}">${diff != null ? varFmtFundingDaily(diff, true) : '—'}</td>`;
+        cells += `<td class="text-right mono">${varFmtVol(vol)}</td>`;
       } else if (mode === 'spread') {
         cells += `<td class="text-right mono">${parseFloat(L.base_spread_bps || 0).toFixed(1)}</td>`;
         cells += `<td class="text-right mono">${varFmtVol(vol)}</td>`;
       } else {
         cells += `<td class="text-right mono">${varFmtVol(vol)}</td>`;
-        cells += `<td class="text-right mono">${varD != null ? varFmtPct(varD, 3) : '—'}</td>`;
+        cells += `<td class="text-right mono">${varD != null ? varFmtFundingDaily(varD, true) : '—'}</td>`;
       }
       return `<tr>${cells}</tr>`;
     }).join('');
-    return `<table class="hs-trades-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
+    return `<p class="text-xs" style="color:var(--muted);padding:8px 0 4px;margin:0">${varT('var.radarHint')}</p><table class="hs-trades-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
   }
 
   async function renderVarRadar() {
@@ -390,6 +450,8 @@
       const [stats, hlMap] = await Promise.all([fetchVarStats(false), fetchHlFundingMap()]);
       await renderVarPlatformKpis(stats);
       const listings = stats?.listings || [];
+      _varListingsCache = listings;
+      varPopulateLegTickers(listings);
       let rows;
       if (mode === 'compare') {
         rows = varCompareRows(listings, hlMap, 50000);
@@ -407,69 +469,170 @@
 
   function varCompareTableHtml(rows) {
     if (!rows.length) return `<div class="text-center text-sm py-10" style="color:var(--muted)">${varT('var.noCompare')}</div>`;
-    const isFr = typeof currentLang !== 'undefined' && currentLang === 'fr';
     const body = rows.map(r => {
       const cls = r.diff > 0 ? 'color:var(--success)' : r.diff < 0 ? 'color:var(--danger)' : '';
       return `<tr>
         <td class="font-medium">${r.ticker}</td>
-        <td class="text-right mono">${varFmtPct(r.varDaily, 3)}</td>
-        <td class="text-right mono">${varFmtPct(r.hlDaily, 3)}</td>
-        <td class="text-right mono" style="${cls}">${r.diff >= 0 ? '+' : ''}${r.diff.toFixed(3)}%</td>
+        <td class="text-right mono">${varFmtFundingDaily(r.varDaily, true)}</td>
+        <td class="text-right mono">${varFmtFundingDaily(r.hlDaily, true)}</td>
+        <td class="text-right mono" style="${cls}">${varFmtFundingDaily(r.diff, true)}</td>
         <td class="text-right mono">${varFmtVol(r.vol)}</td>
       </tr>`;
     }).join('');
-    return `<table class="hs-trades-table"><thead><tr>
-      <th>${isFr ? 'Actif' : 'Asset'}</th>
-      <th class="text-right">Omni /j</th>
-      <th class="text-right">HL /j</th>
-      <th class="text-right">Δ</th>
-      <th class="text-right">${isFr ? 'Vol Omni' : 'Omni vol'}</th>
+    return `<p class="text-xs" style="color:var(--muted);padding:8px 0 4px;margin:0">${varT('var.compareHint')}</p><table class="hs-trades-table"><thead><tr>
+      <th>${varT('var.colAsset')}</th>
+      <th class="text-right">${varT('var.colFundingOmni')}</th>
+      <th class="text-right">${varT('var.colFundingHl')}</th>
+      <th class="text-right">${varT('var.colFundingGap')}</th>
+      <th class="text-right">${varT('var.colVol24h')}</th>
     </tr></thead><tbody>${body}</tbody></table>`;
   }
 
-  function renderVarHedge() {
-    const leg = varLegLoad();
-    const tickEl = document.getElementById('varLegTicker');
-    const sideEl = document.getElementById('varLegSide');
-    const notEl = document.getElementById('varLegNotional');
-    const pxEl = document.getElementById('varLegEntry');
-    if (leg) {
-      if (tickEl && !tickEl.matches(':focus')) tickEl.value = leg.ticker || '';
-      if (sideEl) sideEl.value = leg.side || 'short';
-      if (notEl && !notEl.matches(':focus')) notEl.value = leg.notional || '';
-      if (pxEl && !pxEl.matches(':focus')) pxEl.value = leg.entryPx || '';
-    }
-    const hlPos = leg ? varHlPositionForTicker(leg.ticker) : null;
-    const delta = leg ? varComputeDelta(leg, hlPos) : null;
-    const sum = document.getElementById('varHedgeSummary');
-    if (!sum) return;
-    if (!leg) {
-      sum.innerHTML = `<p style="color:var(--muted);font-size:.85rem">${varT('var.hedgeEmpty')}</p>`;
-      return;
-    }
-    const isFr = typeof currentLang !== 'undefined' && currentLang === 'fr';
-    const driftWarn = delta && delta.driftPct > 5;
-    sum.innerHTML = `
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-        <div class="card2 p3"><div class="kpi-label">Omni</div><div class="kpi-val" style="font-size:1.1rem">${leg.side.toUpperCase()} ${varFmtUsd(Math.abs(leg.notional))}</div><div class="kpi-sub">${leg.ticker}</div></div>
-        <div class="card2 p3"><div class="kpi-label">Hyperliquid</div><div class="kpi-val" style="font-size:1.1rem">${hlPos ? (hlPos.szi > 0 ? 'LONG' : 'SHORT') + ' ' + varFmtUsd(hlPos.notionalUsd) : '—'}</div><div class="kpi-sub">${hlPos ? hlPos.coin : (isFr ? 'Aucune position' : 'No position')}</div></div>
-        <div class="card2 p3"><div class="kpi-label">${isFr ? 'Delta net (USD)' : 'Net delta (USD)'}</div><div class="kpi-val" style="font-size:1.1rem;color:${driftWarn ? 'var(--danger)' : 'var(--success)'}">${delta ? varFmtUsd(delta.net) : '—'}</div><div class="kpi-sub">${delta ? (isFr ? 'Dérive' : 'Drift') + ' ' + delta.driftPct.toFixed(1) + '%' : ''}</div></div>
-      </div>
-      ${driftWarn ? `<p style="font-size:.8rem;color:var(--warning-brand);margin:0">${varT('var.driftWarn')}</p>` : `<p style="font-size:.8rem;color:var(--muted);margin:0">${varT('var.hedgeHint')}</p>`}`;
-  }
-
-  function varSaveLegFromForm() {
+  function varReadLegFromForm(persist) {
     const ticker = (document.getElementById('varLegTicker')?.value || '').trim().toUpperCase();
     const side = document.getElementById('varLegSide')?.value === 'long' ? 'long' : 'short';
     const notional = parseFloat(document.getElementById('varLegNotional')?.value || 0);
     const entryPx = parseFloat(document.getElementById('varLegEntry')?.value || 0);
-    if (!ticker || !isFinite(notional) || notional <= 0) {
+    if (!ticker || !isFinite(notional) || notional <= 0) return null;
+    const leg = { ticker, side, notional, entryPx: isFinite(entryPx) ? entryPx : 0, updatedAt: Date.now() };
+    if (persist) varLegSave(leg);
+    return leg;
+  }
+
+  function varScheduleLegPreview() {
+    clearTimeout(_varLegPreviewTimer);
+    _varLegPreviewTimer = setTimeout(() => renderVarHedge(true), 280);
+  }
+
+  function varSuggestedHlSide(omniSide) {
+    return omniSide === 'short' ? 'long' : 'short';
+  }
+
+  function varFundingForTicker(ticker, listings, hlMap) {
+    const tick = String(ticker || '').toUpperCase();
+    const L = (listings || _varListingsCache || []).find(x => String(x.ticker || '').toUpperCase() === tick);
+    const varD = L ? varFundingDailyPct(L.funding_rate, L.funding_interval_s) : null;
+    const hl = hlMap ? (hlMap[varHlCoinForTicker(tick)] || hlMap[tick]) : null;
+    const hlD = hl ? hlFundingDailyPct(hl.fundingHr) : null;
+    return { varD, hlD, diff: varD != null && hlD != null ? varD - hlD : null, listing: L };
+  }
+
+  async function varRefreshHlLeg() {
+    if (!varHasWallets()) {
+      if (typeof toast === 'function') toast(varT('var.noWallet'), true);
+      return;
+    }
+    if (typeof loadData === 'function') {
+      if (typeof toast === 'function') toast(varT('var.hlRefreshing'), false);
+      await loadData();
+    }
+    renderVarHedge(true);
+  }
+
+  function renderVarHedge(previewOnly) {
+    const saved = varLegLoad();
+    const leg = varReadLegFromForm(false) || saved;
+    const tickEl = document.getElementById('varLegTicker');
+    const sideEl = document.getElementById('varLegSide');
+    const notEl = document.getElementById('varLegNotional');
+    const pxEl = document.getElementById('varLegEntry');
+    if (saved && !previewOnly) {
+      if (tickEl && !tickEl.matches(':focus')) tickEl.value = saved.ticker || '';
+      if (sideEl) sideEl.value = saved.side || 'short';
+      if (notEl && !notEl.matches(':focus')) notEl.value = saved.notional || '';
+      if (pxEl && !pxEl.matches(':focus')) pxEl.value = saved.entryPx || '';
+    }
+    const sum = document.getElementById('varHedgeSummary');
+    const statusEl = document.getElementById('varHedgeStatus');
+    if (!sum) return;
+
+    if (!varHasWallets()) {
+      if (statusEl) statusEl.innerHTML = `<span style="color:var(--warning-brand)">${varT('var.noWallet')}</span>`;
+    } else if (!varHlPositionsLoaded()) {
+      if (statusEl) statusEl.innerHTML = `<span style="color:var(--muted)">${varT('var.hlLoadHint')}</span> <button type="button" class="btn btn-ghost text-xs" style="margin-left:6px;padding:4px 10px" onclick="varRefreshHlLeg()">${varT('var.refreshHl')}</button>`;
+    } else if (statusEl) {
+      statusEl.innerHTML = `<span style="color:var(--muted)">${varT('var.hlReady')}</span> <button type="button" class="btn btn-ghost text-xs" style="margin-left:6px;padding:4px 10px" onclick="varRefreshHlLeg()">${varT('var.refreshHl')}</button>`;
+    }
+
+    if (!leg) {
+      sum.innerHTML = `<p style="color:var(--muted);font-size:.85rem;margin:0">${varT('var.hedgeEmpty')}</p>`;
+      return;
+    }
+
+    const hlPos = varHlPositionForTicker(leg.ticker);
+    const delta = varComputeDelta(leg, hlPos);
+    const fund = varFundingForTicker(leg.ticker, _varListingsCache, _varHlFunding?.map);
+    const suggested = varSuggestedHlSide(leg.side);
+    const targetUsd = Math.abs(parseFloat(leg.notional || 0));
+    const hlUsd = hlPos ? hlPos.notionalUsd : 0;
+    const sizeGap = targetUsd > 0 ? Math.abs(targetUsd - hlUsd) / targetUsd * 100 : 0;
+    const driftWarn = delta && delta.driftPct > 5;
+    const sizeWarn = sizeGap > 15;
+    const fundCls = fund.diff > 0 ? 'color:var(--success)' : fund.diff < 0 ? 'color:var(--danger)' : '';
+
+    sum.innerHTML = `
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+        <div class="card2 p3">
+          <div class="kpi-label">${varT('var.cardOmni')}</div>
+          <div class="kpi-val" style="font-size:1.05rem">${leg.side === 'short' ? varT('var.sideShort') : varT('var.sideLong')} · ${varFmtUsd(targetUsd)}</div>
+          <div class="kpi-sub">${leg.ticker}</div>
+        </div>
+        <div class="card2 p3">
+          <div class="kpi-label">${varT('var.cardHl')}</div>
+          <div class="kpi-val" style="font-size:1.05rem">${hlPos ? (hlPos.szi > 0 ? varT('var.sideLong') : varT('var.sideShort')) + ' · ' + varFmtUsd(hlUsd) : '—'}</div>
+          <div class="kpi-sub">${hlPos ? hlPos.coin : varT('var.hlMissing')}</div>
+        </div>
+        <div class="card2 p3">
+          <div class="kpi-label">${varT('var.cardNetDelta')}</div>
+          <div class="kpi-val" style="font-size:1.05rem;color:${driftWarn ? 'var(--danger)' : 'var(--success)'}">${delta ? varFmtUsd(delta.net) : '—'}</div>
+          <div class="kpi-sub">${delta ? varT('var.driftPct').replace('{pct}', delta.driftPct.toFixed(1)) : ''}</div>
+        </div>
+        <div class="card2 p3">
+          <div class="kpi-label">${varT('var.cardFundingGap')}</div>
+          <div class="kpi-val" style="font-size:1.05rem;${fundCls}">${fund.diff != null ? varFmtFundingDaily(fund.diff, true) : '—'}</div>
+          <div class="kpi-sub">${fund.varD != null ? 'Omni ' + varFmtFundingDaily(fund.varD, true) : ''}${fund.hlD != null ? ' · HL ' + varFmtFundingDaily(fund.hlD, true) : ''}</div>
+        </div>
+      </div>
+      <div class="card2 p3 mb-3" style="border-left:3px solid var(--var-accent,#4c9af8)">
+        <div style="font-size:.78rem;font-weight:600;margin-bottom:6px">${varT('var.actionTitle')}</div>
+        <p style="font-size:.8rem;color:var(--muted);margin:0 0 8px;line-height:1.45">${varT('var.actionBody')
+          .replace('{hlSide}', suggested === 'long' ? varT('var.sideLong') : varT('var.sideShort'))
+          .replace('{usd}', varFmtUsd(targetUsd))
+          .replace('{ticker}', leg.ticker)}</p>
+        ${!hlPos ? `<p style="font-size:.8rem;color:var(--warning-brand);margin:0">${varT('var.hlMissingHint')}</p>` : ''}
+        ${hlPos && sizeWarn ? `<p style="font-size:.8rem;color:var(--warning-brand);margin:8px 0 0">${varT('var.sizeGapWarn').replace('{pct}', sizeGap.toFixed(0))}</p>` : ''}
+        ${driftWarn ? `<p style="font-size:.8rem;color:var(--danger);margin:8px 0 0">${varT('var.driftWarn')}</p>` : (!sizeWarn && hlPos ? `<p style="font-size:.8rem;color:var(--muted);margin:8px 0 0">${varT('var.hedgeHint')}</p>` : '')}
+      </div>`;
+  }
+
+  function varSaveLegFromForm() {
+    const leg = varReadLegFromForm(true);
+    if (!leg) {
       if (typeof toast === 'function') toast(varT('var.legInvalid'), true);
       return;
     }
-    varLegSave({ ticker, side, notional, entryPx: isFinite(entryPx) ? entryPx : 0, updatedAt: Date.now() });
     if (typeof toast === 'function') toast(varT('var.legSaved'));
-    renderVarHedge();
+    renderVarHedge(true);
+  }
+
+  function varTranslateSide(side) {
+    const s = String(side || '').toLowerCase();
+    if (s === 'buy' || s === 'long') return varT('var.sideLong');
+    if (s === 'sell' || s === 'short') return varT('var.sideShort');
+    return side || '—';
+  }
+
+  function varTranslateTransferType(tt) {
+    const m = {
+      deposit: 'var.typeDeposit',
+      withdrawal: 'var.typeWithdrawal',
+      realized_pnl: 'var.typePnl',
+      funding: 'var.typeFunding',
+      fee: 'var.typeFee',
+      trade: 'var.typeTrade',
+    };
+    const key = m[String(tt || '').toLowerCase()];
+    return key ? varT(key) : (tt || '—');
   }
 
   function renderVarActivity() {
@@ -503,7 +666,6 @@
       tbl.innerHTML = `<div class="text-center text-sm py-10" style="color:var(--muted)">${varT('var.noData')}</div>`;
       return;
     }
-    const isFr = typeof currentLang !== 'undefined' && currentLang === 'fr';
     const body = slice.map(ev => {
       const r = ev.row;
       if (ev.type === 'trade') {
@@ -511,22 +673,22 @@
         const qty = parseFloat(r.qty || 0);
         return `<tr>
           <td style="color:var(--muted)" class="mono">${r.created_at ? new Date(r.created_at).toLocaleString(varLoc()) : '—'}</td>
-          <td>trade</td>
+          <td>${varT('var.typeTrade')}</td>
           <td class="font-medium">${(r.underlying || '').toUpperCase()}</td>
-          <td>${r.side || ''}</td>
+          <td>${varTranslateSide(r.side)}</td>
           <td class="text-right mono">${varFmtUsd(px * qty)}</td>
         </tr>`;
       }
       return `<tr>
         <td style="color:var(--muted)" class="mono">${r.created_at ? new Date(r.created_at).toLocaleString(varLoc()) : '—'}</td>
-        <td>${r.transfer_type || 'transfer'}</td>
+        <td>${varTranslateTransferType(r.transfer_type || 'transfer')}</td>
         <td class="font-medium">${(r.underlying || r.asset || '').toUpperCase()}</td>
         <td>—</td>
         <td class="text-right mono">${varFmtUsd(parseFloat(r.qty || 0))}</td>
       </tr>`;
     }).join('');
     tbl.innerHTML = `<table class="hs-trades-table"><thead><tr>
-      <th>${isFr ? 'Date' : 'Date'}</th><th>${isFr ? 'Type' : 'Type'}</th><th>${isFr ? 'Actif' : 'Asset'}</th><th>Side</th><th class="text-right">USD</th>
+      <th>${varT('var.colDate')}</th><th>${varT('var.colType')}</th><th>${varT('var.colAsset')}</th><th>${varT('var.colSide')}</th><th class="text-right">${varT('var.colUsd')}</th>
     </tr></thead><tbody>${body}</tbody></table>`;
   }
 
@@ -569,16 +731,31 @@
 
   async function initVarPage(force) {
     await renderVarPlatformKpis(_varStatsCache);
+    try {
+      const stats = await fetchVarStats(!!force);
+      _varListingsCache = stats?.listings || [];
+      varPopulateLegTickers(_varListingsCache);
+      await fetchHlFundingMap();
+    } catch (_) {}
+    varBindLegForm();
     varSetSub(_varSub, null);
-    if (force) {
-      _varStatsCache = null;
-      await fetchVarStats(true);
-    }
+    if (force) _varStatsCache = null;
     if (_varSub === 'radar') await renderVarRadar();
-    else if (_varSub === 'hedge') renderVarHedge();
+    else if (_varSub === 'hedge') renderVarHedge(false);
     else renderVarActivity();
   }
 
+  function varBindLegForm() {
+    ['varLegTicker', 'varLegSide', 'varLegNotional', 'varLegEntry'].forEach(id => {
+      const el = document.getElementById(id);
+      if (!el || el.dataset.varBound) return;
+      el.dataset.varBound = '1';
+      el.addEventListener('input', varScheduleLegPreview);
+      el.addEventListener('change', varScheduleLegPreview);
+    });
+  }
+
+  window.varRefreshHlLeg = varRefreshHlLeg;
   window.varSetSub = varSetSub;
   window.renderVarRadar = renderVarRadar;
   window.renderVarHedge = renderVarHedge;

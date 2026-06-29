@@ -9067,32 +9067,35 @@ const HS_CONFIG = {
 
       <div class="var-sub-panel" data-varpanel="hedge" style="display:none">
         <div class="px-5 py-4 border-b" style="border-color:var(--border)">
-          <div class="section-h mb-3"><span class="bar" style="background:var(--var-accent,#4c9af8)"></span><span data-i18n="var.hedgeTitle">Manual Omni leg (farming / delta-neutral)</span></div>
-          <p style="font-size:.8rem;color:var(--muted);margin:0 0 12px" data-i18n="var.hedgeDesc">Enter your Variational position; Hyperliquid leg is read from connected wallet positions.</p>
+          <div class="section-h mb-3"><span class="bar" style="background:var(--var-accent,#4c9af8)"></span><span data-i18n="var.hedgeTitle">Suivi delta-neutre Omni ↔ Hyperliquid</span></div>
+          <p style="font-size:.8rem;color:var(--muted);margin:0 0 10px;line-height:1.45" data-i18n="var.hedgeDesc">Indique ta position sur Variational Omni : Hypersheets compare en direct avec ta jambe Hyperliquid (wallet chargé) et calcule l’écart de delta et de funding.</p>
+          <p id="varHedgeStatus" style="font-size:.78rem;margin:0 0 12px;min-height:1.2em"></p>
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
             <div>
-              <label class="text-xs" style="color:var(--muted)" data-i18n="var.legTicker">Ticker</label>
-              <input id="varLegTicker" type="text" placeholder="BTC" class="hs-input w-full" style="margin-top:4px;text-transform:uppercase"/>
+              <label class="text-xs" style="color:var(--muted)" data-i18n="var.legTicker">Actif</label>
+              <input id="varLegTicker" type="text" list="varLegTickerList" placeholder="BTC" class="hs-input w-full" style="margin-top:4px;text-transform:uppercase" autocomplete="off"/>
+              <datalist id="varLegTickerList"></datalist>
             </div>
             <div>
-              <label class="text-xs" style="color:var(--muted)" data-i18n="var.legSide">Side</label>
+              <label class="text-xs" style="color:var(--muted)" data-i18n="var.legSide">Sens Omni</label>
               <select id="varLegSide" class="hs-select w-full" style="margin-top:4px">
                 <option value="short" data-i18n="var.sideShort">Short</option>
                 <option value="long" data-i18n="var.sideLong">Long</option>
               </select>
             </div>
             <div>
-              <label class="text-xs" style="color:var(--muted)" data-i18n="var.legNotional">Notional (USD)</label>
+              <label class="text-xs" style="color:var(--muted)" data-i18n="var.legNotional">Taille (USD)</label>
               <input id="varLegNotional" type="number" min="0" step="any" placeholder="10000" class="hs-input w-full" style="margin-top:4px"/>
             </div>
             <div>
-              <label class="text-xs" style="color:var(--muted)" data-i18n="var.legEntry">Entry price (opt.)</label>
+              <label class="text-xs" style="color:var(--muted)" data-i18n="var.legEntry">Prix d'entrée (opt.)</label>
               <input id="varLegEntry" type="number" min="0" step="any" class="hs-input w-full" style="margin-top:4px"/>
             </div>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button type="button" class="btn btn-ac" onclick="varSaveLegFromForm()" data-i18n="var.saveLeg">Save leg</button>
-            <button type="button" class="btn btn-ghost" onclick="varLegClear()" data-i18n="var.clearLeg">Clear</button>
+            <button type="button" class="btn btn-ac" onclick="varSaveLegFromForm()" data-i18n="var.saveLeg">Enregistrer</button>
+            <button type="button" class="btn btn-ghost" onclick="varRefreshHlLeg()" data-i18n="var.refreshHl">Rafraîchir jambe HL</button>
+            <button type="button" class="btn btn-ghost" onclick="varLegClear()" data-i18n="var.clearLeg">Effacer</button>
           </div>
         </div>
         <div class="px-5 py-4" id="varHedgeSummary"></div>
@@ -9685,6 +9688,7 @@ const I18N = {
     'welcome.cta': 'Add your wallet to start',
     'welcome.hint': 'Read-only · 100% local · No API key required',
     'btn.load': 'Refresh',
+    'load.partialRetry': 'Partial volume data — reloading automatically…',
     'btn.wallets': 'Wallets',
     'wallets.active': 'Active wallets:',
     'period.1d': '1D', 'period.7d': '7D', 'period.30d': '30D', 'period.all': 'All',
@@ -9770,8 +9774,8 @@ const I18N = {
     'var.sortVolume': '24h volume',
     'var.sortCompare': 'Omni vs HL funding',
     'var.updated': 'Updated',
-    'var.hedgeTitle': 'Manual Omni leg (farming / delta-neutral)',
-    'var.hedgeDesc': 'Enter your Variational position; Hyperliquid leg is read from connected wallet positions.',
+    'var.hedgeTitle': 'Delta-neutral tracker (Omni ↔ Hyperliquid)',
+    'var.hedgeDesc': 'Enter your Variational Omni position — Hypersheets compares it live with your Hyperliquid wallet and shows delta + funding gap.',
     'var.legTicker': 'Ticker',
     'var.legSide': 'Side',
     'var.legNotional': 'Notional (USD)',
@@ -9802,6 +9806,45 @@ const I18N = {
     'var.csvEmpty': 'Import Omni portfolio CSV (trades + transfers) for an activity overview.',
     'var.csvImported': 'CSV imported',
     'var.csvCleared': 'CSV data cleared',
+    'var.perDay': '%/day',
+    'var.interval1h': '1h funding interval',
+    'var.intervalH': '{h}h funding interval',
+    'var.intervalCustom': '{s}s funding interval',
+    'var.colAsset': 'Asset',
+    'var.colMark': 'Mark price',
+    'var.colFundingOmni': 'Omni funding (24h)',
+    'var.colFundingHl': 'HL funding (24h)',
+    'var.colFundingGap': 'Funding gap',
+    'var.colVol24h': '24h volume',
+    'var.colSpread': 'Spread (bps)',
+    'var.colDate': 'Date',
+    'var.colType': 'Type',
+    'var.colSide': 'Side',
+    'var.colUsd': 'USD',
+    'var.hlNa': '— (not on HL)',
+    'var.radarHint': 'Funding = estimated daily rate. Radar filters out markets under $25k 24h volume.',
+    'var.compareHint': 'Markets listed on both Omni and Hyperliquid, min. $50k Omni volume — sorted by funding gap.',
+    'var.noWallet': 'Add a Hyperliquid wallet to read your HL leg.',
+    'var.hlLoadHint': 'Load your wallet data to detect Hyperliquid positions.',
+    'var.hlReady': 'HL positions loaded.',
+    'var.refreshHl': 'Refresh HL leg',
+    'var.hlRefreshing': 'Refreshing Hyperliquid positions…',
+    'var.cardOmni': 'Omni leg',
+    'var.cardHl': 'Hyperliquid leg',
+    'var.cardNetDelta': 'Net delta (USD)',
+    'var.cardFundingGap': 'Funding gap (24h)',
+    'var.hlMissing': 'No HL position',
+    'var.actionTitle': 'What to do on Hyperliquid',
+    'var.actionBody': 'Target a {hlSide} of ~{usd} on {ticker} to offset your Omni leg and farm the funding spread.',
+    'var.hlMissingHint': 'No matching position on Hyperliquid — open the opposite leg or refresh after trading.',
+    'var.sizeGapWarn': 'HL size differs by {pct}% from Omni — adjust notional for a tighter hedge.',
+    'var.driftPct': 'Drift {pct}%',
+    'var.typeTrade': 'Trade',
+    'var.typeDeposit': 'Deposit',
+    'var.typeWithdrawal': 'Withdrawal',
+    'var.typePnl': 'Realized PnL',
+    'var.typeFunding': 'Funding',
+    'var.typeFee': 'Fee',
     'theme.light': 'Light mode',
     'theme.dark': 'Dark mode',
     'theme.toggle': 'Light / dark mode',
@@ -10299,6 +10342,7 @@ const I18N = {
     'welcome.cta': 'Ajouter votre wallet pour commencer',
     'welcome.hint': 'Lecture seule · 100% local · Aucune clé API requise',
     'btn.load': 'Rafraîchir',
+    'load.partialRetry': 'Volumes incomplets — rechargement automatique…',
     'btn.wallets': 'Wallets',
     'btn.share': 'Partager',
     'wallets.active': 'Wallets actifs :',
@@ -10373,7 +10417,7 @@ const I18N = {
     'loading': 'Chargement…',
     'var.kpiVol': 'Volume Omni',
     'var.kpiTvl': 'TVL',
-    'var.kpiOi': 'Open interest',
+    'var.kpiOi': 'Intérêt ouvert (OI)',
     'var.kpiMkts': 'Marchés',
     'var.hint': 'Stats publiques Omni + jambe manuelle vs Hyperliquid · import CSV portfolio depuis',
     'var.subRadar': 'Radar marché',
@@ -10385,14 +10429,14 @@ const I18N = {
     'var.sortVolume': 'Volume 24h',
     'var.sortCompare': 'Funding Omni vs HL',
     'var.updated': 'Màj',
-    'var.hedgeTitle': 'Jambe Omni manuelle (farming / delta-neutral)',
-    'var.hedgeDesc': 'Saisis ta position Variational ; la jambe HL est lue depuis les positions du wallet connecté.',
-    'var.legTicker': 'Ticker',
-    'var.legSide': 'Sens',
-    'var.legNotional': 'Notionnel (USD)',
+    'var.hedgeTitle': 'Suivi delta-neutre Omni ↔ Hyperliquid',
+    'var.hedgeDesc': 'Indique ta position sur Variational Omni : Hypersheets compare en direct avec ta jambe Hyperliquid (wallet chargé) et calcule l’écart de delta et de funding.',
+    'var.legTicker': 'Actif',
+    'var.legSide': 'Sens Omni',
+    'var.legNotional': 'Taille (USD)',
     'var.legEntry': 'Prix d\'entrée (opt.)',
-    'var.sideShort': 'Short',
-    'var.sideLong': 'Long',
+    'var.sideShort': 'Vente (short)',
+    'var.sideLong': 'Achat (long)',
     'var.saveLeg': 'Enregistrer',
     'var.clearLeg': 'Effacer',
     'var.activityTitle': 'Activité portfolio (CSV)',
@@ -10417,6 +10461,45 @@ const I18N = {
     'var.csvEmpty': 'Importe le CSV portfolio Omni (trades + transfers) pour une vue d\'ensemble.',
     'var.csvImported': 'CSV importé',
     'var.csvCleared': 'Données CSV effacées',
+    'var.perDay': '%/j',
+    'var.interval1h': 'Intervalle funding 1 h',
+    'var.intervalH': 'Intervalle funding {h} h',
+    'var.intervalCustom': 'Intervalle funding {s} s',
+    'var.colAsset': 'Actif',
+    'var.colMark': 'Prix mark',
+    'var.colFundingOmni': 'Funding Omni (24 h)',
+    'var.colFundingHl': 'Funding HL (24 h)',
+    'var.colFundingGap': 'Écart funding',
+    'var.colVol24h': 'Volume 24 h',
+    'var.colSpread': 'Spread (bps)',
+    'var.colDate': 'Date',
+    'var.colType': 'Type',
+    'var.colSide': 'Sens',
+    'var.colUsd': 'USD',
+    'var.hlNa': '— (pas sur HL)',
+    'var.radarHint': 'Funding = taux journalier estimé. Le radar masque les marchés sous 25 k$ de volume 24 h.',
+    'var.compareHint': 'Marchés présents sur Omni et Hyperliquid, vol. Omni min. 50 k$ — triés par écart de funding.',
+    'var.noWallet': 'Ajoute un wallet Hyperliquid pour lire ta jambe HL.',
+    'var.hlLoadHint': 'Charge les données wallet pour détecter tes positions Hyperliquid.',
+    'var.hlReady': 'Positions HL chargées.',
+    'var.refreshHl': 'Rafraîchir jambe HL',
+    'var.hlRefreshing': 'Rafraîchissement des positions Hyperliquid…',
+    'var.cardOmni': 'Jambe Omni',
+    'var.cardHl': 'Jambe Hyperliquid',
+    'var.cardNetDelta': 'Delta net (USD)',
+    'var.cardFundingGap': 'Écart funding (24 h)',
+    'var.hlMissing': 'Pas de position HL',
+    'var.actionTitle': 'À faire sur Hyperliquid',
+    'var.actionBody': 'Vise un {hlSide} d’environ {usd} sur {ticker} pour compenser ta jambe Omni et farmer l’écart de funding.',
+    'var.hlMissingHint': 'Aucune position correspondante sur Hyperliquid — ouvre la jambe opposée ou rafraîchis après ton trade.',
+    'var.sizeGapWarn': 'La taille HL diffère de {pct}% d’Omni — ajuste le notionnel pour un hedge plus serré.',
+    'var.driftPct': 'Dérive {pct}%',
+    'var.typeTrade': 'Trade',
+    'var.typeDeposit': 'Dépôt',
+    'var.typeWithdrawal': 'Retrait',
+    'var.typePnl': 'PnL réalisé',
+    'var.typeFunding': 'Funding',
+    'var.typeFee': 'Frais',
     'theme.light': 'Mode clair',
     'theme.dark': 'Mode sombre',
     'theme.toggle': 'Mode clair / sombre',
@@ -12598,7 +12681,7 @@ async function loadFallbackPrices(assets) {
 let _hlNextSlot = 0
 let _hlActive = 0
 const _hlWaitQueue = []
-const HL_MIN_GAP_MS = 120
+const HL_MIN_GAP_MS = 160
 const HL_MAX_CONCURRENT = 3
 const HL_MAX_RETRIES = 4
 const HL_BACKOFF_BASE_MS = 400
@@ -12700,22 +12783,34 @@ async function fetchAllFills(wallet, startTime, dex, maxPages, walletLabel, wall
   const MAX = maxPages || 30;
   const seen = new Set();
   const results = [];
+  let incomplete = false;
   let cursorStart = startTime;
   let cursorEnd = Date.now();
   let order = null; // 'asc' or 'desc' — détecté à la première page
 
   for (let p = 0; p < MAX; p++) {
     let batch;
-    try {
-      const body = { type: 'userFillsByTime', user: wallet, startTime: cursorStart, endTime: cursorEnd, aggregateByTime: false };
-      if (dex) body.dex = dex;
-      batch = await hlPost(body);
-    } catch (e) {
-      console.warn(`[fetchAllFills] ${walletLabel||''} ${dex||'HL'} page ${p+1} fetch error:`, e.message);
-      break;
+    const body = { type: 'userFillsByTime', user: wallet, startTime: cursorStart, endTime: cursorEnd, aggregateByTime: false };
+    if (dex) body.dex = dex;
+    let pageOk = false;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        batch = await hlPost(body);
+        pageOk = true;
+        break;
+      } catch (e) {
+        if (attempt >= 2) {
+          console.warn(`[fetchAllFills] ${walletLabel||''} ${dex||'HL'} page ${p+1} fetch error:`, e.message);
+          incomplete = true;
+        } else {
+          await new Promise(r => setTimeout(r, hlBackoffMs(attempt)));
+        }
+      }
     }
+    if (!pageOk) break;
     if (!Array.isArray(batch)) {
       console.warn(`[fetchAllFills] ${dex||'HL'} non-array response:`, batch);
+      incomplete = true;
       break;
     }
     if (typeof walletIdx === 'number') glpOnWalletFetchPage(walletIdx, dex ? 'xyz' : 'fills', p, MAX);
@@ -12752,8 +12847,8 @@ async function fetchAllFills(wallet, startTime, dex, maxPages, walletLabel, wall
       if (cursorEnd <= cursorStart) break;
     }
   }
-  console.log(`[fetchAllFills] ${dex||'HL'} ${truncAddr(wallet)} → ${results.length} fills (order=${order || 'n/a'})`);
-  return results;
+  console.log(`[fetchAllFills] ${dex||'HL'} ${truncAddr(wallet)} → ${results.length} fills (order=${order || 'n/a'}${incomplete ? ', incomplete' : ''})`);
+  return { fills: results, incomplete };
 }
 
 /** TWAP slice fills (endpoint séparé — absents de userFillsByTime). Max ~2000 slices récents. */
@@ -13638,7 +13733,11 @@ async function loadDemoWalletData() {
   }
 }
 
-async function loadData() {
+let _loadDataRunning = false
+let _loadDataPending = false
+let _loadDataSeq = 0
+
+async function loadData(opts = {}) {
   if (isDemoWalletMode()) {
     activateDemoWalletSession();
     await loadDemoWalletData();
@@ -13648,6 +13747,12 @@ async function loadData() {
     openWalletsModal();
     return;
   }
+  if (_loadDataRunning) {
+    _loadDataPending = true;
+    return;
+  }
+  _loadDataRunning = true;
+  const mySeq = ++_loadDataSeq;
   hsBeginScrollPreserve()
   const maxPages = currentPeriod === 'all' ? 100 : 30;
   const revealAfter = _pendingDashboardReveal && isWelcomeMode();
@@ -13758,71 +13863,110 @@ async function loadData() {
     };
 
     glpSetProgress(14);
-    const walletBundles = []
-    for (let i = 0; i < wallets.length; i++) {
-      const w = wallets[i]
-      const tag = `[${i+1}/${wallets.length} ${truncAddr(w)}]`;
-      const [hlW, xyzW, twapW, fundingRes, bridgeRes, posRes, spotRes, posXyzRes] = await Promise.allSettled([
-        fetchAllFills(w, startTime, null, maxPages, tag, i),
-        fetchAllFills(w, startTime, 'xyz', maxPages, tag, i),
-        fetchTwapSliceFills(w, startTime, tag, i),
-        fetchAllFunding(w, startTime, maxPages, tag, i),
-        fetch(`${UNIT_API}/${w}`).then(r => r.ok ? r.json() : null).catch(() => null),
-        hlPost({ type: 'clearinghouseState', user: w }, { label: `clearinghouseState ${truncAddr(w)}` }),
-        hlPost({ type: 'spotClearinghouseState', user: w }, { label: `spotClearinghouseState ${truncAddr(w)}` }),
-        hlPost({ type: 'clearinghouseState', user: w, dex: 'xyz' }, { label: `clearinghouseState xyz ${truncAddr(w)}` }),
-      ]);
-      walletBundles.push({ w, hlW, xyzW, twapW, fundingRes, bridgeRes, posRes, spotRes, posXyzRes });
-    }
+    let fillFetchIncomplete = false;
+    for (let loadAttempt = 0; loadAttempt < 2; loadAttempt++) {
+      if (loadAttempt > 0) {
+        if (mySeq !== _loadDataSeq) return;
+        console.warn('[loadData] incomplete fill history — auto-retry');
+        if (typeof toast === 'function') toast(typeof t === 'function' ? t('load.partialRetry') : 'Partial data — reloading volumes…', false);
+        await new Promise(r => setTimeout(r, 1800));
+        if (mySeq !== _loadDataSeq) return;
+        allFills = [];
+        xyzFills = [];
+        bridgeOps = [];
+        fundingEvents = [];
+        allPositions = [];
+        accountValues = {};
+        walletPortfolio = {};
+        _walletCgAttempted = new Set();
+        fillsByWallet = {};
+      }
+      fillFetchIncomplete = false;
+      const walletBundles = []
+      for (let i = 0; i < wallets.length; i++) {
+        const w = wallets[i]
+        const tag = `[${i+1}/${wallets.length} ${truncAddr(w)}]`;
+        const [twapW, fundingRes, bridgeRes, posRes, spotRes, posXyzRes] = await Promise.allSettled([
+          fetchTwapSliceFills(w, startTime, tag, i),
+          fetchAllFunding(w, startTime, maxPages, tag, i),
+          fetch(`${UNIT_API}/${w}`).then(r => r.ok ? r.json() : null).catch(() => null),
+          hlPost({ type: 'clearinghouseState', user: w }, { label: `clearinghouseState ${truncAddr(w)}` }),
+          hlPost({ type: 'spotClearinghouseState', user: w }, { label: `spotClearinghouseState ${truncAddr(w)}` }),
+          hlPost({ type: 'clearinghouseState', user: w, dex: 'xyz' }, { label: `clearinghouseState xyz ${truncAddr(w)}` }),
+        ]);
+        let hlW, xyzW;
+        try {
+          const hlR = await fetchAllFills(w, startTime, null, maxPages, tag, i);
+          hlW = { status: 'fulfilled', value: hlR };
+          if (hlR.incomplete) fillFetchIncomplete = true;
+        } catch (e) {
+          hlW = { status: 'rejected', reason: e };
+          fillFetchIncomplete = true;
+        }
+        try {
+          const xyzR = await fetchAllFills(w, startTime, 'xyz', maxPages, tag, i);
+          xyzW = { status: 'fulfilled', value: xyzR };
+          if (xyzR.incomplete) fillFetchIncomplete = true;
+        } catch (e) {
+          xyzW = { status: 'rejected', reason: e };
+          fillFetchIncomplete = true;
+        }
+        walletBundles.push({ w, hlW, xyzW, twapW, fundingRes, bridgeRes, posRes, spotRes, posXyzRes });
+      }
 
-    for (let wi = 0; wi < walletBundles.length; wi++) {
-      const { w, hlW, xyzW, twapW, fundingRes, bridgeRes, posRes, spotRes, posXyzRes } = walletBundles[wi];
-      ingestWalletPortfolio(w, posRes, spotRes, posXyzRes);
-      const pushOpenPos = (state, dexTag) => {
-        if (!state) return [];
-        const openPos = (state.assetPositions || [])
-          .filter(p => Math.abs(parseFloat(p?.position?.szi || 0)) > 0)
-          .map(p => ({ ...p.position, _wallet: w, _dex: dexTag }));
-        openPos.forEach(p => {
-          if (!allPositions.find(x => x.coin === p.coin && x._wallet === w && x._dex === dexTag)) allPositions.push(p);
-        });
-        return openPos;
-      };
-      const openHl = posRes.status === 'fulfilled' ? pushOpenPos(posRes.value, 'HL') : [];
-      const openXyz = posXyzRes.status === 'fulfilled' ? pushOpenPos(posXyzRes.value, 'XYZ') : [];
-      if (openHl.length || openXyz.length) {
-        if (!fillsByWallet[w]) fillsByWallet[w] = { hl: [], xyz: [], bridge: [], funding: [], positions: [] };
-        fillsByWallet[w].positions = [...openHl, ...openXyz];
-      }
-      if (posRes.status === 'fulfilled' && posRes.value) {
-        accountValues[w] = walletClearinghouseAccountValue(posRes.value);
-      }
-      const merged = (hlW.status === 'fulfilled') ? [...hlW.value] : [];
-      if (xyzW.status === 'fulfilled' && Array.isArray(xyzW.value)) {
-        for (const f of xyzW.value) merged.push(f);
-      }
-      if (twapW.status === 'fulfilled' && Array.isArray(twapW.value)) {
-        for (const f of twapW.value) merged.push(f);
-      }
-      for (const f of merged) {
-        const c = f.coin || '';
-        if (f?._market === 'hip3' || c.startsWith('xyz:')) pushFillUnique(xyzFills, f, w);
-        else                      pushFillUnique(allFills, f, w);
-      }
-      if (fundingRes.status === 'fulfilled' && Array.isArray(fundingRes.value)) {
-        fundingRes.value.forEach(ev => {
-          const fKey = `${ev.time}-${ev.coin}-${ev.usdc}|${w}`;
-          if (!seenFills.has(fKey)) { seenFills.add(fKey); fundingEvents.push(ev); }
-        });
-      }
-      if (bridgeRes.status === 'fulfilled' && bridgeRes.value?.operations) {
-        bridgeRes.value.operations.forEach(o => {
-          bridgeOps.push({ ...o, _wallet: w });
+      if (loadAttempt > 0) seenFills.clear();
+
+      for (let wi = 0; wi < walletBundles.length; wi++) {
+        const { w, hlW, xyzW, twapW, fundingRes, bridgeRes, posRes, spotRes, posXyzRes } = walletBundles[wi];
+        ingestWalletPortfolio(w, posRes, spotRes, posXyzRes);
+        const pushOpenPos = (state, dexTag) => {
+          if (!state) return [];
+          const openPos = (state.assetPositions || [])
+            .filter(p => Math.abs(parseFloat(p?.position?.szi || 0)) > 0)
+            .map(p => ({ ...p.position, _wallet: w, _dex: dexTag }));
+          openPos.forEach(p => {
+            if (!allPositions.find(x => x.coin === p.coin && x._wallet === w && x._dex === dexTag)) allPositions.push(p);
+          });
+          return openPos;
+        };
+        const openHl = posRes.status === 'fulfilled' ? pushOpenPos(posRes.value, 'HL') : [];
+        const openXyz = posXyzRes.status === 'fulfilled' ? pushOpenPos(posXyzRes.value, 'XYZ') : [];
+        if (openHl.length || openXyz.length) {
           if (!fillsByWallet[w]) fillsByWallet[w] = { hl: [], xyz: [], bridge: [], funding: [], positions: [] };
-          fillsByWallet[w].bridge.push({ ...o, _wallet: w });
-        });
+          fillsByWallet[w].positions = [...openHl, ...openXyz];
+        }
+        if (posRes.status === 'fulfilled' && posRes.value) {
+          accountValues[w] = walletClearinghouseAccountValue(posRes.value);
+        }
+        const merged = (hlW.status === 'fulfilled') ? [...(hlW.value?.fills || [])] : [];
+        if (xyzW.status === 'fulfilled' && Array.isArray(xyzW.value?.fills)) {
+          for (const f of xyzW.value.fills) merged.push(f);
+        }
+        if (twapW.status === 'fulfilled' && Array.isArray(twapW.value)) {
+          for (const f of twapW.value) merged.push(f);
+        }
+        for (const f of merged) {
+          const c = f.coin || '';
+          if (f?._market === 'hip3' || c.startsWith('xyz:')) pushFillUnique(xyzFills, f, w);
+          else                      pushFillUnique(allFills, f, w);
+        }
+        if (fundingRes.status === 'fulfilled' && Array.isArray(fundingRes.value)) {
+          fundingRes.value.forEach(ev => {
+            const fKey = `${ev.time}-${ev.coin}-${ev.usdc}|${w}`;
+            if (!seenFills.has(fKey)) { seenFills.add(fKey); fundingEvents.push(ev); }
+          });
+        }
+        if (bridgeRes.status === 'fulfilled' && bridgeRes.value?.operations) {
+          bridgeRes.value.operations.forEach(o => {
+            bridgeOps.push({ ...o, _wallet: w });
+            if (!fillsByWallet[w]) fillsByWallet[w] = { hl: [], xyz: [], bridge: [], funding: [], positions: [] };
+            fillsByWallet[w].bridge.push({ ...o, _wallet: w });
+          });
+        }
+        glpOnWalletBundleDone(wi);
       }
-      glpOnWalletBundleDone(wi);
+
+      if (!fillFetchIncomplete) break;
     }
 
     glpSetProgress(78);
@@ -13861,6 +14005,7 @@ async function loadData() {
 
     glpSetProgress(88);
     await glpPaintFrame();
+    if (mySeq !== _loadDataSeq) return;
     renderAll();
     glpSetProgress(96);
 
@@ -13892,6 +14037,11 @@ async function loadData() {
     const btn = document.getElementById('connectBtn');
     if (btn) { btn.disabled = false; btn.textContent = typeof t === 'function' ? t('btn.load') : 'Load'; }
     if (typeof setXyzPageLoading === 'function') setXyzPageLoading(false);
+    _loadDataRunning = false;
+    if (_loadDataPending) {
+      _loadDataPending = false;
+      loadData(opts);
+    }
   }
 }
 
@@ -15244,6 +15394,9 @@ function renderAll() {
   renderTradeXyzPage(xyz, isAll, now);
   renderHyperUnitPage(hlUnit, ops, isAll, now);
   renderWalletPage();
+  if ((document.body?.dataset?.page || '') === 'variational' && typeof renderVarHedge === 'function') {
+    renderVarHedge(true);
+  }
   } finally {
     if (_hsRenderOwnPreserve) hsEndScrollPreserve()
   }
