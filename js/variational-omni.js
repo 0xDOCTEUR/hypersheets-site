@@ -10,9 +10,30 @@
   const HS_VAR_CSV_KEY = 'hs-var-csv-bundle';
   const VAR_STATS_CACHE_MS = 5 * 60 * 1000;
   const VAR_HL_TICKER_MAP = {
-    BTC: 'BTC', ETH: 'ETH', SOL: 'SOL', HYPE: 'HYPE', ZEC: 'ZEC',
-    GOLD: 'xyz:GOLD', SILVER: 'xyz:SILVER', SPX: 'xyz:SPX', NDX: 'xyz:NDX',
-    TSLA: 'xyz:TSLA', NVDA: 'xyz:NVDA', AAPL: 'xyz:AAPL',
+    // Perps HL (dex principal)
+    BTC: 'BTC', ETH: 'ETH', SOL: 'SOL', HYPE: 'HYPE', ZEC: 'ZEC', XRP: 'XRP',
+    // Métaux — codes Variational (ISO) → symboles HIP-3 Hyperliquid
+    XAU: 'xyz:GOLD', XAG: 'xyz:SILVER', XPT: 'xyz:PLATINUM', XPD: 'xyz:PALLADIUM',
+    GOLD: 'xyz:GOLD', SILVER: 'xyz:SILVER', PLATINUM: 'xyz:PLATINUM', PALLADIUM: 'xyz:PALLADIUM',
+    PAXG: 'xyz:GOLD', XAUT: 'xyz:GOLD',
+    // Énergie / matières premières
+    CL: 'xyz:CL', BRENTOIL: 'xyz:BRENTOIL', NATGAS: 'xyz:NATGAS', COPPER: 'xyz:COPPER',
+    ALUM: 'xyz:ALUMINIUM', ALUMINIUM: 'xyz:ALUMINIUM',
+    WHEAT: 'xyz:WHEAT', CORN: 'xyz:CORN', URANIUM: 'xyz:URANIUM', URNM: 'xyz:URNM',
+  };
+  /** Indices et actions HIP-3 : même ticker ou alias connu. */
+  const VAR_HL_TICKER_ALIASES = {
+    US500: 'xyz:SP500', SPX: 'xyz:SP500', SP500: 'xyz:SP500',
+    NDX: 'xyz:XYZ100', QQQ: 'xyz:XYZ100',
+    AAPL: 'xyz:AAPL', NVDA: 'xyz:NVDA', TSLA: 'xyz:TSLA', MSFT: 'xyz:MSFT',
+    META: 'xyz:META', GOOGL: 'xyz:GOOGL', AMZN: 'xyz:AMZN', COIN: 'xyz:COIN',
+    PLTR: 'xyz:PLTR', MSTR: 'xyz:MSTR', MU: 'xyz:MU', NFLX: 'xyz:NFLX',
+    AMD: 'xyz:AMD', INTC: 'xyz:INTC', TSM: 'xyz:TSM', ARM: 'xyz:ARM',
+    HOOD: 'xyz:HOOD', HIMS: 'xyz:HIMS', RKLB: 'xyz:RKLB', CBRS: 'xyz:CBRS',
+    SPCX: 'xyz:SPCX', LLY: 'xyz:LLY', CRCL: 'xyz:CRCL', MRVL: 'xyz:MRVL',
+    LITE: 'xyz:LITE', SNDK: 'xyz:SNDK', SKHX: 'xyz:SKHX', DRAM: 'xyz:DRAM',
+    EWJ: 'xyz:EWJ', EWY: 'xyz:EWY', NOK: 'xyz:NOK', QCOM: 'xyz:QCOM',
+    AVGO: 'xyz:AVGO', BABA: 'xyz:BABA', GME: 'xyz:GME', ORCL: 'xyz:ORCL',
   };
 
   let _varStatsCache = null;
@@ -180,7 +201,7 @@
     dl.innerHTML = rows.map(L => {
       const tick = String(L.ticker || '').toUpperCase();
       const vol = varFmtVol(parseFloat(L.volume_24h || 0));
-      return `<option value="${tick}">${tick} · ${vol}</option>`;
+      return `<option value="${tick}">${varHlAssetLabel(tick)} · ${vol}</option>`;
     }).join('');
   }
 
@@ -292,17 +313,37 @@
   function varHlCoinForTicker(ticker) {
     const u = String(ticker || '').toUpperCase();
     if (VAR_HL_TICKER_MAP[u]) return VAR_HL_TICKER_MAP[u];
+    if (VAR_HL_TICKER_ALIASES[u]) return VAR_HL_TICKER_ALIASES[u];
     return u;
+  }
+
+  function varHlCoinShort(ticker) {
+    return varHlCoinForTicker(ticker).replace(/^xyz:/i, '');
+  }
+
+  function varHlAssetLabel(ticker) {
+    const u = String(ticker || '').toUpperCase();
+    const hl = varHlCoinShort(u);
+    return hl !== u ? `${u} → ${hl}` : u;
+  }
+
+  function varHlMapLookup(hlMap, ticker) {
+    if (!hlMap) return null;
+    const u = String(ticker || '').toUpperCase();
+    const coin = varHlCoinForTicker(u);
+    const short = coin.replace(/^xyz:/i, '').toUpperCase();
+    return hlMap[coin.toUpperCase()] || hlMap[short] || hlMap[u] || hlMap['XYZ:' + u] || null;
   }
 
   function varHlPositionForTicker(ticker) {
     const coin = varHlCoinForTicker(ticker);
+    const coinShort = coin.replace(/^xyz:/i, '').toUpperCase();
     const positions = typeof getActivePositions === 'function' ? getActivePositions() : (window.allPositions || []);
     for (const p of positions || []) {
       const c = String(p.coin || '');
       const cUp = c.toUpperCase();
       const short = c.replace(/^xyz:/i, '').toUpperCase();
-      if (c === coin || cUp === coin.toUpperCase() || short === ticker.toUpperCase()) {
+      if (c === coin || cUp === coin.toUpperCase() || short === coinShort) {
         const szi = parseFloat(p.szi || 0);
         const entry = parseFloat(p.entryPx || 0);
         const mark = parseFloat(p.markPx || 0) || entry;
@@ -345,8 +386,7 @@
       const vol = parseFloat(L.volume_24h || 0);
       if (vol < minVol) continue;
       const tick = String(L.ticker || '').toUpperCase();
-      const hlKey = varHlCoinForTicker(tick);
-      const hl = hlMap[hlKey] || hlMap[tick] || hlMap['XYZ:' + tick];
+      const hl = varHlMapLookup(hlMap, tick);
       if (!hl) continue;
       const varDaily = varFundingDailyPct(L.funding_rate, L.funding_interval_s);
       const hlDaily = hlFundingDailyPct(hl.fundingHr);
@@ -417,9 +457,9 @@
       const mark = parseFloat(L.mark_price || 0);
       const vol = parseFloat(L.volume_24h || 0);
       const varD = varFundingDailyPct(L.funding_rate, L.funding_interval_s);
-      const hl = hlMap[varHlCoinForTicker(tick)] || hlMap[tick];
+      const hl = varHlMapLookup(hlMap, tick);
       const hlD = hl ? hlFundingDailyPct(hl.fundingHr) : null;
-      let cells = `<td class="font-medium">${tick}</td><td class="text-right mono">${mark > 0 ? varFmtMark(mark) : '—'}</td>`;
+      let cells = `<td class="font-medium" title="${varHlCoinShort(tick)}">${varHlAssetLabel(tick)}</td><td class="text-right mono">${mark > 0 ? varFmtMark(mark) : '—'}</td>`;
       if (mode === 'funding') {
         const diff = varD != null && hlD != null ? varD - hlD : null;
         const diffCls = diff > 0 ? 'color:var(--success)' : diff < 0 ? 'color:var(--danger)' : '';
@@ -472,7 +512,7 @@
     const body = rows.map(r => {
       const cls = r.diff > 0 ? 'color:var(--success)' : r.diff < 0 ? 'color:var(--danger)' : '';
       return `<tr>
-        <td class="font-medium">${r.ticker}</td>
+        <td class="font-medium" title="${varHlCoinShort(r.ticker)}">${varHlAssetLabel(r.ticker)}</td>
         <td class="text-right mono">${varFmtFundingDaily(r.varDaily, true)}</td>
         <td class="text-right mono">${varFmtFundingDaily(r.hlDaily, true)}</td>
         <td class="text-right mono" style="${cls}">${varFmtFundingDaily(r.diff, true)}</td>
@@ -512,7 +552,7 @@
     const tick = String(ticker || '').toUpperCase();
     const L = (listings || _varListingsCache || []).find(x => String(x.ticker || '').toUpperCase() === tick);
     const varD = L ? varFundingDailyPct(L.funding_rate, L.funding_interval_s) : null;
-    const hl = hlMap ? (hlMap[varHlCoinForTicker(tick)] || hlMap[tick]) : null;
+    const hl = hlMap ? varHlMapLookup(hlMap, tick) : null;
     const hlD = hl ? hlFundingDailyPct(hl.fundingHr) : null;
     return { varD, hlD, diff: varD != null && hlD != null ? varD - hlD : null, listing: L };
   }
@@ -575,7 +615,7 @@
         <div class="card2 p3">
           <div class="kpi-label">${varT('var.cardOmni')}</div>
           <div class="kpi-val" style="font-size:1.05rem">${leg.side === 'short' ? varT('var.sideShort') : varT('var.sideLong')} · ${varFmtUsd(targetUsd)}</div>
-          <div class="kpi-sub">${leg.ticker}</div>
+          <div class="kpi-sub">${leg.ticker}${varHlCoinShort(leg.ticker) !== leg.ticker ? ' · HL ' + varHlCoinShort(leg.ticker) : ''}</div>
         </div>
         <div class="card2 p3">
           <div class="kpi-label">${varT('var.cardHl')}</div>
@@ -598,7 +638,8 @@
         <p style="font-size:.8rem;color:var(--muted);margin:0 0 8px;line-height:1.45">${varT('var.actionBody')
           .replace('{hlSide}', suggested === 'long' ? varT('var.sideLong') : varT('var.sideShort'))
           .replace('{usd}', varFmtUsd(targetUsd))
-          .replace('{ticker}', leg.ticker)}</p>
+          .replace('{ticker}', leg.ticker)
+          .replace('{hlTicker}', varHlCoinShort(leg.ticker))}</p>
         ${!hlPos ? `<p style="font-size:.8rem;color:var(--warning-brand);margin:0">${varT('var.hlMissingHint')}</p>` : ''}
         ${hlPos && sizeWarn ? `<p style="font-size:.8rem;color:var(--warning-brand);margin:8px 0 0">${varT('var.sizeGapWarn').replace('{pct}', sizeGap.toFixed(0))}</p>` : ''}
         ${driftWarn ? `<p style="font-size:.8rem;color:var(--danger);margin:8px 0 0">${varT('var.driftWarn')}</p>` : (!sizeWarn && hlPos ? `<p style="font-size:.8rem;color:var(--muted);margin:8px 0 0">${varT('var.hedgeHint')}</p>` : '')}
