@@ -1903,6 +1903,15 @@ const HS_CONFIG = {
       letter-spacing: -0.01em;
     }
     .section-h .bar { width: 3px; height: 16px; border-radius: 2px; background: var(--accent); }
+    .section-h .hs-section-logo {
+      width: 24px;
+      height: 24px;
+      border-radius: 5px;
+      object-fit: cover;
+      flex-shrink: 0;
+      align-self: flex-start;
+      margin-top: 0.1em;
+    }
 
     input[type=text] {
       background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
@@ -5849,6 +5858,9 @@ const HS_CONFIG = {
       background: var(--accent);
       box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 42%, transparent);
     }
+    #page-signals.sig-tabs-v2 .section-h .hs-section-logo {
+      box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 35%, transparent);
+    }
     #page-signals.sig-tabs-v2 .sig-section-head-text > span:first-child,
     #page-signals.sig-tabs-v2 .sig-section-head-text > .sig-page-title-line {
       font-size: .88rem;
@@ -8995,7 +9007,7 @@ const HS_CONFIG = {
   <section id="page-signals" class="page sig-universe-perp sig-tabs-v2">
     <div class="sig-page-head">
       <div class="section-h" style="margin-bottom:4px">
-        <span class="bar"></span>
+        <img class="hs-section-logo hs-brand-icon-img" data-hs-brand-icon alt="" width="24" height="24" decoding="async" />
         <div class="sig-section-head-text">
           <div class="sig-page-title-line">
             <span id="sigPageTitle" data-i18n="tab.signals">Signal</span>
@@ -9015,7 +9027,7 @@ const HS_CONFIG = {
         <div id="sigTabPanelAsset" class="sig-tab-panel active" role="tabpanel" aria-labelledby="sigTabBtnAsset">
         <div class="surface sig-signal-panel">
           <div class="section-h sig-asset-section-h">
-            <span class="bar"></span>
+            <img class="hs-section-logo hs-brand-icon-img" data-hs-brand-icon alt="" width="24" height="24" decoding="async" />
             <div class="sig-section-head-text">
               <span data-i18n="sig.assetLabel">Asset</span>
               <p class="sig-section-desc" data-i18n="sig.assetSectionDesc">Tendance multi-timeframe, confluence et niveaux sur l'actif sélectionné.</p>
@@ -9078,7 +9090,7 @@ const HS_CONFIG = {
         <div id="sigTabPanelScanner" class="sig-tab-panel" role="tabpanel" aria-labelledby="sigTabBtnScanner" hidden>
         <div class="surface sig-side-panel">
           <div class="section-h sig-scanner-section-h">
-            <span class="bar"></span>
+            <img class="hs-section-logo hs-brand-icon-img" data-hs-brand-icon alt="" width="24" height="24" decoding="async" />
             <div class="sig-section-head-text">
               <span data-i18n="sig.scannerTitle">Scanner marché</span>
               <p class="sig-section-desc">Top movers 24h — clique une ligne pour ouvrir l’onglet Asset.</p>
@@ -9138,7 +9150,7 @@ const HS_CONFIG = {
         <div id="sigTabPanelCompare" class="sig-tab-panel" role="tabpanel" aria-labelledby="sigTabBtnCompare" hidden>
           <div class="surface sig-signal-panel">
           <div class="section-h sig-asset-section-h">
-            <span class="bar"></span>
+            <img class="hs-section-logo hs-brand-icon-img" data-hs-brand-icon alt="" width="24" height="24" decoding="async" />
             <div class="sig-section-head-text">
               <span>Comparatif</span>
                 <p class="sig-section-desc">Performance relative indexée (base 100 au premier point commun).</p>
@@ -9235,9 +9247,10 @@ const HS_CONFIG = {
   <!-- PAGE : LEADERBOARD (Trade XYZ)                                   -->
   <!-- ═══════════════════════════════════════════════════════════════ -->
   <section id="page-leaderboard" class="page">
-    <div class="surface p-5 mb-6" id="hip3LeaderboardSection">      <div class="section-h" style="margin-bottom:16px">
-        <span class="bar" style="background:#FBBF24"></span>
-        <span data-i18n="xyz.leaderboardTitle">Trade XYZ leaderboard — trader volume</span>
+    <div class="surface p-5 mb-6" id="hip3LeaderboardSection">
+      <div class="section-h" style="margin-bottom:16px">
+        <img class="hs-section-logo" src="img/tradexyz-logo.png" alt="" width="24" height="24" decoding="async" />
+        <span data-i18n="xyz.leaderboardTitle">Trade XYZ leaderboard</span>
       </div>
       <div id="hip3LeaderboardContent">
         <div style="text-align:center;padding:24px;color:var(--muted);font-size:.8rem">Loading…</div>
@@ -9688,7 +9701,7 @@ const I18N = {
     'sig.scannerStrength': 'Strength',
     'sig.analysisCol': 'Analysis',
     'sig.scannerCol': 'Market scanner',
-    'xyz.leaderboardTitle': 'Trade XYZ leaderboard — trader volume',
+    'xyz.leaderboardTitle': 'Trade XYZ leaderboard',
     'xyz.lbComputing': 'Leaderboard is being computed (~26 min on first load).',
     'xyz.lbComputingHint': 'Auto-refresh every 45s. Do not click Refresh repeatedly — that resets the cache.',
     'xyz.lbEmpty': 'Leaderboard cache is empty. A background Allium query has been started.',
@@ -10288,7 +10301,7 @@ const I18N = {
     'sig.scannerStrength': 'Force',
     'sig.analysisCol': 'Analyse',
     'sig.scannerCol': 'Scanner marché',
-    'xyz.leaderboardTitle': 'Leaderboard Trade XYZ — volume traders',
+    'xyz.leaderboardTitle': 'Leaderboard Trade XYZ',
     'xyz.lbComputing': 'Leaderboard en cours de calcul (~26 min au premier chargement).',
     'xyz.lbComputingHint': 'Rafraîchissement auto toutes les 45 s. Ne clique pas plusieurs fois sur Refresh — ça efface le cache.',
     'xyz.lbEmpty': 'Cache leaderboard vide. Une requête Allium a été lancée en arrière-plan.',
