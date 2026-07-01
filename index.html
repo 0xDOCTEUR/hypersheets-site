@@ -364,8 +364,13 @@ const HS_CONFIG = {
         #page-variational { --var-accent: #4c9af8; --var-omni: #4c9af8; --var-hl: #5eead4; }
         .var-hedge-lead { font-size: .84rem; color: var(--muted); line-height: 1.55; margin: 0 0 12px; }
         .var-hedge-steps { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; counter-reset: var-hedge-step; }
-        .var-hedge-step { font-size: .72rem; padding: 5px 11px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); color: var(--muted); }
+        .var-hedge-step { font-size: .72rem; padding: 5px 11px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); color: var(--muted); transition: border-color .15s, background .15s, color .15s; }
         .var-hedge-step::before { counter-increment: var-hedge-step; content: counter(var-hedge-step); font-weight: 600; color: var(--text); margin-right: 6px; }
+        .var-hedge-step.done { border-color: rgba(46,204,113,.4); color: var(--success); background: rgba(46,204,113,.08); }
+        .var-hedge-step.done::before { color: var(--success); }
+        .var-hedge-step.active { border-color: rgba(230,168,23,.45); color: var(--warning-brand, #e6a817); background: rgba(230,168,23,.1); }
+        .var-hedge-step.active::before { color: var(--warning-brand, #e6a817); }
+        .var-hedge-step.pending { opacity: .55; }
         .var-hedge-grid { display: grid; grid-template-columns: 1fr; gap: 18px; align-items: start; }
         @media (min-width: 1024px) { .var-hedge-grid { grid-template-columns: minmax(300px, 400px) 1fr; } }
         .var-hedge-form-card { padding: 16px 18px; border-radius: 12px; }
@@ -382,6 +387,9 @@ const HS_CONFIG = {
         .var-hedge-leg { border-radius: 12px; padding: 14px 16px; border: 1px solid var(--border); background: var(--surface-2); min-height: 88px; }
         .var-hedge-leg--omni { border-color: rgba(76,154,248,.4); background: linear-gradient(160deg, rgba(76,154,248,.07), var(--surface-2)); }
         .var-hedge-leg--hl { border-color: rgba(94,234,212,.35); background: linear-gradient(160deg, rgba(94,234,212,.06), var(--surface-2)); }
+        .var-hedge-leg--hl.var-hedge-leg--empty { border-style: dashed; border-color: rgba(94,234,212,.22); background: rgba(94,234,212,.03); min-height: 72px; }
+        .var-hedge-leg--empty .var-hedge-leg-val { font-size: .88rem; font-weight: 500; color: var(--muted); }
+        .var-hedge-leg--empty .var-hedge-leg-sub { color: var(--muted); font-style: italic; }
         .var-hedge-leg-label { font-size: .65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; margin-bottom: 8px; }
         .var-hedge-leg--omni .var-hedge-leg-label { color: var(--var-omni); }
         .var-hedge-leg--hl .var-hedge-leg-label { color: var(--var-hl); }
@@ -401,13 +409,23 @@ const HS_CONFIG = {
         .var-hedge-drift-fill { height: 100%; border-radius: 3px; max-width: 100%; }
         .var-hedge-rec-card { border-radius: 12px; padding: 14px 16px; margin-top: 14px; border: 1px solid rgba(46,204,113,.35); background: linear-gradient(180deg, rgba(46,204,113,.08), transparent); }
         .var-hedge-rec-card.muted { border-color: var(--border); background: var(--surface-2); }
+        .var-hedge-rec-compact { margin-top: 12px; padding: 8px 12px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--border); font-size: .76rem; line-height: 1.45; color: var(--muted); display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+        .var-hedge-rec-compact-kicker { font-weight: 600; color: var(--text); font-size: .7rem; }
+        .var-hedge-rec-compact-line { color: var(--text); }
+        .var-hedge-rec-compact-line .var-hedge-pill { vertical-align: middle; margin-right: 2px; }
+        .var-hedge-metric-val--risk { color: var(--danger) !important; }
+        .var-hedge-metric-val--neutral { color: var(--text) !important; }
+        .var-hedge-metric-val--wait { color: var(--warning-brand, #e6a817) !important; }
+        .var-hedge-ok-line { font-size: .78rem; color: var(--var-accent); margin: 0 0 14px; padding: 10px 12px; border-radius: 10px; background: rgba(76,154,248,.06); border: 1px solid rgba(76,154,248,.15); line-height: 1.45; }
         .var-hedge-rec-title { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--success); margin-bottom: 10px; }
         .var-hedge-rec-bridge { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; margin: 8px 0 10px; font-size: .88rem; }
         .var-hedge-rec-arrow { color: var(--muted); font-size: 1rem; }
         .var-hedge-action-card { padding: 14px 16px; border-radius: 12px; border: 1px solid var(--border); border-left: 3px solid var(--var-accent); background: var(--surface-2); }
+        .var-hedge-action-card--pending { border-left-color: var(--warning-brand, #e6a817); background: rgba(230,168,23,.06); }
+        .var-hedge-action-card--pending .var-hedge-action-title { color: var(--warning-brand, #e6a817); }
         .var-hedge-action-title { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 8px; color: var(--var-accent); }
         .var-hedge-split-title { font-size: .82rem; font-weight: 600; margin: 0 0 12px; color: var(--muted); }
-        .var-hedge-earn-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+        .var-hedge-earn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
         @media (max-width: 640px) { .var-hedge-earn-grid { grid-template-columns: 1fr; } }
         .var-hedge-earn-item { padding: 10px; border-radius: 8px; background: var(--surface-1, var(--bg)); border: 1px solid var(--border); text-align: center; }
         .var-hedge-earn-item strong { display: block; font-size: .85rem; margin-top: 4px; }
@@ -10133,7 +10151,10 @@ const I18N = {
     'var.earnNet': 'Net funding estimate: {pct} → about {usd} / day',
     'var.hlMissing': 'No HL position',
     'var.actionTitle': 'What to do on Hyperliquid',
-    'var.actionBody': 'Target a {hlSide} of ~{usd} on {hlTicker} (Hyperliquid) to offset your Omni {ticker} leg and farm the funding spread.',
+    'var.actionBody': 'Open a {hlSide} on {hlTicker} to offset your Omni position and farm the funding spread.',
+    'var.recCompactKicker': 'Reco',
+    'var.recCompactLine': '{hlTicker} ~{usd} · {net}/day',
+    'var.hedgeOk': 'Hedge in place — watch drift and funding rates.',
     'var.openOrderTip': 'Entry tip: open first on {venue} (higher mark {high} vs {low}, {pct}% gap) to limit instant UPnL mismatch. Then the opposite leg — match quantity when possible, not only USD notional.',
     'var.recTitle': 'Recommended sides (funding)',
     'var.recBody': 'Short {omniTicker} on Omni + Long {hlTicker} on HL — est. funding ~{net}/day on notional.',
@@ -10901,7 +10922,10 @@ const I18N = {
     'var.earnNet': 'Funding net estimé : {pct} → environ {usd} / jour',
     'var.hlMissing': 'Pas de position HL',
     'var.actionTitle': 'À faire sur Hyperliquid',
-    'var.actionBody': 'Vise un {hlSide} d’environ {usd} sur {hlTicker} (Hyperliquid) pour compenser ta jambe Omni {ticker} et farmer l’écart de funding.',
+    'var.actionBody': 'Ouvre un {hlSide} sur {hlTicker} pour compenser ta position Omni et farmer l’écart de funding.',
+    'var.recCompactKicker': 'Reco',
+    'var.recCompactLine': '{hlTicker} ~{usd} · {net}/j',
+    'var.hedgeOk': 'Hedge en place — surveille la dérive et les taux de funding.',
     'var.openOrderTip': 'Astuce ouverture : passe d’abord sur {venue} (mark le plus élevé {high} vs {low}, écart {pct} %) pour limiter le décalage d’UPnL à l’entrée. Ensuite la jambe opposée — vise la même quantité si possible, pas seulement le même USD.',
     'var.recTitle': 'Sens recommandés (funding)',
     'var.recBody': 'Short {omniTicker} sur Omni + Long {hlTicker} sur HL — funding estimé ~{net}/j sur le notionnel.',

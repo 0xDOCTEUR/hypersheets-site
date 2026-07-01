@@ -1476,7 +1476,22 @@
     return `<div class="var-hedge-drift-track" title="${varT('var.driftPct').replace('{pct}', w.toFixed(1))}"><div class="var-hedge-drift-fill" style="width:${w}%;background:${ok ? 'var(--success)' : 'var(--danger)'}"></div></div>`;
   }
 
-  function varRenderHedgeRec(ticker, legSide) {
+  function varUpdateHedgeSteps(leg, hlPos, driftWarn, sizeWarn) {
+    const steps = document.querySelectorAll('.var-hedge-steps .var-hedge-step');
+    if (!steps.length) return;
+    const s1 = !!(leg && leg.ticker && parseFloat(leg.notional) > 0);
+    const s2 = !!(hlPos && !sizeWarn && !driftWarn);
+    const active = !s1 ? 1 : !s2 ? 2 : 3;
+    steps.forEach((el, i) => {
+      const n = i + 1;
+      el.classList.remove('done', 'active', 'pending');
+      if (n < active) el.classList.add('done');
+      else if (n === active) el.classList.add('active');
+      else el.classList.add('pending');
+    });
+  }
+
+  function varRenderHedgeRec(ticker, legSide, notional) {
     const host = document.getElementById('varHedgeRec');
     if (!host) return;
     const tick = String(ticker || '').trim().toUpperCase();
@@ -1486,26 +1501,22 @@
     }
     const rec = varRecommendSides(tick, _varListingsCache, _varHlFunding?.map);
     if (!rec) {
-      host.innerHTML = `<div class="var-hedge-rec-card muted"><div class="var-hedge-rec-title" style="color:var(--muted)">${varT('var.recTitle')}</div><p style="font-size:.8rem;color:var(--muted);margin:0">${varT('var.recNoData')}</p></div>`;
+      host.innerHTML = `<div class="var-hedge-rec-compact"><span class="var-hedge-rec-compact-kicker">${varT('var.recTitle')}</span><span>${varT('var.recNoData')}</span></div>`;
       return;
     }
     const hlTick = varHlCoinShort(tick);
     const netLbl = varFmtFundingDaily(rec.netDaily, true);
-    const omniLbl = rec.omniSide === 'short' ? varT('var.sideShort') : varT('var.sideLong');
-    const hlLbl = rec.hlSide === 'short' ? varT('var.sideShort') : varT('var.sideLong');
+    const usdLbl = parseFloat(notional) > 0 ? varFmtUsd(Math.abs(parseFloat(notional))) : '—';
     const mismatch = legSide && legSide !== rec.omniSide;
+    const compactLine = varT('var.recCompactLine')
+      .replace('{hlTicker}', hlTick)
+      .replace('{usd}', usdLbl)
+      .replace('{net}', netLbl);
     host.innerHTML = `
-      <div class="var-hedge-rec-card${mismatch ? '' : ''}">
-        <div class="var-hedge-rec-title">${varT('var.recTitle')}</div>
-        <div class="var-hedge-rec-bridge">
-          ${varSidePill(rec.omniSide)} <strong>${tick}</strong>
-          <span class="var-hedge-rec-arrow">↔</span>
-          ${varSidePill(rec.hlSide)} <strong>${hlTick}</strong>
-        </div>
-        <p style="font-size:.8rem;color:var(--muted);margin:0 0 8px;line-height:1.45">${varT('var.recNetLine').replace('{net}', netLbl)}</p>
-        <p style="font-size:.72rem;color:var(--muted);margin:0 0 10px">Omni ${varFmtFundingDaily(rec.varD, true)} · HL ${varFmtFundingDaily(rec.hlD, true)}</p>
-        ${mismatch ? `<p style="font-size:.76rem;color:var(--warning-brand);margin:0 0 10px">${varT('var.recMismatch').replace('{net}', netLbl)}</p>` : ''}
-        <button type="button" class="btn btn-ghost text-xs" style="padding:4px 12px" onclick="varApplyRecommendSide()">${varT('var.recApply')}</button>
+      <div class="var-hedge-rec-compact" title="${varT('var.recWhy').replace(/"/g, '&quot;')}">
+        <span class="var-hedge-rec-compact-kicker">${varT('var.recCompactKicker')}</span>
+        <span class="var-hedge-rec-compact-line">${varSidePill(rec.hlSide)} ${compactLine}</span>
+        ${mismatch ? `<button type="button" class="btn btn-ghost text-xs" style="padding:2px 10px;margin-left:auto" onclick="varApplyRecommendSide()">${varT('var.recApply')}</button>` : ''}
       </div>`;
   }
 
@@ -1563,7 +1574,7 @@
     const statusEl = document.getElementById('varHedgeStatus');
     const tickPreview = (document.getElementById('varLegTicker')?.value || '').trim().toUpperCase();
     const sidePreview = document.getElementById('varLegSide')?.value;
-    varRenderHedgeRec(tickPreview || leg?.ticker, leg?.side || sidePreview);
+    varRenderHedgeRec(tickPreview || leg?.ticker, leg?.side || sidePreview, leg?.notional);
     if (!sum) return;
 
     if (!varHasWallets()) {
@@ -1575,6 +1586,7 @@
     }
 
     if (!leg) {
+      varUpdateHedgeSteps(null, null, false, false);
       sum.innerHTML = `<div class="card2 p3" style="text-align:center;padding:32px 16px"><p style="color:var(--muted);font-size:.88rem;margin:0;line-height:1.5">${varT('var.hedgeEmpty')}</p></div>`;
       return;
     }
@@ -1599,6 +1611,11 @@
     const fundUsdMonth = fundUsdDay != null ? fundUsdDay * 30 : null;
     const omniSideLbl = leg.side === 'short' ? varT('var.sideShort') : varT('var.sideLong');
     const hlSideLbl = hlPos ? (hlPos.szi > 0 ? varT('var.sideLong') : varT('var.sideShort')) : (suggested === 'long' ? varT('var.sideLong') : varT('var.sideShort'));
+    const needsHlAction = !hlPos;
+    const hedged = hlPos && !driftWarn && !sizeWarn;
+    const deltaValCls = driftWarn ? 'var-hedge-metric-val--risk' : 'var-hedge-metric-val--neutral';
+    const sizeValCls = !hlPos ? 'var-hedge-metric-val--neutral' : (sizeWarn ? 'var-hedge-metric-val--wait' : 'var-hedge-metric-val--neutral');
+    varUpdateHedgeSteps(leg, hlPos, driftWarn, sizeWarn);
 
     sum.innerHTML = `
       <p class="var-hedge-split-title" data-i18n="var.hedgeResultTitle">${varT('var.hedgeResultTitle')}</p>
@@ -1609,12 +1626,26 @@
           <div class="var-hedge-leg-sub"><strong>${leg.ticker}</strong>${varHlCoinShort(leg.ticker) !== leg.ticker ? ' → HL ' + varHlCoinShort(leg.ticker) : ''}</div>
         </div>
         <div class="var-hedge-bridge-mid">↔<span>delta</span></div>
-        <div class="var-hedge-leg var-hedge-leg--hl">
+        <div class="var-hedge-leg var-hedge-leg--hl${hlPos ? '' : ' var-hedge-leg--empty'}">
           <div class="var-hedge-leg-label">Hyperliquid</div>
-          <div class="var-hedge-leg-val">${hlPos ? varSidePill(hlSideActual) + ' ' + varFmtUsd(hlUsd) : '—'}</div>
-          <div class="var-hedge-leg-sub">${hlPos ? hlPos.coin : varT('var.hlMissing')}</div>
+          <div class="var-hedge-leg-val">${hlPos ? varSidePill(hlSideActual) + ' ' + varFmtUsd(hlUsd) : varT('var.hlMissing')}</div>
+          <div class="var-hedge-leg-sub">${hlPos ? hlPos.coin : varHlCoinShort(leg.ticker)}</div>
         </div>
       </div>
+      ${needsHlAction ? `
+      <div class="var-hedge-action-card var-hedge-action-card--pending mb-3">
+        <div class="var-hedge-action-title">${varT('var.actionTitle')}</div>
+        <p style="font-size:.82rem;color:var(--text);margin:0 0 8px;line-height:1.5">${varT('var.actionBody')
+          .replace('{hlSide}', hlSideLbl)
+          .replace('{hlTicker}', varHlCoinShort(leg.ticker))}</p>
+        <p style="font-size:.78rem;color:var(--warning-brand);margin:0">${varT('var.hlMissingHint')}</p>
+        ${varOpenOrderTipHtml(leg.ticker)}
+      </div>` : (hedged ? `<p class="var-hedge-ok-line">${varT('var.hedgeOk')}</p>` : `
+      <div class="var-hedge-action-card mb-3">
+        <div class="var-hedge-action-title">${varT('var.actionTitle')}</div>
+        ${sizeWarn ? `<p style="font-size:.78rem;color:var(--warning-brand);margin:0">${varT('var.sizeGapWarn').replace('{pct}', sizeGap.toFixed(0))}</p>` : ''}
+        ${driftWarn ? `<p style="font-size:.78rem;color:var(--danger);margin:8px 0 0">${varT('var.driftWarn')}</p>` : ''}
+      </div>`)}
       <div class="var-hedge-hero">
         <div class="var-hedge-hero-label">${varT('var.cardFundingEarn')}</div>
         <div class="var-hedge-hero-val" style="${fundCls}">${fundNet != null ? varFmtFundingDaily(fundNet, true) : '—'}</div>
@@ -1623,32 +1654,20 @@
       <div class="var-hedge-metrics">
         <div class="var-hedge-metric">
           <div class="var-hedge-metric-label">${varT('var.cardNetDelta')}</div>
-          <div class="var-hedge-metric-val" style="color:${driftWarn ? 'var(--danger)' : 'var(--success)'}">${delta ? varFmtUsd(delta.net) : '—'}</div>
+          <div class="var-hedge-metric-val ${deltaValCls}">${delta ? varFmtUsd(delta.net) : '—'}</div>
           ${delta ? varDriftBar(delta.driftPct) : ''}
           <div style="font-size:.68rem;color:var(--muted);margin-top:4px">${delta ? varT('var.earnDeltaShort') : ''}</div>
         </div>
         <div class="var-hedge-metric">
           <div class="var-hedge-metric-label">${varT('var.sizeMatch')}</div>
-          <div class="var-hedge-metric-val" style="color:${sizeWarn ? 'var(--warning-brand)' : 'var(--success)'}">${hlPos ? (100 - sizeGap).toFixed(0) + '%' : '—'}</div>
-          <div style="font-size:.68rem;color:var(--muted);margin-top:4px">${hlPos ? varFmtUsd(targetUsd) + ' / ' + varFmtUsd(hlUsd) : varT('var.hlMissing')}</div>
+          <div class="var-hedge-metric-val ${sizeValCls}">${hlPos ? (100 - sizeGap).toFixed(0) + '%' : '—'}</div>
+          <div style="font-size:.68rem;color:var(--muted);margin-top:4px">${hlPos ? varFmtUsd(hlUsd) + ' / ' + varFmtUsd(targetUsd) : varT('var.hlMissing')}</div>
         </div>
-      </div>
-      <div class="var-hedge-action-card mb-3">
-        <div class="var-hedge-action-title">${varT('var.actionTitle')}</div>
-        <p style="font-size:.82rem;color:var(--text);margin:0 0 8px;line-height:1.5">${varT('var.actionBody')
-          .replace('{hlSide}', suggested === 'long' ? varT('var.sideLong') : varT('var.sideShort'))
-          .replace('{usd}', varFmtUsd(targetUsd))
-          .replace('{ticker}', leg.ticker)
-          .replace('{hlTicker}', varHlCoinShort(leg.ticker))}</p>
-        ${!hlPos ? `<p style="font-size:.78rem;color:var(--warning-brand);margin:0">${varT('var.hlMissingHint')}</p>${varOpenOrderTipHtml(leg.ticker)}` : ''}
-        ${hlPos && sizeWarn ? `<p style="font-size:.78rem;color:var(--warning-brand);margin:8px 0 0">${varT('var.sizeGapWarn').replace('{pct}', sizeGap.toFixed(0))}</p>` : ''}
-        ${driftWarn ? `<p style="font-size:.78rem;color:var(--danger);margin:8px 0 0">${varT('var.driftWarn')}</p>` : (!sizeWarn && hlPos ? `<p style="font-size:.78rem;color:var(--muted);margin:8px 0 0">${varT('var.hedgeHint')}</p>` : '')}
       </div>
       <div class="card2 p3" style="border-radius:12px">
         <div style="font-size:.75rem;font-weight:600;margin-bottom:4px">${varT('var.earnTitle')}</div>
         <p style="font-size:.76rem;color:var(--muted);margin:0 0 10px;line-height:1.45">${varT('var.earnExplain')}</p>
         <div class="var-hedge-earn-grid">
-          <div class="var-hedge-earn-item"><span>${varT('var.earnPrice')}</span><strong style="color:${driftWarn ? 'var(--danger)' : 'var(--success)'}">${delta ? varFmtUsd(delta.net) : '—'}</strong></div>
           <div class="var-hedge-earn-item"><span>Omni ${omniSideLbl}</span><strong>${omniFundLeg != null ? varFmtFundingDaily(omniFundLeg, true) : '—'}</strong></div>
           <div class="var-hedge-earn-item"><span>HL ${hlSideLbl}</span><strong>${hlFundLeg != null ? varFmtFundingDaily(hlFundLeg, true) : '—'}</strong></div>
         </div>
