@@ -733,7 +733,31 @@
       });
     });
     menu.innerHTML = html || `<div class="var-leg-ticker-empty">${varT('var.legTickerEmpty')}</div>`;
-    if (show !== false) menu.hidden = !html;
+    if (show === false) return;
+    menu.hidden = !html;
+    if (html) varPositionLegTickerMenu();
+  }
+
+  function varPositionLegTickerMenu() {
+    const inp = document.getElementById('varLegTicker');
+    const menu = document.getElementById('varLegTickerMenu');
+    if (!inp || !menu || menu.hidden) return;
+    const r = inp.getBoundingClientRect();
+    const gap = 4;
+    const margin = 12;
+    const spaceBelow = window.innerHeight - r.bottom - gap - margin;
+    const spaceAbove = r.top - gap - margin;
+    let maxH = Math.min(420, spaceBelow);
+    let top = r.bottom + gap;
+    if (maxH < 140 && spaceAbove > spaceBelow) {
+      maxH = Math.min(420, spaceAbove);
+      top = Math.max(margin, r.top - gap - maxH);
+    }
+    maxH = Math.max(120, maxH);
+    menu.style.top = `${top}px`;
+    menu.style.left = `${r.left}px`;
+    menu.style.width = `${Math.max(r.width, 240)}px`;
+    menu.style.maxHeight = `${maxH}px`;
   }
 
   function varInitLegTickerPicker() {
@@ -742,8 +766,16 @@
     const wrap = inp?.closest('.var-leg-ticker-wrap');
     if (!inp || inp.dataset.varPickerBound) return;
     inp.dataset.varPickerBound = '1';
-    inp.addEventListener('focus', () => varRenderLegTickerMenu(inp.value, true));
-    inp.addEventListener('input', () => varRenderLegTickerMenu(inp.value, true));
+    if (menu && !menu.dataset.portaled) {
+      menu.dataset.portaled = '1';
+      document.body.appendChild(menu);
+    }
+    const openMenu = () => {
+      varRenderLegTickerMenu(inp.value, true);
+      requestAnimationFrame(() => varPositionLegTickerMenu());
+    };
+    inp.addEventListener('focus', openMenu);
+    inp.addEventListener('input', openMenu);
     menu?.addEventListener('mousedown', (e) => {
       const btn = e.target.closest('.var-leg-ticker-opt');
       if (!btn) return;
@@ -752,9 +784,14 @@
       menu.hidden = true;
       varScheduleLegPreview();
     });
-    document.addEventListener('click', (e) => {
-      if (!wrap?.contains(e.target)) menu.hidden = true;
-    });
+    const closeIfOutside = (e) => {
+      if (!menu || menu.hidden) return;
+      if (wrap?.contains(e.target) || menu.contains(e.target)) return;
+      menu.hidden = true;
+    };
+    document.addEventListener('click', closeIfOutside);
+    window.addEventListener('resize', () => varPositionLegTickerMenu());
+    window.addEventListener('scroll', () => varPositionLegTickerMenu(), true);
   }
 
   function varLegLoad() {

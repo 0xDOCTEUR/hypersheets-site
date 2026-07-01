@@ -433,19 +433,22 @@ const HS_CONFIG = {
         .var-hedge-open-tip { font-size: .76rem; color: var(--muted); margin: 8px 0 0; line-height: 1.5; padding: 8px 10px; border-radius: 8px; background: rgba(76,154,248,.06); border: 1px solid rgba(76,154,248,.15); }
         .var-leg-ticker-wrap { position: relative; }
         .var-leg-ticker-menu {
-          position: absolute;
-          z-index: 60;
-          top: calc(100% + 4px);
-          left: 0;
-          right: 0;
-          max-height: min(52vh, 380px);
+          position: fixed;
+          z-index: 10050;
           overflow-y: auto;
+          overflow-x: hidden;
           border-radius: 10px;
           border: 1px solid var(--border);
           background: var(--surface-1, var(--bg));
           box-shadow: 0 12px 36px rgba(0,0,0,.32);
-          padding: 4px 0;
+          padding: 4px 0 8px;
+          overscroll-behavior: contain;
+          scrollbar-gutter: stable;
         }
+        .var-leg-ticker-menu::-webkit-scrollbar { width: 8px; }
+        .var-leg-ticker-menu::-webkit-scrollbar-track { background: transparent; }
+        .var-leg-ticker-menu::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 4px; }
+        .var-hedge-form-card { overflow: visible; }
         .var-leg-ticker-menu[hidden] { display: none !important; }
         .var-leg-ticker-cat {
           font-size: .64rem;
