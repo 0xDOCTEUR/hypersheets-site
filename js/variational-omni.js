@@ -8,7 +8,17 @@
   const VAR_API_BASE = 'https://omni-client-api.prod.ap-northeast-1.variational.io';
   const HS_VAR_LEG_KEY = 'hs-var-manual-leg';
   const HS_VAR_CSV_KEY = 'hs-var-csv-bundle';
+  const HS_VAR_FUND_HIST_KEY = 'hs-var-fund-hist';
+  const HS_VAR_RADAR_SIZE_KEY = 'hs-var-radar-size';
+  const HS_VAR_RADAR_HOLD_KEY = 'hs-var-radar-hold';
   const VAR_STATS_CACHE_MS = 5 * 60 * 1000;
+  const VAR_FUND_HIST_MS = 48 * 60 * 60 * 1000;
+  const VAR_FUND_HIST_MIN_PTS = 8;
+  const VAR_QUOTE_TIERS = [
+    { size: 1000, key: 'size_1k' },
+    { size: 100000, key: 'size_100k' },
+    { size: 1000000, key: 'size_1m' },
+  ];
   const VAR_HL_TICKER_MAP = {
     // Perps HL (dex principal)
     BTC: 'BTC', ETH: 'ETH', SOL: 'SOL', HYPE: 'HYPE', ZEC: 'ZEC', XRP: 'XRP',
@@ -249,6 +259,179 @@
     const f = parseFloat(fundingHr || 0);
     if (!isFinite(f)) return null;
     return f * 24 * 100;
+  }
+
+  function varDailyToApr(dailyPct) {
+    if (dailyPct == null || !isFinite(dailyPct)) return null;
+    return dailyPct * 365;
+  }
+
+  function varFmtApr(apr, signed) {
+    if (apr == null || !isFinite(apr)) return '—';
+    if (Math.abs(apr) >= 50000) {
+      const cap = (apr > 0 ? '>' : '<') + '50k';
+      return signed && apr > 0 ? '+' + cap : cap;
+    }
+    const body = Math.abs(apr).toLocaleString(varLoc(), { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+    const sfx = varT('var.perApr');
+    if (!signed) return body + sfx;
+    return (apr >= 0 ? '+' : '−') + body + sfx;
+  }
+
+  function varQuoteSpreadBps(quote) {
+    const bid = parseFloat(quote?.bid || 0);
+    const ask = parseFloat(quote?.ask || 0);
+    if (!(bid > 0) || !(ask > 0) || ask < bid) return null;
+    const mid = (bid + ask) / 2;
+    return (ask - bid) / mid * 10000;
+  }
+
+  function varOmniSpreadBpsAtSize(L, usdNotional) {
+    const q = L?.quotes;
+    const fallback = parseFloat(L?.base_spread_bps || 0);
+    if (!q) return isFinite(fallback) && fallback > 0 ? fallback : null;
+    const points = VAR_QUOTE_TIERS
+      .map(t => ({ size: t.size, bps: varQuoteSpreadBps(q[t.key]) }))
+      .filter(p => p.bps != null && isFinite(p.bps));
+    if (!points.length) return isFinite(fallback) && fallback > 0 ? fallback : null;
+    const target = Math.max(100, parseFloat(usdNotional) || 10000);
+    if (target <= points[0].size) return points[0].bps;
+    if (target >= points[points.length - 1].size) return points[points.length - 1].bps;
+    for (let i = 0; i < points.length - 1; i++) {
+      const a = points[i];
+      const b = points[i + 1];
+      if (target >= a.size && target <= b.size) {
+        const t = (Math.log(target) - Math.log(a.size)) / (Math.log(b.size) - Math.log(a.size));
+        return a.bps + t * (b.bps - a.bps);
+      }
+    }
+    return points[points.length - 1].bps;
+  }
+
+  function varRadarNotional() {
+    const el = document.getElementById('varRadarSize');
+    const v = parseFloat(el?.value || 0);
+    if (isFinite(v) && v > 0) return v;
+    try {
+      const saved = parseFloat(localStorage.getItem(HS_VAR_RADAR_SIZE_KEY) || '0');
+      if (isFinite(saved) && saved > 0) return saved;
+    } catch (_) {}
+    const leg = varLegLoad();
+    if (leg?.notional > 0) return parseFloat(leg.notional);
+    return 10000;
+  }
+
+  function varRadarHoldDays() {
+    const el = document.getElementById('varRadarHold');
+    const v = parseInt(el?.value || '0', 10);
+    if (isFinite(v) && v > 0) return v;
+    try {
+      const saved = parseInt(localStorage.getItem(HS_VAR_RADAR_HOLD_KEY) || '0', 10);
+      if (isFinite(saved) && saved > 0) return saved;
+    } catch (_) {}
+    return 30;
+  }
+
+  function varRadarNetMetrics(L, hlMap, notional, holdDays) {
+    const tick = String(L.ticker || '').toUpperCase();
+    const varD = varFundingDailyPct(L.funding_rate, L.funding_interval_s);
+    const hl = varHlMapLookup(hlMap, tick);
+    const hlD = hl ? hlFundingDailyPct(hl.fundingHr) : null;
+    const rec = varD != null && hlD != null ? varRecommendSides(tick, [L], hlMap) : null;
+    const grossDaily = rec ? rec.netDaily : null;
+    const spreadBps = varOmniSpreadBpsAtSize(L, notional);
+    const spreadCostPct = spreadBps != null ? spreadBps / 100 : null;
+    const amortDaily = spreadCostPct != null && holdDays > 0 ? spreadCostPct / holdDays : null;
+    const netDaily = grossDaily != null && amortDaily != null ? grossDaily - amortDaily : grossDaily;
+    return {
+      grossDaily,
+      netDaily,
+      grossApr: grossDaily != null ? varDailyToApr(grossDaily) : null,
+      netApr: netDaily != null ? varDailyToApr(netDaily) : null,
+      spreadBps,
+      spreadCostPct,
+      breakEvenDays: grossDaily > 0.001 && spreadCostPct != null ? spreadCostPct / grossDaily : null,
+      rec,
+      varD,
+      hlD,
+      varApr: varD != null ? varDailyToApr(varD) : null,
+      hlApr: hlD != null ? varDailyToApr(hlD) : null,
+    };
+  }
+
+  function varRecordFundingHistory(listings) {
+    try {
+      const raw = JSON.parse(localStorage.getItem(HS_VAR_FUND_HIST_KEY) || '{}');
+      const now = Date.now();
+      const cut = now - VAR_FUND_HIST_MS;
+      for (const L of listings || []) {
+        const tick = String(L.ticker || '').toUpperCase();
+        const daily = varFundingDailyPct(L.funding_rate, L.funding_interval_s);
+        if (daily == null) continue;
+        if (!raw[tick]) raw[tick] = [];
+        const arr = raw[tick];
+        const last = arr[arr.length - 1];
+        if (!last || now - last.t > 4 * 60 * 1000) arr.push({ t: now, v: daily });
+        raw[tick] = arr.filter(p => p.t >= cut).slice(-240);
+      }
+      localStorage.setItem(HS_VAR_FUND_HIST_KEY, JSON.stringify(raw));
+    } catch (_) {}
+  }
+
+  function varSparklineHtml(ticker) {
+    let pts = [];
+    try {
+      const raw = JSON.parse(localStorage.getItem(HS_VAR_FUND_HIST_KEY) || '{}');
+      pts = (raw[String(ticker || '').toUpperCase()] || []).filter(p => p.t >= Date.now() - VAR_FUND_HIST_MS);
+    } catch (_) {}
+    if (pts.length < VAR_FUND_HIST_MIN_PTS) {
+      return `<span class="var-radar-spark-empty" title="${varT('var.sparkNeedData')}">—</span>`;
+    }
+    const w = 72;
+    const h = 24;
+    const vals = pts.map(p => p.v);
+    const min = Math.min(...vals);
+    const max = Math.max(...vals);
+    const range = max - min || 1;
+    const poly = vals.map((v, i) => {
+      const x = vals.length === 1 ? w / 2 : (i / (vals.length - 1)) * w;
+      const y = h - ((v - min) / range) * (h - 4) - 2;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(' ');
+    const last = vals[vals.length - 1];
+    const color = last >= 0 ? '#3ddc84' : '#ff6b6b';
+    return `<svg class="var-radar-spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" title="${varT('var.sparkTitle')}"><polyline fill="none" stroke="${color}" stroke-width="1.5" points="${poly}"/></svg>`;
+  }
+
+  function varOnRadarParamsChange() {
+    const sizeEl = document.getElementById('varRadarSize');
+    const holdEl = document.getElementById('varRadarHold');
+    try {
+      if (sizeEl?.value) localStorage.setItem(HS_VAR_RADAR_SIZE_KEY, String(sizeEl.value));
+      if (holdEl?.value) localStorage.setItem(HS_VAR_RADAR_HOLD_KEY, String(holdEl.value));
+    } catch (_) {}
+    renderVarRadar();
+  }
+
+  function varInitRadarParams() {
+    const sizeEl = document.getElementById('varRadarSize');
+    const holdEl = document.getElementById('varRadarHold');
+    if (!sizeEl || sizeEl.dataset.varBound) return;
+    sizeEl.dataset.varBound = '1';
+    holdEl && (holdEl.dataset.varBound = '1');
+    try {
+      const savedSize = localStorage.getItem(HS_VAR_RADAR_SIZE_KEY);
+      const savedHold = localStorage.getItem(HS_VAR_RADAR_HOLD_KEY);
+      if (savedSize) sizeEl.value = savedSize;
+      else if (!sizeEl.value) sizeEl.value = '10000';
+      if (savedHold && holdEl) holdEl.value = savedHold;
+      else if (holdEl && !holdEl.value) holdEl.value = '30';
+    } catch (_) {
+      if (!sizeEl.value) sizeEl.value = '10000';
+      if (holdEl && !holdEl.value) holdEl.value = '30';
+    }
+    sizeEl.addEventListener('input', varOnRadarParamsChange);
+    holdEl?.addEventListener('change', varOnRadarParamsChange);
   }
 
   let _varListingsCache = [];
@@ -588,15 +771,25 @@
     return { varNotional, hlNotional, net, driftPct };
   }
 
-  function varRadarSort(listings, mode, noSlice) {
+  function varRadarSort(listings, mode, hlMap, noSlice) {
     let rows = [...(listings || [])];
+    const notional = varRadarNotional();
+    const holdDays = varRadarHoldDays();
     if (mode === 'funding' || mode === 'spread') {
       rows = rows.filter(L => parseFloat(L.volume_24h || 0) >= 25000);
     }
     if (mode === 'funding') {
-      rows.sort((a, b) => Math.abs(varFundingDailyPct(b.funding_rate, b.funding_interval_s) || 0) - Math.abs(varFundingDailyPct(a.funding_rate, a.funding_interval_s) || 0));
+      rows.sort((a, b) => {
+        const na = varRadarNetMetrics(a, hlMap, notional, holdDays).netApr;
+        const nb = varRadarNetMetrics(b, hlMap, notional, holdDays).netApr;
+        return (nb ?? -1e9) - (na ?? -1e9);
+      });
     } else if (mode === 'spread') {
-      rows.sort((a, b) => parseFloat(b.base_spread_bps || 0) - parseFloat(a.base_spread_bps || 0));
+      rows.sort((a, b) => {
+        const sa = varOmniSpreadBpsAtSize(a, notional) || 0;
+        const sb = varOmniSpreadBpsAtSize(b, notional) || 0;
+        return sb - sa;
+      });
     } else {
       rows.sort((a, b) => parseFloat(b.volume_24h || 0) - parseFloat(a.volume_24h || 0));
     }
@@ -712,33 +905,38 @@
     const cat = varAssetCategory(tick);
     const mark = parseFloat(L.mark_price || 0);
     const vol = parseFloat(L.volume_24h || 0);
-    const varD = varFundingDailyPct(L.funding_rate, L.funding_interval_s);
-    const hl = varHlMapLookup(hlMap, tick);
-    const hlD = hl ? hlFundingDailyPct(hl.fundingHr) : null;
+    const notional = varRadarNotional();
+    const holdDays = varRadarHoldDays();
+    const m = varRadarNetMetrics(L, hlMap, notional, holdDays);
     const assetCell = `${varCatBadge(cat)}<span class="font-medium" title="${varHlCoinShort(tick)}">${varHlAssetLabel(tick)}</span>`;
     if (mode === 'funding') {
-      const rec = hlD != null && varD != null ? varRecommendSides(tick, [L], hlMap) : null;
-      const net = rec ? rec.netDaily : null;
-      const diffCls = net > 0 ? 'color:var(--success)' : net < 0 ? 'color:var(--danger)' : '';
-      const setup = rec
-        ? `<span style="font-size:.78rem;line-height:1.35">${varFmtSetupShort(rec, tick)}</span>`
+      const netCls = m.netApr > 0 ? 'color:var(--success)' : m.netApr < 0 ? 'color:var(--danger)' : '';
+      const setup = m.rec
+        ? `<span style="font-size:.78rem;line-height:1.35">${varFmtSetupShort(m.rec, tick)}</span>`
         : `<span style="font-size:.78rem;color:var(--muted)">${varT('var.hlNa')}</span>`;
+      const beLbl = m.breakEvenDays != null && isFinite(m.breakEvenDays)
+        ? m.breakEvenDays < 1 ? '<1j' : m.breakEvenDays.toFixed(0) + varT('var.daysShort')
+        : '—';
       return `<tr>
         <td>${assetCell}</td>
         <td>${setup}</td>
-        <td class="text-right mono" title="${varFundingWhoPays(varD)}">${varD != null ? varFmtFundingDaily(varD, true) : '—'}</td>
-        <td class="text-right mono" title="${hlD != null ? varFundingWhoPays(hlD) : ''}">${hlD != null ? varFmtFundingDaily(hlD, true) : varT('var.hlNa')}</td>
-        <td class="text-right mono" style="${diffCls}" title="${varT('var.colNetFundingHint')}">${net != null ? varFmtFundingDaily(net, true) : '—'}</td>
+        <td class="text-right mono" title="${varT('var.colGrossAprHint')}">${m.grossApr != null ? varFmtApr(m.grossApr, true) : '—'}</td>
+        <td class="text-right mono" title="${varT('var.colSpreadHint').replace('{usd}', varFmtUsd(notional))}">${m.spreadBps != null ? m.spreadBps.toFixed(1) : '—'}</td>
+        <td class="text-right mono" style="${netCls}" title="${varT('var.colNetAprHint').replace('{days}', String(holdDays))}">${m.netApr != null ? varFmtApr(m.netApr, true) : '—'}</td>
+        <td class="text-right mono" style="color:var(--muted)" title="${varT('var.colBreakEvenHint')}">${beLbl}</td>
+        <td class="text-center">${varSparklineHtml(tick)}</td>
         <td class="text-right mono">${varFmtVol(vol)}</td>
       </tr>`;
     }
+    const varD = m.varD;
     let cells = `<td>${assetCell}</td><td class="text-right mono">${mark > 0 ? varFmtMark(mark) : '—'}</td>`;
     if (mode === 'spread') {
-      cells += `<td class="text-right mono">${parseFloat(L.base_spread_bps || 0).toFixed(1)}</td>`;
+      const sbps = varOmniSpreadBpsAtSize(L, notional);
+      cells += `<td class="text-right mono" title="${varT('var.colSpreadHint').replace('{usd}', varFmtUsd(notional))}">${sbps != null ? sbps.toFixed(1) : parseFloat(L.base_spread_bps || 0).toFixed(1)}</td>`;
       cells += `<td class="text-right mono">${varFmtVol(vol)}</td>`;
     } else {
       cells += `<td class="text-right mono">${varFmtVol(vol)}</td>`;
-      cells += `<td class="text-right mono">${varD != null ? varFmtFundingDaily(varD, true) : '—'}</td>`;
+      cells += `<td class="text-right mono">${varD != null ? varFmtApr(varDailyToApr(varD), true) : '—'}</td>`;
     }
     return `<tr>${cells}</tr>`;
   }
@@ -751,13 +949,15 @@
     if (!rows.length) {
       return `<div class="text-center text-sm py-10" style="color:var(--muted)">${varT('var.noData')}</div>`;
     }
-    const colSpan = mode === 'funding' ? 6 : (mode === 'spread' ? 4 : 4);
+    const colSpan = mode === 'funding' ? 8 : (mode === 'spread' ? 4 : 4);
     let head = `<tr><th>${varT('var.colAsset')}</th>`;
     if (mode === 'funding') {
       head += `<th>${varT('var.colSetup')}</th>`;
-      head += `<th class="text-right">${varThHint(varT('var.colFundingOmni'), varT('var.colFundingOmniHint'))}</th>`;
-      head += `<th class="text-right">${varThHint(varT('var.colFundingHl'), varT('var.colFundingHlHint'))}</th>`;
-      head += `<th class="text-right">${varThHint(varT('var.colNetFunding'), varT('var.colNetFundingHint'))}</th>`;
+      head += `<th class="text-right">${varThHint(varT('var.colGrossApr'), varT('var.colGrossAprHint'))}</th>`;
+      head += `<th class="text-right">${varThHint(varT('var.colSpreadAt'), varT('var.colSpreadHint').replace('{usd}', varFmtUsd(varRadarNotional())))}</th>`;
+      head += `<th class="text-right">${varThHint(varT('var.colNetApr'), varT('var.colNetAprHint').replace('{days}', String(varRadarHoldDays())))}</th>`;
+      head += `<th class="text-right">${varThHint(varT('var.colBreakEven'), varT('var.colBreakEvenHint'))}</th>`;
+      head += `<th class="text-center">${varThHint(varT('var.colSpark'), varT('var.sparkTitle'))}</th>`;
       head += `<th class="text-right">${varT('var.colVol24h')}</th>`;
     } else {
       head += `<th class="text-right">${varT('var.colMark')}</th>`;
@@ -794,7 +994,9 @@
       await renderVarPlatformKpis(stats);
       const listings = stats?.listings || [];
       _varListingsCache = listings;
+      varRecordFundingHistory(listings);
       varPopulateLegTickers(listings);
+      varInitRadarParams();
       if (mode === 'compare') {
         let rows = varCompareRows(listings, hlMap, 50000);
         rows = catFilter === 'all' ? rows : rows.filter(r => varAssetCategory(r.ticker) === catFilter);
@@ -804,7 +1006,7 @@
         if (mode === 'funding') {
           list = listings.filter(L => varHlMapLookup(hlMap, L.ticker) && parseFloat(L.volume_24h || 0) >= 25000);
         }
-        let rows = varRadarSort(list, mode, true);
+        let rows = varRadarSort(list, mode, hlMap, true);
         rows = varRadarFilterCategory(rows, catFilter);
         host.innerHTML = varRadarTableHtml(rows, mode, hlMap, catFilter);
       }
@@ -830,9 +1032,9 @@
       return `<tr>
         <td>${varCatBadge(cat)}<span class="font-medium" title="${varHlCoinShort(r.ticker)}">${varHlAssetLabel(r.ticker)}</span></td>
         <td><span style="font-size:.78rem;line-height:1.35">${varFmtSetupShort(fakeRec, r.ticker)}</span></td>
-        <td class="text-right mono">${varFmtFundingDaily(r.varDaily, true)}</td>
-        <td class="text-right mono">${varFmtFundingDaily(r.hlDaily, true)}</td>
-        <td class="text-right mono" style="${cls}">${varFmtFundingDaily(net, true)}</td>
+        <td class="text-right mono">${varFmtApr(varDailyToApr(r.varDaily), true)}</td>
+        <td class="text-right mono">${varFmtApr(varDailyToApr(r.hlDaily), true)}</td>
+        <td class="text-right mono" style="${cls}">${varFmtApr(varDailyToApr(net), true)}</td>
         <td class="text-right mono">${varFmtVol(r.vol)}</td>
       </tr>`;
     };
@@ -852,9 +1054,9 @@
     return `${varRadarIntroHtml('compare')}<p class="text-xs" style="color:var(--muted);padding:0 0 6px;margin:0">${varT('var.compareHint')}</p><table class="hs-trades-table"><thead><tr>
       <th>${varT('var.colAsset')}</th>
       <th>${varT('var.colSetup')}</th>
-      <th class="text-right">${varThHint(varT('var.colFundingOmni'), varT('var.colFundingOmniHint'))}</th>
-      <th class="text-right">${varThHint(varT('var.colFundingHl'), varT('var.colFundingHlHint'))}</th>
-      <th class="text-right">${varThHint(varT('var.colNetFunding'), varT('var.colNetFundingHint'))}</th>
+      <th class="text-right">${varThHint(varT('var.colOmniApr'), varT('var.colFundingOmniHint'))}</th>
+      <th class="text-right">${varThHint(varT('var.colHlApr'), varT('var.colFundingHlHint'))}</th>
+      <th class="text-right">${varThHint(varT('var.colGapApr'), varT('var.colNetFundingHint'))}</th>
       <th class="text-right">${varT('var.colVol24h')}</th>
     </tr></thead><tbody>${body}</tbody></table>`;
   }
@@ -1276,6 +1478,7 @@
     });
   }
 
+  window.varOnRadarParamsChange = varOnRadarParamsChange;
   window.varRefreshHlLeg = varRefreshHlLeg;
   window.varApplyRecommendSide = varApplyRecommendSide;
   window.varSetSub = varSetSub;

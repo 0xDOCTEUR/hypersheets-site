@@ -423,6 +423,11 @@ const HS_CONFIG = {
         .var-csv-slot-meta strong { color: var(--text); font-weight: 600; }
         .var-csv-slot-actions { display: flex; gap: 6px; flex-wrap: wrap; }
         .var-csv-slot-actions .btn { font-size: .72rem; padding: 4px 10px; }
+        .var-radar-spark { display: block; margin: 0 auto; vertical-align: middle; }
+        .var-radar-spark-empty { color: var(--muted); font-size: .75rem; }
+        .var-radar-params { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+        .var-radar-params label { font-size: .78rem; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+        .var-radar-params input.hs-input { width: 88px; font-size: .82rem; padding: 4px 8px; }
         #sidebar .nav-tab[data-tab="variational"].active {
           color: #4c9af8;
           background: rgba(76, 154, 248, .1);
@@ -9128,6 +9133,14 @@ const HS_CONFIG = {
             <option value="indices" data-i18n="var.cat.indices">Indices</option>
             <option value="forex" data-i18n="var.cat.forex">Forex</option>
           </select>
+          <div class="var-radar-params" id="varRadarParamsWrap">
+            <label><span data-i18n="var.radarSizeLabel">Size (USD)</span>
+              <input id="varRadarSize" type="number" min="100" step="any" class="hs-input" value="10000" onchange="varOnRadarParamsChange()"/>
+            </label>
+            <label><span data-i18n="var.radarHoldLabel">Spread amort. (days)</span>
+              <input id="varRadarHold" type="number" min="1" step="1" class="hs-input" value="30" onchange="varOnRadarParamsChange()"/>
+            </label>
+          </div>
           <span style="font-size:.75rem;color:var(--muted);margin-left:auto">
             <span data-i18n="var.updated">Updated</span> <span id="varRadarUpdated" class="mono">—</span>
           </span>
@@ -9961,6 +9974,10 @@ const I18N = {
     'var.csvImported': 'CSV imported',
     'var.csvCleared': 'CSV data cleared',
     'var.perDay': '%/day',
+    'var.perApr': '% APR',
+    'var.daysShort': 'd',
+    'var.radarSizeLabel': 'Size (USD)',
+    'var.radarHoldLabel': 'Spread amort. (days)',
     'var.interval1h': '1h funding interval',
     'var.intervalH': '{h}h funding interval',
     'var.intervalCustom': '{s}s funding interval',
@@ -9971,6 +9988,20 @@ const I18N = {
     'var.colFundingGap': 'Funding gap',
     'var.colNetFunding': 'Est. gain / day',
     'var.colNetFundingHint': 'Estimated net funding if you follow the setup column (same USD size on both legs).',
+    'var.colGrossApr': 'Gross APR',
+    'var.colGrossAprHint': 'Annualized funding spread (Omni vs HL) if you follow the setup — before Omni RFQ spread cost.',
+    'var.colNetApr': 'Net APR',
+    'var.colNetAprHint': 'Gross APR minus Omni entry spread amortized over {days} days (interpolated at your size).',
+    'var.colSpreadAt': 'Spread (bps)',
+    'var.colSpreadHint': 'Omni bid/ask spread interpolated at ~{usd} (quotes 1k / 100k / 1M).',
+    'var.colBreakEven': 'BE',
+    'var.colBreakEvenHint': 'Days until spread cost is recovered by gross funding (Omni leg only).',
+    'var.colSpark': '48h',
+    'var.sparkTitle': 'Omni funding rate trend (local cache, builds while you use Hypersheets).',
+    'var.sparkNeedData': 'Open this tab a few times — sparkline fills from local snapshots (48h max).',
+    'var.colOmniApr': 'Omni APR',
+    'var.colHlApr': 'HL APR',
+    'var.colGapApr': 'Est. gap APR',
     'var.colSetup': 'Suggested setup',
     'var.colFundingOmniHint': 'Daily funding on Omni. Positive = longs pay shorts.',
     'var.colFundingHlHint': 'Daily funding on Hyperliquid. Positive = longs pay shorts.',
@@ -9978,11 +10009,11 @@ const I18N = {
     'var.fundingShortsPay': 'Negative rate: shorts pay longs',
     'var.fundingFlat': 'Near-zero funding',
     'var.radarIntroTitle': 'How to read this table',
-    'var.radarIntroFunding': 'Each row is one asset listed on Omni and Hyperliquid. The setup column tells you which side to take on each platform to farm the funding spread while staying market-neutral. Green gain = you receive more funding than you pay (estimate).',
-    'var.radarIntroCompare': 'Same idea as the Funding view, but only liquid pairs on both venues — sorted by the biggest estimated daily gain.',
+    'var.radarIntroFunding': 'Each row is an Omni+HL pair. Gross APR = funding farm if you follow Strategy. Net APR deducts Omni RFQ spread at your size (amortized). Sorted by net APR.',
+    'var.radarIntroCompare': 'Omni vs HL funding gap on liquid pairs — annualized APR. Setup column shows the delta-neutral sides.',
     'var.radarIntroSpread': 'Bid/ask spread on Omni — useful for execution cost, not funding farming.',
     'var.radarIntroVolume': 'Most traded Omni markets in the last 24 hours.',
-    'var.radarHintFunding': 'Omni + HL only, min. $25k Omni volume. Grouped by category — filter above.',
+    'var.radarHintFunding': 'Omni + HL only, min. $25k volume. Set size & amortization above — sorted by net APR.',
     'var.radarHintSpread': 'Sorted by widest spread on Omni.',
     'var.radarHintVolume': 'Sorted by 24h volume on Omni.',
     'var.colVol24h': '24h volume',
@@ -10676,6 +10707,10 @@ const I18N = {
     'var.csvImported': 'CSV importé',
     'var.csvCleared': 'Données CSV effacées',
     'var.perDay': '%/j',
+    'var.perApr': '% APR',
+    'var.daysShort': 'j',
+    'var.radarSizeLabel': 'Taille (USD)',
+    'var.radarHoldLabel': 'Amort. spread (j)',
     'var.interval1h': 'Intervalle funding 1 h',
     'var.intervalH': 'Intervalle funding {h} h',
     'var.intervalCustom': 'Intervalle funding {s} s',
@@ -10686,6 +10721,20 @@ const I18N = {
     'var.colFundingGap': 'Écart funding',
     'var.colNetFunding': 'Gain estimé / j',
     'var.colNetFundingHint': 'Funding net estimé si tu suis la colonne Stratégie (même taille USD sur chaque jambe).',
+    'var.colGrossApr': 'APR brut',
+    'var.colGrossAprHint': 'Écart de funding annualisé (Omni vs HL) si tu suis la stratégie — avant coût du spread RFQ Omni.',
+    'var.colNetApr': 'APR net',
+    'var.colNetAprHint': 'APR brut moins spread Omni amorti sur {days} j (interpolé à ta taille).',
+    'var.colSpreadAt': 'Spread (bps)',
+    'var.colSpreadHint': 'Spread bid/ask Omni interpolé à ~{usd} (quotes 1k / 100k / 1M).',
+    'var.colBreakEven': 'BE',
+    'var.colBreakEvenHint': 'Jours pour récupérer le coût du spread via le funding brut (jambe Omni).',
+    'var.colSpark': '48h',
+    'var.sparkTitle': 'Tendance funding Omni (cache local, se remplit en utilisant Hypersheets).',
+    'var.sparkNeedData': 'Ouvre cet onglet plusieurs fois — la courbe se remplit via snapshots locaux (max 48h).',
+    'var.colOmniApr': 'APR Omni',
+    'var.colHlApr': 'APR HL',
+    'var.colGapApr': 'Écart APR est.',
     'var.colSetup': 'Stratégie',
     'var.colFundingOmniHint': 'Funding journalier sur Omni. Positif = les longs paient les shorts.',
     'var.colFundingHlHint': 'Funding journalier sur Hyperliquid. Positif = les longs paient les shorts.',
@@ -10693,11 +10742,11 @@ const I18N = {
     'var.fundingShortsPay': 'Taux négatif : les shorts paient les longs',
     'var.fundingFlat': 'Funding proche de zéro',
     'var.radarIntroTitle': 'Comment lire ce tableau',
-    'var.radarIntroFunding': 'Chaque ligne = un actif présent sur Omni et Hyperliquid. La colonne Stratégie indique quel sens prendre sur chaque plateforme pour farmer le funding tout en restant neutre au prix. Gain vert = tu reçois plus de funding que tu n’en paies (estimation).',
-    'var.radarIntroCompare': 'Même logique que la vue Funding, mais uniquement les paires liquides sur les deux venues — triées par gain journalier estimé.',
+    'var.radarIntroFunding': 'Chaque ligne = paire Omni+HL. APR brut = farming si tu suis la stratégie. APR net = spread Omni déduit (à ta taille, amorti). Tri par APR net.',
+    'var.radarIntroCompare': 'Écart de funding Omni vs HL sur paires liquides — APR annualisé. La colonne Stratégie indique les jambes delta-neutres.',
     'var.radarIntroSpread': 'Écart achat/vente sur Omni — utile pour les frais d’exécution, pas le farming de funding.',
     'var.radarIntroVolume': 'Marchés Omni les plus tradés sur 24 h.',
-    'var.radarHintFunding': 'Uniquement les actifs sur Omni et HL, vol. Omni min. 25 k$. Groupés par catégorie — filtre ou tri au-dessus.',
+    'var.radarHintFunding': 'Omni + HL uniquement, vol. min. 25 k$. Règle taille & amortissement ci-dessus — tri par APR net.',
     'var.radarHintSpread': 'Tri par spread le plus large sur Omni.',
     'var.radarHintVolume': 'Tri par volume 24 h sur Omni.',
     'var.colVol24h': 'Volume 24 h',
