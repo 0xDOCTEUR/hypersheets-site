@@ -556,32 +556,38 @@
 
   function varRadarSignalQuality(m, tick, cat, holdDays) {
     const reasons = [];
+    const tags = [];
     const hist = varFundingHistStats(tick);
     if (m.hlLiquidityInsufficient) {
       reasons.push(varT('var.signalIlliq'));
-      return { level: 'red', reasons };
+      return { level: 'red', reasons, tags };
     }
     if (m.netApr == null || m.netApr <= 0) {
       reasons.push(varT('var.signalNetNeg'));
-      return { level: 'red', reasons };
+      return { level: 'red', reasons, tags };
     }
     if (!hist.ready) {
       reasons.push(varT('var.signalSparkWait').replace('{n}', String(hist.remaining)).replace('{min}', String(hist.etaMin)));
+      tags.push({ key: 'spark', label: varT('var.signalTagSpark') });
     }
     if (varIsExtremeTradFiFunding(cat, m.grossDaily)) {
       reasons.push(varT('var.signalExtremeTradFi'));
+      tags.push({ key: 'tradfi', label: varT('var.signalTagTradFi') });
     }
     if (m.breakEvenDays != null && isFinite(m.breakEvenDays) && m.breakEvenDays > holdDays) {
       reasons.push(varT('var.signalBeLong').replace('{be}', m.breakEvenDays < 1 ? '<1' : String(Math.round(m.breakEvenDays))).replace('{hold}', String(holdDays)));
+      tags.push({ key: 'be', label: varT('var.signalTagBe') });
     }
-    if (reasons.length) return { level: 'yellow', reasons };
-    return { level: 'green', reasons: [varT('var.signalOk')] };
+    if (reasons.length) return { level: 'yellow', reasons, tags };
+    return { level: 'green', reasons: [varT('var.signalOk')], tags: [] };
   }
 
   function varRadarSignalHtml(sig) {
     const icon = sig.level === 'green' ? '🟢' : sig.level === 'yellow' ? '🟡' : '🔴';
     const tip = sig.reasons.join(' · ');
-    return `<span class="var-radar-signal var-radar-signal--${sig.level}" title="${tip.replace(/"/g, '&quot;')}">${icon}</span>`;
+    const tags = (sig.tags || []).map(t => `<span class="var-radar-signal-tag">${t.label}</span>`).join('');
+    const tagBlock = tags ? `<span class="var-radar-signal-tags">${tags}</span>` : '';
+    return `<span class="var-radar-signal-wrap" title="${tip.replace(/"/g, '&quot;')}"><span class="var-radar-signal var-radar-signal--${sig.level}">${icon}</span>${tagBlock}</span>`;
   }
 
   function varAprColorClass(sig, m) {
@@ -1059,10 +1065,15 @@
   function varFmtHlAprCell(hlDaily, hl) {
     if (hlDaily == null || !isFinite(hlDaily)) return '—';
     const body = varFmtApr(varDailyToApr(hlDaily), true);
+    const rawTip = varT('var.hlFundingRawHint')
+      .replace('{coin}', hl?.coin || '—')
+      .replace('{hr}', hl?.fundingHr != null ? String(hl.fundingHr) : '—');
+    const floorTip = varHlFundingAtFloor(hl) ? ` · ${varT('var.hlFundingFloorHint')}` : '';
+    const tip = rawTip + floorTip;
     if (varHlFundingAtFloor(hl)) {
-      return `<span title="${varT('var.hlFundingFloorHint')}">${body}<span style="font-size:.65rem;color:var(--muted);margin-left:3px">⬚</span></span>`;
+      return `<span title="${tip.replace(/"/g, '&quot;')}">${body}<span style="font-size:.65rem;color:var(--muted);margin-left:2px" title="${varT('var.hlFundingFloorHint')}">⬚</span></span>`;
     }
-    return body;
+    return `<span title="${tip.replace(/"/g, '&quot;')}">${body}</span>`;
   }
 
   function varCompareListings(listings, hlMap, minVol) {
@@ -1211,7 +1222,7 @@
     const colSpan = mode === 'funding' ? 9 : (mode === 'spread' ? 4 : 4);
     let head = `<tr>`;
     if (mode === 'funding') {
-      head += `<th class="text-center" style="width:2rem">${varThHint(varT('var.colSignal'), varT('var.colSignalHint'))}</th>`;
+      head += `<th class="text-center" style="min-width:3.4rem">${varThHint(varT('var.colSignal'), varT('var.colSignalHint'))}</th>`;
       head += `<th>${varT('var.colAsset')}</th>`;
       head += `<th>${varThHint(varT('var.colSetup'), varT('var.colSetupHint'))}</th>`;
       head += `<th class="text-right">${varThHint(varT('var.colGrossApr'), varT('var.colGrossAprHint'))}</th>`;

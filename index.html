@@ -430,6 +430,9 @@ const HS_CONFIG = {
         .var-radar-signal--green { background: rgba(46,204,113,.15); box-shadow: inset 0 0 0 1px rgba(46,204,113,.35); }
         .var-radar-signal--yellow { background: rgba(230,168,23,.12); box-shadow: inset 0 0 0 1px rgba(230,168,23,.4); }
         .var-radar-signal--red { background: rgba(255,107,107,.12); box-shadow: inset 0 0 0 1px rgba(255,107,107,.35); }
+        .var-radar-signal-wrap { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; max-width: 3.2rem; }
+        .var-radar-signal-tags { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+        .var-radar-signal-tag { font-size: .58rem; line-height: 1.15; color: var(--muted); white-space: nowrap; letter-spacing: -.01em; }
         .var-radar-apr--caution { color: var(--warning, #e6a817) !important; }
         .var-radar-params { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
         .var-radar-params label { font-size: .78rem; color: var(--muted); display: flex; align-items: center; gap: 6px; }
@@ -10032,6 +10035,10 @@ const I18N = {
     'var.signalSparkWait': '48h history collecting — need {n} more snapshots (~{min} min, revisit this tab).',
     'var.signalExtremeTradFi': 'Extreme TradFi funding — edge may flip quickly; verify manually even if history looks stable.',
     'var.signalBeLong': 'Break-even {be}d exceeds your {hold}d amortization window.',
+    'var.signalTagSpark': '⏳ hist.',
+    'var.signalTagTradFi': '⚡ TradFi',
+    'var.signalTagBe': '⌛ BE',
+    'var.hlFundingRawHint': 'HL {coin} · fundingHr {hr} (hourly rate from API)',
     'var.colOmniApr': 'Omni APR',
     'var.colHlApr': 'HL APR',
     'var.colGapApr': 'Est. gap APR',
@@ -10787,6 +10794,10 @@ const I18N = {
     'var.signalSparkWait': 'Historique 48h en cours — encore {n} snapshots (~{min} min, revisite cet onglet).',
     'var.signalExtremeTradFi': 'Funding TradFi extrême — l\'edge peut flipper vite ; vérifie à la main même si la courbe semble stable.',
     'var.signalBeLong': 'Break-even {be}j dépasse ta fenêtre d\'amort. ({hold}j).',
+    'var.signalTagSpark': '⏳ hist.',
+    'var.signalTagTradFi': '⚡ TradFi',
+    'var.signalTagBe': '⌛ BE',
+    'var.hlFundingRawHint': 'HL {coin} · fundingHr {hr} (taux horaire API)',
     'var.colOmniApr': 'APR Omni',
     'var.colHlApr': 'APR HL',
     'var.colGapApr': 'Écart APR est.',
@@ -10799,7 +10810,11 @@ const I18N = {
     'var.fundingFlat': 'Funding proche de zéro',
     'var.radarIntroTitle': 'Comment lire ce tableau',
     'var.radarIntroFunding': 'Chaque ligne = paire Omni+HL. APR brut = farming si tu suis la stratégie. APR net = spreads Omni + HL déduits (amortis). Tri par APR net. Stratégie = nouvelle entrée uniquement.',
-    'var.radarIntroCompare': 'Écart de funding Omni vs HL sur paires liquides — APR annualisé. La colonne Stratégie indique les jambes delta-neutres.',
+    'var.radarIntroCompare': 'Omni vs HL sur paires liquides — APR funding brut + APR net (coûts déduits). Tri par APR net.',
+    'var.radarCompareWarnTitle': 'Vue funding brut + net',
+    'var.radarCompareWarnBody': 'Colonnes Omni / HL / Écart brut = taux absolus (sans coûts d\'entrée). La colonne APR net applique les mêmes règles spread, taker et liquidité que le mode Funding principal — fais confiance à APR net et Signal pour sizer.',
+    'var.colGapAprRawHint': 'Écart farmable brut (|Omni − HL|) avant spread et frais — pas net.',
+    'var.hlFundingFloorHint': 'Funding minimum Hyperliquid sur ce marché HIP-3 (≈ +5,5 % APR) — partagé par beaucoup d\'actifs xyz, pas une erreur de données.',
     'var.radarIntroSpread': 'Écart achat/vente sur Omni — utile pour les frais d’exécution, pas le farming de funding.',
     'var.radarIntroVolume': 'Marchés Omni les plus tradés sur 24 h.',
     'var.radarHintFunding': 'Omni + HL uniquement, vol. min. 25 k$. Règle taille & amortissement ci-dessus — tri par APR net.',
@@ -10813,7 +10828,7 @@ const I18N = {
     'var.colUsd': 'USD',
     'var.hlNa': '— (pas sur HL)',
     'var.radarHint': 'Funding = taux journalier estimé. Le radar masque les marchés sous 25 k$ de volume 24 h.',
-    'var.compareHint': 'Marchés présents sur Omni et Hyperliquid, vol. Omni min. 50 k$ — triés par écart de funding.',
+    'var.compareHint': 'Vol. Omni min. 50 k$ — tri par APR net. Regarde la colonne Signal avant d\'agir.',
     'var.noWallet': 'Ajoute un wallet Hyperliquid pour lire ta jambe HL.',
     'var.hlLoadHint': 'Charge les données wallet pour détecter tes positions Hyperliquid.',
     'var.hlReady': 'Positions HL chargées.',
