@@ -433,6 +433,13 @@ const HS_CONFIG = {
         .var-radar-signal-wrap { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; max-width: 3.2rem; }
         .var-radar-signal-tags { display: flex; flex-direction: column; align-items: center; gap: 1px; }
         .var-radar-signal-tag { font-size: .58rem; line-height: 1.15; color: var(--muted); white-space: nowrap; letter-spacing: -.01em; }
+        .var-radar-setup-pills { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 3px 6px; max-width: 11rem; }
+        .var-radar-pill { font-size: .66rem; font-weight: 600; padding: 2px 6px; border-radius: 4px; line-height: 1.2; }
+        .var-radar-pill-long { background: rgba(46,204,113,.14); color: var(--success); }
+        .var-radar-pill-short { background: rgba(255,107,107,.12); color: var(--danger); }
+        .var-radar-pill-venue { font-size: .62rem; color: var(--muted); font-weight: 500; }
+        .var-radar-row { cursor: pointer; }
+        .var-radar-row:hover td { background: rgba(76,154,248,.05); }
         .var-radar-apr--caution { color: var(--warning, #e6a817) !important; }
         .var-radar-params { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
         .var-radar-params label { font-size: .78rem; color: var(--muted); display: flex; align-items: center; gap: 6px; }
@@ -10038,6 +10045,13 @@ const I18N = {
     'var.signalTagSpark': '⏳ hist.',
     'var.signalTagTradFi': '⚡ TradFi',
     'var.signalTagBe': '⌛ BE',
+    'var.signalTagFloor': '□ HL',
+    'var.signalHlFloorHint': 'HL funding at exchange minimum (~+5.5% APR) — shared across many HIP-3 markets.',
+    'var.signalOkFloorNote': '□ HL tag is informational only — HL funding at exchange floor; does not downgrade the 🟢 badge.',
+    'var.radarRowClickHint': 'Click to prefill Delta-neutral tab with this setup',
+    'var.radarLegPrefilled': 'Omni leg prefilled — check HL leg in Delta-neutral',
+    'var.radarReplaceLegOther': 'Replace saved leg {old} with {new}?',
+    'var.radarReplaceLegSide': 'Replace {tick} leg ({old}) with radar setup ({new})?',
     'var.hlFundingRawHint': 'HL {coin} · fundingHr {hr} (hourly rate from API)',
     'var.colOmniApr': 'Omni APR',
     'var.colHlApr': 'HL APR',
@@ -10797,6 +10811,13 @@ const I18N = {
     'var.signalTagSpark': '⏳ hist.',
     'var.signalTagTradFi': '⚡ TradFi',
     'var.signalTagBe': '⌛ BE',
+    'var.signalTagFloor': '□ HL',
+    'var.signalHlFloorHint': 'Funding HL au minimum exchange (~+5,5 % APR) — partagé sur beaucoup de marchés HIP-3.',
+    'var.signalOkFloorNote': 'Tag □ HL purement informatif — funding HL au plancher exchange ; ne dégrade pas le badge 🟢.',
+    'var.radarRowClickHint': 'Clic pour préremplir l\'onglet Delta-neutre avec cette stratégie',
+    'var.radarLegPrefilled': 'Jambe Omni préremplie — vérifie la jambe HL dans Delta-neutre',
+    'var.radarReplaceLegOther': 'Remplacer la jambe enregistrée {old} par {new} ?',
+    'var.radarReplaceLegSide': 'Remplacer la jambe {tick} ({old}) par la stratégie radar ({new}) ?',
     'var.hlFundingRawHint': 'HL {coin} · fundingHr {hr} (taux horaire API)',
     'var.colOmniApr': 'APR Omni',
     'var.colHlApr': 'APR HL',

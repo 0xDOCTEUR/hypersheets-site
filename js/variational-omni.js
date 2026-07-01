@@ -554,7 +554,7 @@
     return Math.abs(grossDaily) >= VAR_EXTREME_TRADFI_DAILY;
   }
 
-  function varRadarSignalQuality(m, tick, cat, holdDays) {
+  function varRadarSignalQuality(m, tick, cat, holdDays, hlMap) {
     const reasons = [];
     const tags = [];
     const hist = varFundingHistStats(tick);
@@ -566,20 +566,30 @@
       reasons.push(varT('var.signalNetNeg'));
       return { level: 'red', reasons, tags };
     }
+    const warnReasons = [];
     if (!hist.ready) {
-      reasons.push(varT('var.signalSparkWait').replace('{n}', String(hist.remaining)).replace('{min}', String(hist.etaMin)));
+      warnReasons.push(varT('var.signalSparkWait').replace('{n}', String(hist.remaining)).replace('{min}', String(hist.etaMin)));
       tags.push({ key: 'spark', label: varT('var.signalTagSpark') });
     }
     if (varIsExtremeTradFiFunding(cat, m.grossDaily)) {
-      reasons.push(varT('var.signalExtremeTradFi'));
+      warnReasons.push(varT('var.signalExtremeTradFi'));
       tags.push({ key: 'tradfi', label: varT('var.signalTagTradFi') });
     }
     if (m.breakEvenDays != null && isFinite(m.breakEvenDays) && m.breakEvenDays > holdDays) {
-      reasons.push(varT('var.signalBeLong').replace('{be}', m.breakEvenDays < 1 ? '<1' : String(Math.round(m.breakEvenDays))).replace('{hold}', String(holdDays)));
+      warnReasons.push(varT('var.signalBeLong').replace('{be}', m.breakEvenDays < 1 ? '<1' : String(Math.round(m.breakEvenDays))).replace('{hold}', String(holdDays)));
       tags.push({ key: 'be', label: varT('var.signalTagBe') });
     }
-    if (reasons.length) return { level: 'yellow', reasons, tags };
-    return { level: 'green', reasons: [varT('var.signalOk')], tags: [] };
+    const hl = hlMap ? varHlMapLookup(hlMap, tick) : null;
+    if (varHlFundingAtFloor(hl)) {
+      tags.push({ key: 'floor', label: varT('var.signalTagFloor') });
+    }
+    if (warnReasons.length) {
+      if (varHlFundingAtFloor(hl)) warnReasons.push(varT('var.signalHlFloorHint'));
+      return { level: 'yellow', reasons: warnReasons, tags };
+    }
+    const okReasons = [varT('var.signalOk')];
+    if (varHlFundingAtFloor(hl)) okReasons.push(varT('var.signalOkFloorNote'));
+    return { level: 'green', reasons: okReasons, tags };
   }
 
   function varRadarSignalHtml(sig) {
@@ -1142,6 +1152,61 @@
     return `${omni} Omni · ${hl} HL (${hlTick})`;
   }
 
+  function varFmtSetupPills(rec, ticker) {
+    if (!rec) return `<span style="font-size:.78rem;color:var(--muted)">—</span>`;
+    const hlTick = varHlCoinShort(ticker);
+    const tip = varFmtSetupShort(rec, ticker).replace(/"/g, '&quot;');
+    const omniCls = rec.omniSide === 'long' ? 'var-radar-pill-long' : 'var-radar-pill-short';
+    const hlCls = rec.hlSide === 'long' ? 'var-radar-pill-long' : 'var-radar-pill-short';
+    const omniLbl = rec.omniSide === 'short' ? varT('var.sideShort') : varT('var.sideLong');
+    const hlLbl = rec.hlSide === 'short' ? varT('var.sideShort') : varT('var.sideLong');
+    return `<span class="var-radar-setup-pills" title="${tip}"><span class="var-radar-pill ${omniCls}">${omniLbl}</span><span class="var-radar-pill-venue">Omni</span><span class="var-radar-pill ${hlCls}">${hlLbl}</span><span class="var-radar-pill-venue">HL · ${hlTick}</span></span>`;
+  }
+
+  function varRadarRowAttrs(tick, rec) {
+    if (!rec?.omniSide) return '';
+    const hint = varT('var.radarRowClickHint').replace(/"/g, '&quot;');
+    return ` class="var-radar-row" data-var-tick="${tick}" data-var-side="${rec.omniSide}" onclick="varRadarOpenHedge(this.dataset.varTick,this.dataset.varSide)" title="${hint}"`;
+  }
+
+  function varHedgeLegDraft() {
+    const saved = varLegLoad();
+    const tickRaw = (document.getElementById('varLegTicker')?.value || '').trim().toUpperCase();
+    if (tickRaw) {
+      const side = document.getElementById('varLegSide')?.value === 'long' ? 'long' : 'short';
+      const notional = parseFloat(document.getElementById('varLegNotional')?.value || 0);
+      return { ticker: tickRaw, side, notional: isFinite(notional) && notional > 0 ? notional : saved?.notional };
+    }
+    return saved;
+  }
+
+  function varRadarOpenHedge(ticker, omniSide) {
+    const tick = String(ticker || '').toUpperCase();
+    const side = omniSide === 'long' ? 'long' : omniSide === 'short' ? 'short' : '';
+    if (!tick || !side) return;
+    const existing = varHedgeLegDraft();
+    const notional = varRadarNotional();
+    if (existing?.ticker) {
+      if (existing.ticker !== tick) {
+        if (!confirm(varT('var.radarReplaceLegOther').replace('{old}', existing.ticker).replace('{new}', tick))) return;
+      } else if (existing.side !== side) {
+        if (!confirm(varT('var.radarReplaceLegSide').replace('{tick}', tick).replace('{old}', existing.side).replace('{new}', side))) return;
+      }
+    }
+    varLegSave({ ticker: tick, side, notional, entryPx: 0, updatedAt: Date.now() });
+    const tickEl = document.getElementById('varLegTicker');
+    const sideEl = document.getElementById('varLegSide');
+    const notEl = document.getElementById('varLegNotional');
+    const pxEl = document.getElementById('varLegEntry');
+    if (tickEl) tickEl.value = tick;
+    if (sideEl) sideEl.value = side;
+    if (notEl) notEl.value = String(notional);
+    if (pxEl) pxEl.value = '';
+    const hedgeTab = document.querySelector('#page-variational .var-sub-tab[data-varsub="hedge"]');
+    varSetSub('hedge', hedgeTab);
+    if (typeof toast === 'function') toast(varT('var.radarLegPrefilled'), false);
+  }
+
   function varRadarIntroHtml(mode) {
     const key = mode === 'compare' ? 'var.radarIntroCompare' : mode === 'spread' ? 'var.radarIntroSpread' : mode === 'volume' ? 'var.radarIntroVolume' : 'var.radarIntroFunding';
     return `<div class="card2 p3 mb-2" style="border-left:3px solid var(--var-accent,#4c9af8);margin:8px 0 10px">
@@ -1169,13 +1234,13 @@
     const m = varRadarNetMetrics(L, hlMap, notional, holdDays, bookMap);
     const assetCell = `${varCatBadge(cat)}<span class="font-medium" title="${varHlCoinShort(tick)}">${varHlAssetLabel(tick)}</span>`;
     if (mode === 'funding') {
-      const sig = varRadarSignalQuality(m, tick, cat, holdDays);
+      const sig = varRadarSignalQuality(m, tick, cat, holdDays, hlMap);
       const netStyle = varAprColorClass(sig, m);
       const netCls = netStyle.startsWith('color:') ? netStyle : '';
       const netClass = netStyle.startsWith('var-') ? netStyle : '';
       const grossCaution = varIsExtremeTradFiFunding(cat, m.grossDaily) ? 'var-radar-apr--caution' : '';
       const setup = m.rec
-        ? `<span style="font-size:.78rem;line-height:1.35">${varFmtSetupShort(m.rec, tick)}</span>`
+        ? varFmtSetupPills(m.rec, tick)
         : `<span style="font-size:.78rem;color:var(--muted)">${varT('var.hlNa')}</span>`;
       const beLbl = m.breakEvenDays != null && isFinite(m.breakEvenDays)
         ? m.breakEvenDays < 1 ? '<1' + varT('var.daysShort') : m.breakEvenDays.toFixed(0) + varT('var.daysShort')
@@ -1186,7 +1251,7 @@
         : (m.spreadBps != null ? m.spreadBps.toFixed(1) : '—');
       const netAprLbl = m.hlLiquidityInsufficient ? '—' : (m.netApr != null ? varFmtApr(m.netApr, true) : '—');
       const sigTip = sig.reasons.join(' · ');
-      return `<tr>
+      return `<tr${varRadarRowAttrs(tick, m.rec)}>
         <td class="text-center">${varRadarSignalHtml(sig)}</td>
         <td>${assetCell}</td>
         <td title="${varT('var.colSetupHint')}">${setup}</td>
@@ -1316,7 +1381,7 @@
       const cat = varAssetCategory(tick);
       const hl = varHlMapLookup(hlMap, tick);
       const m = varRadarNetMetrics(L, hlMap, notional, holdDays, bookMap);
-      const sig = varRadarSignalQuality(m, tick, cat, holdDays);
+      const sig = varRadarSignalQuality(m, tick, cat, holdDays, hlMap);
       const varD = m.varD;
       const hlD = m.hlD;
       const grossGap = m.grossDaily != null ? Math.abs(m.grossDaily) : null;
@@ -1324,11 +1389,11 @@
       const netCls = netStyle.startsWith('color:') ? netStyle : '';
       const netClass = netStyle.startsWith('var-') ? netStyle : '';
       const setup = m.rec
-        ? `<span style="font-size:.78rem;line-height:1.35">${varFmtSetupShort(m.rec, tick)}</span>`
+        ? varFmtSetupPills(m.rec, tick)
         : `<span style="font-size:.78rem;color:var(--muted)">${varT('var.hlNa')}</span>`;
       const netAprLbl = m.hlLiquidityInsufficient ? '—' : (m.netApr != null ? varFmtApr(m.netApr, true) : '—');
       const sigTip = sig.reasons.join(' · ');
-      return `<tr>
+      return `<tr${varRadarRowAttrs(tick, m.rec)}>
         <td class="text-center">${varRadarSignalHtml(sig)}</td>
         <td>${varCatBadge(cat)}<span class="font-medium" title="${varHlCoinShort(tick)}">${varHlAssetLabel(tick)}</span></td>
         <td title="${varT('var.colSetupHint')}">${setup}</td>
@@ -1784,6 +1849,7 @@
   window.varOnRadarParamsChange = varOnRadarParamsChange;
   window.varRefreshHlLeg = varRefreshHlLeg;
   window.varApplyRecommendSide = varApplyRecommendSide;
+  window.varRadarOpenHedge = varRadarOpenHedge;
   window.varSetSub = varSetSub;
   window.renderVarRadar = renderVarRadar;
   window.renderVarHedge = renderVarHedge;
