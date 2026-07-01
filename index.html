@@ -428,6 +428,7 @@ const HS_CONFIG = {
         .var-radar-params { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
         .var-radar-params label { font-size: .78rem; color: var(--muted); display: flex; align-items: center; gap: 6px; }
         .var-radar-params input.hs-input { width: 88px; font-size: .82rem; padding: 4px 8px; }
+        .var-radar-params select.hs-select { font-size: .82rem; min-width: 118px; padding: 4px 8px; }
         #sidebar .nav-tab[data-tab="variational"].active {
           color: #4c9af8;
           background: rgba(76, 154, 248, .1);
@@ -9140,6 +9141,15 @@ const HS_CONFIG = {
             <label><span data-i18n="var.radarHoldLabel">Spread amort. (days)</span>
               <input id="varRadarHold" type="number" min="1" step="1" class="hs-input" value="30" onchange="varOnRadarParamsChange()"/>
             </label>
+            <label><span data-i18n="var.radarHlTakerLabel">HL taker</span>
+              <select id="varRadarHlTaker" class="hs-select" onchange="varOnRadarParamsChange()">
+                <option value="4.5" data-i18n="var.radarHlTakerBase">Base 4.5 bps</option>
+                <option value="3.6" data-i18n="var.radarHlTakerGold">Gold −20%</option>
+                <option value="2.7" data-i18n="var.radarHlTakerDiamond">Diamond −40%</option>
+                <option value="custom" data-i18n="var.radarHlTakerCustom">Custom…</option>
+              </select>
+              <input id="varRadarHlTakerCustom" type="number" min="0" step="0.1" class="hs-input" value="4.5" style="display:none;width:64px" onchange="varOnRadarParamsChange()"/>
+            </label>
           </div>
           <span style="font-size:.75rem;color:var(--muted);margin-left:auto">
             <span data-i18n="var.updated">Updated</span> <span id="varRadarUpdated" class="mono">—</span>
@@ -9978,6 +9988,11 @@ const I18N = {
     'var.daysShort': 'd',
     'var.radarSizeLabel': 'Size (USD)',
     'var.radarHoldLabel': 'Spread amort. (days)',
+    'var.radarHlTakerLabel': 'HL taker / leg',
+    'var.radarHlTakerBase': 'Base 4.5 bps',
+    'var.radarHlTakerGold': 'Gold −20%',
+    'var.radarHlTakerDiamond': 'Diamond −40%',
+    'var.radarHlTakerCustom': 'Custom…',
     'var.interval1h': '1h funding interval',
     'var.intervalH': '{h}h funding interval',
     'var.intervalCustom': '{s}s funding interval',
@@ -9991,12 +10006,14 @@ const I18N = {
     'var.colGrossApr': 'Gross APR',
     'var.colGrossAprHint': 'Annualized funding spread (Omni vs HL) if you follow the setup — before Omni RFQ spread cost.',
     'var.colNetApr': 'Net APR',
-    'var.colNetAprHint': 'Gross APR minus Omni + HL entry spreads amortized over {days} days (Omni interpolated at your size, HL from order book).',
+    'var.colNetAprHint': 'Gross APR minus Omni + HL entry costs amortized over {days} days (Omni interpolated, HL walk-the-book + taker open/close).',
     'var.colSpreadAt': 'Spread (bps)',
-    'var.colSpreadHint': 'Combined Omni + HL bid/ask spread (bps) — hover cell for breakdown.',
-    'var.colSpreadBreakdown': 'Omni {omni} bps + HL {hl} bps (Omni ~{usd}, HL from l2 book).',
+    'var.colSpreadHint': 'Omni + HL book walk + HL taker (open+close) — hover for breakdown.',
+    'var.colSpreadBreakdown': 'Omni {omni} + HL book {hl} + HL taker {taker} bps (size ~{usd}; HIP-3 growth mode −90% on taker).',
+    'var.colSpreadIlliq': 'Insufficient HL book depth at ~{usd} — net APR not shown (no extrapolation).',
+    'var.spreadIlliqShort': 'illiq.',
     'var.colBreakEven': 'BE',
-    'var.colBreakEvenHint': 'Days until combined entry spread is recovered by gross funding.',
+    'var.colBreakEvenHint': 'Days until combined entry cost (spreads + HL taker) is recovered by gross funding.',
     'var.colSpark': '48h',
     'var.sparkTitle': 'Omni funding rate trend (local cache, builds while you use Hypersheets).',
     'var.sparkNeedData': 'Open this tab a few times — sparkline fills from local snapshots (48h max).',
@@ -10713,6 +10730,11 @@ const I18N = {
     'var.daysShort': 'j',
     'var.radarSizeLabel': 'Taille (USD)',
     'var.radarHoldLabel': 'Amort. spread (j)',
+    'var.radarHlTakerLabel': 'Taker HL / jambe',
+    'var.radarHlTakerBase': 'Base 4,5 bps',
+    'var.radarHlTakerGold': 'Gold −20 %',
+    'var.radarHlTakerDiamond': 'Diamond −40 %',
+    'var.radarHlTakerCustom': 'Perso…',
     'var.interval1h': 'Intervalle funding 1 h',
     'var.intervalH': 'Intervalle funding {h} h',
     'var.intervalCustom': 'Intervalle funding {s} s',
@@ -10726,12 +10748,14 @@ const I18N = {
     'var.colGrossApr': 'APR brut',
     'var.colGrossAprHint': 'Écart de funding annualisé (Omni vs HL) si tu suis la stratégie — avant coût du spread RFQ Omni.',
     'var.colNetApr': 'APR net',
-    'var.colNetAprHint': 'APR brut moins spreads Omni + HL amortis sur {days} j (Omni interpolé à ta taille, HL via carnet).',
+    'var.colNetAprHint': 'APR brut moins coûts d\'entrée Omni + HL amortis sur {days} j (Omni interpolé, HL walk-the-book + taker ouverture/fermeture).',
     'var.colSpreadAt': 'Spread (bps)',
-    'var.colSpreadHint': 'Spread combiné Omni + HL (bps) — survole la cellule pour le détail.',
-    'var.colSpreadBreakdown': 'Omni {omni} bps + HL {hl} bps (Omni ~{usd}, HL via carnet l2).',
+    'var.colSpreadHint': 'Omni + carnet HL + taker HL (ouv.+ferm.) — survole pour le détail.',
+    'var.colSpreadBreakdown': 'Omni {omni} + carnet HL {hl} + taker HL {taker} bps (taille ~{usd}; growth mode HIP-3 −90 % sur taker).',
+    'var.colSpreadIlliq': 'Profondeur carnet HL insuffisante à ~{usd} — APR net masqué (pas d\'extrapolation).',
+    'var.spreadIlliqShort': 'illiq.',
     'var.colBreakEven': 'BE',
-    'var.colBreakEvenHint': 'Jours pour récupérer le spread d\'entrée combiné via le funding brut.',
+    'var.colBreakEvenHint': 'Jours pour récupérer le coût d\'entrée combiné (spreads + taker HL) via le funding brut.',
     'var.colSpark': '48h',
     'var.sparkTitle': 'Tendance funding Omni (cache local, se remplit en utilisant Hypersheets).',
     'var.sparkNeedData': 'Ouvre cet onglet plusieurs fois — la courbe se remplit via snapshots locaux (max 48h).',
