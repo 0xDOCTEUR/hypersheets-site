@@ -431,6 +431,60 @@ const HS_CONFIG = {
         .var-hedge-earn-item strong { display: block; font-size: .85rem; margin-top: 4px; }
         .var-hedge-earn-item span { font-size: .65rem; color: var(--muted); }
         .var-hedge-open-tip { font-size: .76rem; color: var(--muted); margin: 8px 0 0; line-height: 1.5; padding: 8px 10px; border-radius: 8px; background: rgba(76,154,248,.06); border: 1px solid rgba(76,154,248,.15); }
+        .var-leg-ticker-wrap { position: relative; }
+        .var-leg-ticker-menu {
+          position: absolute;
+          z-index: 60;
+          top: calc(100% + 4px);
+          left: 0;
+          right: 0;
+          max-height: min(52vh, 380px);
+          overflow-y: auto;
+          border-radius: 10px;
+          border: 1px solid var(--border);
+          background: var(--surface-1, var(--bg));
+          box-shadow: 0 12px 36px rgba(0,0,0,.32);
+          padding: 4px 0;
+        }
+        .var-leg-ticker-menu[hidden] { display: none !important; }
+        .var-leg-ticker-cat {
+          font-size: .64rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: .06em;
+          padding: 8px 12px 4px;
+          position: sticky;
+          top: 0;
+          z-index: 1;
+          background: var(--surface-1, var(--bg));
+          border-bottom: 1px solid var(--border);
+        }
+        .var-leg-ticker-cat[data-cat="crypto"] { color: #7c6cf0; }
+        .var-leg-ticker-cat[data-cat="stocks"] { color: #4c9af8; }
+        .var-leg-ticker-cat[data-cat="commodities"] { color: #d4a017; }
+        .var-leg-ticker-cat[data-cat="indices"] { color: #2ecc71; }
+        .var-leg-ticker-cat[data-cat="forex"] { color: #e67e22; }
+        .var-leg-ticker-opt {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 10px;
+          width: 100%;
+          padding: 7px 12px;
+          border: none;
+          background: transparent;
+          color: var(--text);
+          text-align: left;
+          cursor: pointer;
+          font: inherit;
+        }
+        .var-leg-ticker-opt:hover, .var-leg-ticker-opt:focus-visible {
+          background: rgba(76,154,248,.08);
+          outline: none;
+        }
+        .var-leg-ticker-opt-main { font-weight: 600; font-size: .82rem; }
+        .var-leg-ticker-opt-sub { font-size: .7rem; color: var(--muted); text-align: right; white-space: nowrap; }
+        .var-leg-ticker-empty { padding: 12px; font-size: .78rem; color: var(--muted); text-align: center; }
         .var-csv-imports { display: grid; grid-template-columns: 1fr; gap: 10px; margin-bottom: 16px; }
         @media (min-width: 640px) { .var-csv-imports { grid-template-columns: 1fr 1fr; } }
         @media (min-width: 1100px) { .var-csv-imports { grid-template-columns: repeat(4, 1fr); } }
@@ -9232,8 +9286,10 @@ const HS_CONFIG = {
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                   <div class="sm:col-span-2">
                     <label class="text-xs" style="color:var(--muted)" data-i18n="var.legTicker">Actif</label>
-                    <input id="varLegTicker" type="text" list="varLegTickerList" placeholder="XAU, BTC…" class="hs-input w-full" style="margin-top:4px;text-transform:uppercase" autocomplete="off"/>
-                    <datalist id="varLegTickerList"></datalist>
+                    <div class="var-leg-ticker-wrap">
+                      <input id="varLegTicker" type="text" placeholder="XAU, BTC…" class="hs-input w-full" style="margin-top:4px;text-transform:uppercase" autocomplete="off"/>
+                      <div id="varLegTickerMenu" class="var-leg-ticker-menu" hidden></div>
+                    </div>
                   </div>
                   <div>
                     <label class="text-xs" style="color:var(--muted)" data-i18n="var.legSide">Sens Omni</label>
@@ -10002,6 +10058,7 @@ const I18N = {
     'var.hedgeFormTitle': 'Your Omni position',
     'var.hedgeResultTitle': 'Live comparison',
     'var.legTicker': 'Ticker',
+    'var.legTickerEmpty': 'No matching asset',
     'var.legSide': 'Side',
     'var.legNotional': 'Notional (USD)',
     'var.legEntry': 'Entry price (opt.)',
@@ -10773,6 +10830,7 @@ const I18N = {
     'var.hedgeFormTitle': 'Ta position Omni',
     'var.hedgeResultTitle': 'Comparaison en direct',
     'var.legTicker': 'Actif',
+    'var.legTickerEmpty': 'Aucun actif correspondant',
     'var.legSide': 'Sens Omni',
     'var.legNotional': 'Taille (USD)',
     'var.legEntry': 'Prix d\'entrée (opt.)',

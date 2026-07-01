@@ -696,18 +696,65 @@
     return typeof allPositions !== 'undefined' && Array.isArray(allPositions) && allPositions.length > 0;
   }
 
+  let _varLegTickerRows = [];
+
   function varPopulateLegTickers(listings) {
-    const dl = document.getElementById('varLegTickerList');
-    if (!dl) return;
-    const rows = [...(listings || [])]
-      .filter(L => parseFloat(L.volume_24h || 0) >= 10000)
-      .sort((a, b) => parseFloat(b.volume_24h || 0) - parseFloat(a.volume_24h || 0))
-      .slice(0, 120);
-    dl.innerHTML = rows.map(L => {
+    _varLegTickerRows = [...(listings || [])].filter(L => parseFloat(L.volume_24h || 0) >= 10000);
+    varRenderLegTickerMenu(document.getElementById('varLegTicker')?.value || '', false);
+  }
+
+  function varRenderLegTickerMenu(filter, show) {
+    const menu = document.getElementById('varLegTickerMenu');
+    if (!menu) return;
+    const q = String(filter || '').trim().toUpperCase();
+    const groups = {};
+    VAR_CAT_ORDER.forEach(c => { groups[c] = []; });
+    for (const L of _varLegTickerRows) {
       const tick = String(L.ticker || '').toUpperCase();
-      const vol = varFmtVol(parseFloat(L.volume_24h || 0));
-      return `<option value="${tick}">${varHlAssetLabel(tick)} · ${vol}</option>`;
-    }).join('');
+      const lbl = varHlAssetLabel(tick).toUpperCase();
+      if (q && !tick.includes(q) && !lbl.includes(q)) continue;
+      const cat = varAssetCategory(tick);
+      if (groups[cat]) groups[cat].push(L);
+    }
+    VAR_CAT_ORDER.forEach(c => {
+      groups[c].sort((a, b) => parseFloat(b.volume_24h || 0) - parseFloat(a.volume_24h || 0));
+    });
+    let html = '';
+    VAR_CAT_ORDER.forEach(cat => {
+      const slice = groups[cat];
+      if (!slice.length) return;
+      html += `<div class="var-leg-ticker-cat" data-cat="${cat}">${varCatLabel(cat)}</div>`;
+      slice.forEach(L => {
+        const tick = String(L.ticker || '').toUpperCase();
+        const vol = varFmtVol(parseFloat(L.volume_24h || 0));
+        const lbl = varHlAssetLabel(tick);
+        const sub = lbl !== tick ? `${lbl} · ${vol}` : vol;
+        html += `<button type="button" class="var-leg-ticker-opt" data-tick="${tick}"><span class="var-leg-ticker-opt-main">${tick}</span><span class="var-leg-ticker-opt-sub">${sub}</span></button>`;
+      });
+    });
+    menu.innerHTML = html || `<div class="var-leg-ticker-empty">${varT('var.legTickerEmpty')}</div>`;
+    if (show !== false) menu.hidden = !html;
+  }
+
+  function varInitLegTickerPicker() {
+    const inp = document.getElementById('varLegTicker');
+    const menu = document.getElementById('varLegTickerMenu');
+    const wrap = inp?.closest('.var-leg-ticker-wrap');
+    if (!inp || inp.dataset.varPickerBound) return;
+    inp.dataset.varPickerBound = '1';
+    inp.addEventListener('focus', () => varRenderLegTickerMenu(inp.value, true));
+    inp.addEventListener('input', () => varRenderLegTickerMenu(inp.value, true));
+    menu?.addEventListener('mousedown', (e) => {
+      const btn = e.target.closest('.var-leg-ticker-opt');
+      if (!btn) return;
+      e.preventDefault();
+      inp.value = btn.dataset.tick || '';
+      menu.hidden = true;
+      varScheduleLegPreview();
+    });
+    document.addEventListener('click', (e) => {
+      if (!wrap?.contains(e.target)) menu.hidden = true;
+    });
   }
 
   function varLegLoad() {
@@ -1848,6 +1895,7 @@
       await fetchHlFundingMap();
     } catch (_) {}
     varBindLegForm();
+    varInitLegTickerPicker();
     varSetSub(_varSub, null);
     if (force) _varStatsCache = null;
     if (_varSub === 'radar') await renderVarRadar();
