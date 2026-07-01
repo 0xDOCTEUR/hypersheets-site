@@ -15,6 +15,7 @@
   const VAR_STATS_CACHE_MS = 5 * 60 * 1000;
   const VAR_FUND_HIST_MS = 48 * 60 * 60 * 1000;
   const VAR_FUND_HIST_MIN_PTS = 8;
+  const VAR_EXTREME_TRADFI_DAILY = 0.5;
   const VAR_QUOTE_TIERS = [
     { size: 1000, key: 'size_1k' },
     { size: 100000, key: 'size_100k' },
@@ -527,14 +528,76 @@
     } catch (_) {}
   }
 
-  function varSparklineHtml(ticker) {
+  function varFundingHistStats(ticker) {
     let pts = [];
     try {
       const raw = JSON.parse(localStorage.getItem(HS_VAR_FUND_HIST_KEY) || '{}');
       pts = (raw[String(ticker || '').toUpperCase()] || []).filter(p => p.t >= Date.now() - VAR_FUND_HIST_MS);
     } catch (_) {}
-    if (pts.length < VAR_FUND_HIST_MIN_PTS) {
-      return `<span class="var-radar-spark-empty" title="${varT('var.sparkNeedData')}">—</span>`;
+    const have = pts.length;
+    const need = VAR_FUND_HIST_MIN_PTS;
+    const remaining = Math.max(0, need - have);
+    return {
+      pts,
+      have,
+      need,
+      ready: have >= need,
+      remaining,
+      etaMin: remaining * 4,
+    };
+  }
+
+  function varIsExtremeTradFiFunding(cat, grossDaily) {
+    if (cat === 'crypto' || grossDaily == null || !isFinite(grossDaily)) return false;
+    return Math.abs(grossDaily) >= VAR_EXTREME_TRADFI_DAILY;
+  }
+
+  function varRadarSignalQuality(m, tick, cat, holdDays) {
+    const reasons = [];
+    const hist = varFundingHistStats(tick);
+    if (m.hlLiquidityInsufficient) {
+      reasons.push(varT('var.signalIlliq'));
+      return { level: 'red', reasons };
+    }
+    if (m.netApr == null || m.netApr <= 0) {
+      reasons.push(varT('var.signalNetNeg'));
+      return { level: 'red', reasons };
+    }
+    if (!hist.ready) {
+      reasons.push(varT('var.signalSparkWait').replace('{n}', String(hist.remaining)).replace('{min}', String(hist.etaMin)));
+    }
+    if (varIsExtremeTradFiFunding(cat, m.grossDaily)) {
+      reasons.push(varT('var.signalExtremeTradFi'));
+    }
+    if (m.breakEvenDays != null && isFinite(m.breakEvenDays) && m.breakEvenDays > holdDays) {
+      reasons.push(varT('var.signalBeLong').replace('{be}', m.breakEvenDays < 1 ? '<1' : String(Math.round(m.breakEvenDays))).replace('{hold}', String(holdDays)));
+    }
+    if (reasons.length) return { level: 'yellow', reasons };
+    return { level: 'green', reasons: [varT('var.signalOk')] };
+  }
+
+  function varRadarSignalHtml(sig) {
+    const icon = sig.level === 'green' ? '🟢' : sig.level === 'yellow' ? '🟡' : '🔴';
+    const tip = sig.reasons.join(' · ');
+    return `<span class="var-radar-signal var-radar-signal--${sig.level}" title="${tip.replace(/"/g, '&quot;')}">${icon}</span>`;
+  }
+
+  function varAprColorClass(sig, m) {
+    if (sig.level === 'red' || m.hlLiquidityInsufficient) return 'color:var(--danger)';
+    if (sig.level === 'yellow') return 'var-radar-apr--caution';
+    if (sig.level === 'green' && m.netApr > 0) return 'color:var(--success)';
+    return '';
+  }
+
+  function varSparklineHtml(ticker) {
+    const hist = varFundingHistStats(ticker);
+    const pts = hist.pts;
+    if (!hist.ready) {
+      const prog = varT('var.sparkCollecting')
+        .replace('{have}', String(hist.have))
+        .replace('{need}', String(hist.need))
+        .replace('{min}', String(hist.etaMin));
+      return `<span class="var-radar-spark-empty" title="${varT('var.sparkNeedData')}">—<span class="var-radar-spark-progress">${prog}</span></span>`;
     }
     const w = 72;
     const h = 24;
@@ -1080,7 +1143,11 @@
     const m = varRadarNetMetrics(L, hlMap, notional, holdDays, bookMap);
     const assetCell = `${varCatBadge(cat)}<span class="font-medium" title="${varHlCoinShort(tick)}">${varHlAssetLabel(tick)}</span>`;
     if (mode === 'funding') {
-      const netCls = m.netApr > 0 ? 'color:var(--success)' : m.netApr < 0 ? 'color:var(--danger)' : '';
+      const sig = varRadarSignalQuality(m, tick, cat, holdDays);
+      const netStyle = varAprColorClass(sig, m);
+      const netCls = netStyle.startsWith('color:') ? netStyle : '';
+      const netClass = netStyle.startsWith('var-') ? netStyle : '';
+      const grossCaution = varIsExtremeTradFiFunding(cat, m.grossDaily) ? 'var-radar-apr--caution' : '';
       const setup = m.rec
         ? `<span style="font-size:.78rem;line-height:1.35">${varFmtSetupShort(m.rec, tick)}</span>`
         : `<span style="font-size:.78rem;color:var(--muted)">${varT('var.hlNa')}</span>`;
@@ -1092,12 +1159,14 @@
         ? varT('var.spreadIlliqShort')
         : (m.spreadBps != null ? m.spreadBps.toFixed(1) : '—');
       const netAprLbl = m.hlLiquidityInsufficient ? '—' : (m.netApr != null ? varFmtApr(m.netApr, true) : '—');
+      const sigTip = sig.reasons.join(' · ');
       return `<tr>
+        <td class="text-center">${varRadarSignalHtml(sig)}</td>
         <td>${assetCell}</td>
         <td title="${varT('var.colSetupHint')}">${setup}</td>
-        <td class="text-right mono" title="${varT('var.colGrossAprHint')}">${m.grossApr != null ? varFmtApr(m.grossApr, true) : '—'}</td>
+        <td class="text-right mono ${grossCaution}" title="${varT('var.colGrossAprHint')}">${m.grossApr != null ? varFmtApr(m.grossApr, true) : '—'}</td>
         <td class="text-right mono" style="${m.hlLiquidityInsufficient ? 'color:var(--warning,#e6a817)' : ''}" title="${spreadTip}">${spreadLbl}</td>
-        <td class="text-right mono" style="${netCls}" title="${m.hlLiquidityInsufficient ? spreadTip : varT('var.colNetAprHint').replace('{days}', String(holdDays))}">${netAprLbl}</td>
+        <td class="text-right mono ${netClass}" style="${netCls}" title="${m.hlLiquidityInsufficient ? spreadTip : sigTip}">${netAprLbl}</td>
         <td class="text-right mono" style="color:var(--muted)" title="${varT('var.colBreakEvenHint')}">${beLbl}</td>
         <td class="text-center">${varSparklineHtml(tick)}</td>
         <td class="text-right mono">${varFmtVol(vol)}</td>
@@ -1124,9 +1193,11 @@
     if (!rows.length) {
       return `<div class="text-center text-sm py-10" style="color:var(--muted)">${varT('var.noData')}</div>`;
     }
-    const colSpan = mode === 'funding' ? 8 : (mode === 'spread' ? 4 : 4);
-    let head = `<tr><th>${varT('var.colAsset')}</th>`;
+    const colSpan = mode === 'funding' ? 9 : (mode === 'spread' ? 4 : 4);
+    let head = `<tr>`;
     if (mode === 'funding') {
+      head += `<th class="text-center" style="width:2rem">${varThHint(varT('var.colSignal'), varT('var.colSignalHint'))}</th>`;
+      head += `<th>${varT('var.colAsset')}</th>`;
       head += `<th>${varThHint(varT('var.colSetup'), varT('var.colSetupHint'))}</th>`;
       head += `<th class="text-right">${varThHint(varT('var.colGrossApr'), varT('var.colGrossAprHint'))}</th>`;
       head += `<th class="text-right">${varThHint(varT('var.colSpreadAt'), varT('var.colSpreadHint').replace('{usd}', varFmtUsd(varRadarNotional())))}</th>`;
@@ -1135,6 +1206,7 @@
       head += `<th class="text-center">${varThHint(varT('var.colSpark'), varT('var.sparkTitle'))}</th>`;
       head += `<th class="text-right">${varT('var.colVol24h')}</th>`;
     } else {
+      head += `<th>${varT('var.colAsset')}</th>`;
       head += `<th class="text-right">${varT('var.colMark')}</th>`;
       if (mode === 'spread') {
         head += `<th class="text-right">${varT('var.colSpread')}</th><th class="text-right">${varT('var.colVol24h')}</th>`;

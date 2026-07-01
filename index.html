@@ -425,6 +425,12 @@ const HS_CONFIG = {
         .var-csv-slot-actions .btn { font-size: .72rem; padding: 4px 10px; }
         .var-radar-spark { display: block; margin: 0 auto; vertical-align: middle; }
         .var-radar-spark-empty { color: var(--muted); font-size: .75rem; }
+        .var-radar-spark-progress { display: block; font-size: .62rem; color: var(--muted); line-height: 1.25; margin-top: 2px; white-space: nowrap; }
+        .var-radar-signal { display: inline-flex; align-items: center; justify-content: center; width: 1.5rem; height: 1.5rem; border-radius: 6px; font-size: .72rem; flex-shrink: 0; cursor: default; }
+        .var-radar-signal--green { background: rgba(46,204,113,.15); box-shadow: inset 0 0 0 1px rgba(46,204,113,.35); }
+        .var-radar-signal--yellow { background: rgba(230,168,23,.12); box-shadow: inset 0 0 0 1px rgba(230,168,23,.4); }
+        .var-radar-signal--red { background: rgba(255,107,107,.12); box-shadow: inset 0 0 0 1px rgba(255,107,107,.35); }
+        .var-radar-apr--caution { color: var(--warning, #e6a817) !important; }
         .var-radar-params { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
         .var-radar-params label { font-size: .78rem; color: var(--muted); display: flex; align-items: center; gap: 6px; }
         .var-radar-params input.hs-input { width: 88px; font-size: .82rem; padding: 4px 8px; }
@@ -10017,6 +10023,15 @@ const I18N = {
     'var.colSpark': '48h',
     'var.sparkTitle': 'Omni funding rate trend (local cache, builds while you use Hypersheets).',
     'var.sparkNeedData': 'Open this tab a few times — sparkline fills from local snapshots (48h max).',
+    'var.sparkCollecting': '{have}/{need} · ~{min} min',
+    'var.colSignal': 'Signal',
+    'var.colSignalHint': 'Actionability: green = net edge with stable history. Yellow = wait or caution (hover for reason). Red = do not size.',
+    'var.signalOk': 'Net APR positive, spread covered within hold period, 48h history available.',
+    'var.signalIlliq': 'Insufficient HL book depth at your size — net APR hidden.',
+    'var.signalNetNeg': 'Negative or unknown net APR after entry costs.',
+    'var.signalSparkWait': '48h history collecting — need {n} more snapshots (~{min} min, revisit this tab).',
+    'var.signalExtremeTradFi': 'Extreme TradFi funding — edge may flip quickly; verify manually even if history looks stable.',
+    'var.signalBeLong': 'Break-even {be}d exceeds your {hold}d amortization window.',
     'var.colOmniApr': 'Omni APR',
     'var.colHlApr': 'HL APR',
     'var.colGapApr': 'Est. gap APR',
@@ -10759,6 +10774,15 @@ const I18N = {
     'var.colSpark': '48h',
     'var.sparkTitle': 'Tendance funding Omni (cache local, se remplit en utilisant Hypersheets).',
     'var.sparkNeedData': 'Ouvre cet onglet plusieurs fois — la courbe se remplit via snapshots locaux (max 48h).',
+    'var.sparkCollecting': '{have}/{need} · ~{min} min',
+    'var.colSignal': 'Signal',
+    'var.colSignalHint': 'Actionnable : vert = edge net + historique stable. Jaune = attendre ou prudence (survol = raison). Rouge = ne pas sizer.',
+    'var.signalOk': 'APR net positif, coûts couverts sur la fenêtre d\'amortissement, historique 48h disponible.',
+    'var.signalIlliq': 'Profondeur carnet HL insuffisante à ta taille — APR net masqué.',
+    'var.signalNetNeg': 'APR net négatif ou inconnu après coûts d\'entrée.',
+    'var.signalSparkWait': 'Historique 48h en cours — encore {n} snapshots (~{min} min, revisite cet onglet).',
+    'var.signalExtremeTradFi': 'Funding TradFi extrême — l\'edge peut flipper vite ; vérifie à la main même si la courbe semble stable.',
+    'var.signalBeLong': 'Break-even {be}j dépasse ta fenêtre d\'amort. ({hold}j).',
     'var.colOmniApr': 'APR Omni',
     'var.colHlApr': 'APR HL',
     'var.colGapApr': 'Écart APR est.',
