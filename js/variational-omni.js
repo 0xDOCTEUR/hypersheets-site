@@ -1353,7 +1353,7 @@
       body = rows.slice(0, 40).map(renderCompareRow).join('');
     }
     return `${varRadarIntroHtml('compare')}${warn}<p class="text-xs" style="color:var(--muted);padding:0 0 6px;margin:0">${varT('var.compareHint')}</p><table class="hs-trades-table"><thead><tr>
-      <th class="text-center" style="width:2rem">${varThHint(varT('var.colSignal'), varT('var.colSignalHint'))}</th>
+      <th class="text-center" style="min-width:3.4rem">${varThHint(varT('var.colSignal'), varT('var.colSignalHint'))}</th>
       <th>${varT('var.colAsset')}</th>
       <th>${varThHint(varT('var.colSetup'), varT('var.colSetupHint'))}</th>
       <th class="text-right">${varThHint(varT('var.colOmniApr'), varT('var.colFundingOmniHint'))}</th>
