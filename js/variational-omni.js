@@ -16,6 +16,8 @@
   const VAR_FUND_HIST_MS = 48 * 60 * 60 * 1000;
   const VAR_FUND_HIST_MIN_PTS = 8;
   const VAR_EXTREME_TRADFI_DAILY = 0.5;
+  /** Taux horaire plancher fréquent sur HIP-3 xyz (≈ +5.5% APR). */
+  const VAR_HL_FUNDING_FLOOR_HR = 0.00000625;
   const VAR_QUOTE_TIERS = [
     { size: 1000, key: 'size_1k' },
     { size: 100000, key: 'size_100k' },
@@ -1049,29 +1051,42 @@
     return out;
   }
 
-  function varCompareRows(listings, hlMap, minVol) {
+  function varHlFundingAtFloor(hl) {
+    const f = parseFloat(hl?.fundingHr);
+    return isFinite(f) && Math.abs(f - VAR_HL_FUNDING_FLOOR_HR) < 1e-10;
+  }
+
+  function varFmtHlAprCell(hlDaily, hl) {
+    if (hlDaily == null || !isFinite(hlDaily)) return '—';
+    const body = varFmtApr(varDailyToApr(hlDaily), true);
+    if (varHlFundingAtFloor(hl)) {
+      return `<span title="${varT('var.hlFundingFloorHint')}">${body}<span style="font-size:.65rem;color:var(--muted);margin-left:3px">⬚</span></span>`;
+    }
+    return body;
+  }
+
+  function varCompareListings(listings, hlMap, minVol) {
     const out = [];
     for (const L of listings || []) {
       const vol = parseFloat(L.volume_24h || 0);
       if (vol < minVol) continue;
       const tick = String(L.ticker || '').toUpperCase();
-      const hl = varHlMapLookup(hlMap, tick);
-      if (!hl) continue;
+      if (!varHlMapLookup(hlMap, tick)) continue;
       const varDaily = varFundingDailyPct(L.funding_rate, L.funding_interval_s);
-      const hlDaily = hlFundingDailyPct(hl.fundingHr);
-      if (varDaily == null || hlDaily == null) continue;
-      out.push({
-        ticker: tick,
-        varDaily,
-        hlDaily,
-        diff: varDaily - hlDaily,
-        markVar: parseFloat(L.mark_price || 0),
-        markHl: hl.markPx,
-        vol,
-      });
+      if (varDaily == null) continue;
+      out.push(L);
     }
-    out.sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff));
-    return out.slice(0, 40);
+    return out;
+  }
+
+  function varCompareSortRows(rows, hlMap, bookMap) {
+    const notional = varRadarNotional();
+    const holdDays = varRadarHoldDays();
+    return [...rows].sort((a, b) => {
+      const na = varRadarNetMetrics(a, hlMap, notional, holdDays, bookMap).netApr;
+      const nb = varRadarNetMetrics(b, hlMap, notional, holdDays, bookMap).netApr;
+      return (nb ?? -1e9) - (na ?? -1e9);
+    }).slice(0, 40);
   }
 
   function varSetSub(sub, el) {
@@ -1245,8 +1260,9 @@
       varPopulateLegTickers(listings);
       varInitRadarParams();
       let bookMap = {};
-      if (mode === 'funding') {
-        const fundList = listings.filter(L => varHlMapLookup(hlMap, L.ticker) && parseFloat(L.volume_24h || 0) >= 25000);
+      if (mode === 'funding' || mode === 'compare') {
+        const minVol = mode === 'compare' ? 50000 : 25000;
+        const fundList = listings.filter(L => varHlMapLookup(hlMap, L.ticker) && parseFloat(L.volume_24h || 0) >= minVol);
         const coins = fundList.map(L => {
           const hl = varHlMapLookup(hlMap, L.ticker);
           return hl?.coin || varHlCoinForTicker(L.ticker);
@@ -1254,9 +1270,10 @@
         bookMap = await fetchHlBookMap(coins);
       }
       if (mode === 'compare') {
-        let rows = varCompareRows(listings, hlMap, 50000);
-        rows = catFilter === 'all' ? rows : rows.filter(r => varAssetCategory(r.ticker) === catFilter);
-        host.innerHTML = varCompareTableHtml(rows, catFilter);
+        let list = varCompareListings(listings, hlMap, 50000);
+        list = varCompareSortRows(list, hlMap, bookMap);
+        list = catFilter === 'all' ? list : list.filter(L => varAssetCategory(L.ticker) === catFilter);
+        host.innerHTML = varCompareTableHtml(list, hlMap, bookMap, catFilter);
       } else {
         let list = listings;
         if (mode === 'funding') {
@@ -1273,31 +1290,48 @@
     }
   }
 
-  function varCompareTableHtml(rows, catFilter) {
+  function varCompareTableHtml(rows, hlMap, bookMap, catFilter) {
     if (!rows.length) return `<div class="text-center text-sm py-10" style="color:var(--muted)">${varT('var.noCompare')}</div>`;
-    const colSpan = 6;
+    const notional = varRadarNotional();
+    const holdDays = varRadarHoldDays();
+    const colSpan = 9;
+    const warn = `<div class="var-radar-compare-warn card2 p3 mb-2" style="border-left:3px solid var(--warning,#e6a817);margin:8px 0 10px;background:rgba(230,168,23,.07)">
+      <div style="font-size:.78rem;font-weight:600;margin-bottom:4px;color:var(--warning,#e6a817)">${varT('var.radarCompareWarnTitle')}</div>
+      <p style="font-size:.8rem;color:var(--muted);margin:0;line-height:1.5">${varT('var.radarCompareWarnBody')}</p>
+    </div>`;
     let body = '';
-    const renderCompareRow = (r) => {
-      const net = Math.abs(r.diff);
-      const cls = r.diff >= 0 ? 'color:var(--success)' : 'color:var(--danger)';
-      const fakeRec = {
-        omniSide: r.diff >= 0 ? 'short' : 'long',
-        hlSide: r.diff >= 0 ? 'long' : 'short',
-      };
-      const cat = varAssetCategory(r.ticker);
+    const renderCompareRow = (L) => {
+      const tick = String(L.ticker || '').toUpperCase();
+      const cat = varAssetCategory(tick);
+      const hl = varHlMapLookup(hlMap, tick);
+      const m = varRadarNetMetrics(L, hlMap, notional, holdDays, bookMap);
+      const sig = varRadarSignalQuality(m, tick, cat, holdDays);
+      const varD = m.varD;
+      const hlD = m.hlD;
+      const grossGap = m.grossDaily != null ? Math.abs(m.grossDaily) : null;
+      const netStyle = varAprColorClass(sig, m);
+      const netCls = netStyle.startsWith('color:') ? netStyle : '';
+      const netClass = netStyle.startsWith('var-') ? netStyle : '';
+      const setup = m.rec
+        ? `<span style="font-size:.78rem;line-height:1.35">${varFmtSetupShort(m.rec, tick)}</span>`
+        : `<span style="font-size:.78rem;color:var(--muted)">${varT('var.hlNa')}</span>`;
+      const netAprLbl = m.hlLiquidityInsufficient ? '—' : (m.netApr != null ? varFmtApr(m.netApr, true) : '—');
+      const sigTip = sig.reasons.join(' · ');
       return `<tr>
-        <td>${varCatBadge(cat)}<span class="font-medium" title="${varHlCoinShort(r.ticker)}">${varHlAssetLabel(r.ticker)}</span></td>
-        <td><span style="font-size:.78rem;line-height:1.35">${varFmtSetupShort(fakeRec, r.ticker)}</span></td>
-        <td class="text-right mono">${varFmtApr(varDailyToApr(r.varDaily), true)}</td>
-        <td class="text-right mono">${varFmtApr(varDailyToApr(r.hlDaily), true)}</td>
-        <td class="text-right mono" style="${cls}">${varFmtApr(varDailyToApr(net), true)}</td>
-        <td class="text-right mono">${varFmtVol(r.vol)}</td>
+        <td class="text-center">${varRadarSignalHtml(sig)}</td>
+        <td>${varCatBadge(cat)}<span class="font-medium" title="${varHlCoinShort(tick)}">${varHlAssetLabel(tick)}</span></td>
+        <td title="${varT('var.colSetupHint')}">${setup}</td>
+        <td class="text-right mono">${varD != null ? varFmtApr(varDailyToApr(varD), true) : '—'}</td>
+        <td class="text-right mono">${hlD != null ? varFmtHlAprCell(hlD, hl) : '—'}</td>
+        <td class="text-right mono" style="color:var(--muted)">${grossGap != null ? varFmtApr(varDailyToApr(grossGap), true) : '—'}</td>
+        <td class="text-right mono ${netClass}" style="${netCls}" title="${sigTip}">${netAprLbl}</td>
+        <td class="text-right mono">${varFmtVol(parseFloat(L.volume_24h || 0))}</td>
       </tr>`;
     };
     if (!catFilter || catFilter === 'all') {
       const groups = {};
       VAR_CAT_ORDER.forEach(c => { groups[c] = []; });
-      rows.forEach(r => { const c = varAssetCategory(r.ticker); if (groups[c]) groups[c].push(r); });
+      rows.forEach(L => { const c = varAssetCategory(L.ticker); if (groups[c]) groups[c].push(L); });
       VAR_CAT_ORDER.forEach(c => {
         const slice = groups[c].slice(0, 15);
         if (!slice.length) return;
@@ -1307,12 +1341,14 @@
     } else {
       body = rows.slice(0, 40).map(renderCompareRow).join('');
     }
-    return `${varRadarIntroHtml('compare')}<p class="text-xs" style="color:var(--muted);padding:0 0 6px;margin:0">${varT('var.compareHint')}</p><table class="hs-trades-table"><thead><tr>
+    return `${varRadarIntroHtml('compare')}${warn}<p class="text-xs" style="color:var(--muted);padding:0 0 6px;margin:0">${varT('var.compareHint')}</p><table class="hs-trades-table"><thead><tr>
+      <th class="text-center" style="width:2rem">${varThHint(varT('var.colSignal'), varT('var.colSignalHint'))}</th>
       <th>${varT('var.colAsset')}</th>
-      <th>${varT('var.colSetup')}</th>
+      <th>${varThHint(varT('var.colSetup'), varT('var.colSetupHint'))}</th>
       <th class="text-right">${varThHint(varT('var.colOmniApr'), varT('var.colFundingOmniHint'))}</th>
       <th class="text-right">${varThHint(varT('var.colHlApr'), varT('var.colFundingHlHint'))}</th>
-      <th class="text-right">${varThHint(varT('var.colGapApr'), varT('var.colNetFundingHint'))}</th>
+      <th class="text-right">${varThHint(varT('var.colGapApr'), varT('var.colGapAprRawHint'))}</th>
+      <th class="text-right">${varThHint(varT('var.colNetApr'), varT('var.colNetAprHint').replace('{days}', String(holdDays)))}</th>
       <th class="text-right">${varT('var.colVol24h')}</th>
     </tr></thead><tbody>${body}</tbody></table>`;
   }
