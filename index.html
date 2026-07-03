@@ -85,6 +85,8 @@ const HS_CONFIG = {
   /** Wallet démo pour vidéos / screenshots — activer avec ?demo=1 */
   demoWalletAddress: '0xdeed000000000000000000000000000042',
   demoWalletLabel: 'Wallet démo',
+  /** Cloudflare Web Analytics — token depuis dash.cloudflare.com → Web Analytics → Add site → JS snippet. Vide = désactivé. */
+  cfWebAnalyticsToken: 'e57bd3275cf84ce28c01ad8aa4168ee6',
 }
 ;(function hsBootstrapDemoMode() {
   try {
@@ -29992,5 +29994,17 @@ document.addEventListener('DOMContentLoaded', () => {
   </div>
 </div>
 <script src="js/variational-omni.js"></script>
+<script>
+(function hsLoadCfWebAnalytics() {
+  var token = (typeof HS_CONFIG !== 'undefined' && HS_CONFIG.cfWebAnalyticsToken) || '';
+  token = String(token).trim();
+  if (!token) return;
+  var s = document.createElement('script');
+  s.defer = true;
+  s.src = 'https://static.cloudflareinsights.com/beacon.min.js';
+  s.setAttribute('data-cf-beacon', JSON.stringify({ token: token, spa: true }));
+  document.body.appendChild(s);
+})();
+</script>
 </body>
 </html>
