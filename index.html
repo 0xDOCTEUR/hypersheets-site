@@ -548,8 +548,9 @@ const HS_CONFIG = {
         }
         .nav-tab-label-wrap { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
         body.sidebar-collapsed #sidebar .nav-tab-label-wrap { display: none !important; }
-        [data-theme="light"] #sidebar .nav-tab[data-tab="farming"].active,
-    [data-theme="light"] #sidebar .nav-tab[data-tab="leaderboard"].active {
+    [data-theme="light"] #sidebar .nav-tab[data-tab="farming"].active,
+    [data-theme="light"] #sidebar .nav-tab[data-tab="leaderboard"].active,
+    [data-theme="light"] #sidebar .nav-tab[data-tab="marketradar"].active {
       color: #0891b2 !important;
       background: rgba(8, 145, 178, .1);
       border-color: rgba(8, 145, 178, .25);
@@ -587,7 +588,8 @@ const HS_CONFIG = {
     }
     [data-theme="light"] #navTabs .nav-tab[data-tab="farming"].active,
     [data-theme="light"] #navTabs .nav-tab[data-tab="leaderboard"].active,
-    [data-theme="light"] #navTabs .nav-tab[data-tab="analyse"].active {
+    [data-theme="light"] #navTabs .nav-tab[data-tab="analyse"].active,
+    [data-theme="light"] #navTabs .nav-tab[data-tab="marketradar"].active {
       color: #0891b2;
       background: rgba(8, 145, 178, .08);
       border-color: rgba(8, 145, 178, .25);
@@ -5285,7 +5287,8 @@ const HS_CONFIG = {
       border-color: rgba(0, 180, 255, .32);
     }
     #sidebar .nav-tab[data-tab="farming"].active,
-    #sidebar .nav-tab[data-tab="leaderboard"].active {
+    #sidebar .nav-tab[data-tab="leaderboard"].active,
+    #sidebar .nav-tab[data-tab="marketradar"].active {
       color: #6ee7ff !important;
       background: rgba(110, 231, 255, .12);
       border-color: rgba(110, 231, 255, .28);
@@ -5329,7 +5332,8 @@ const HS_CONFIG = {
     }
     #navTabs .nav-tab[data-tab="farming"].active,
     #navTabs .nav-tab[data-tab="leaderboard"].active,
-    #navTabs .nav-tab[data-tab="analyse"].active {
+    #navTabs .nav-tab[data-tab="analyse"].active,
+    #navTabs .nav-tab[data-tab="marketradar"].active {
       color: #6ee7ff;
       background: rgba(110, 231, 255, .12);
       border-color: rgba(110, 231, 255, .30);
@@ -5349,6 +5353,33 @@ const HS_CONFIG = {
       color: #6EC9A8;
       background: rgba(17, 42, 38, .45);
       border-color: rgba(110, 201, 168, .30);
+    }
+
+    .market-radar-shell {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .market-radar-frame-wrap {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      background: var(--surface);
+      box-shadow: var(--shadow-md);
+      min-height: calc(100vh - 220px);
+    }
+    .market-radar-frame {
+      display: block;
+      width: 100%;
+      min-height: calc(100vh - 220px);
+      border: 0;
+      background: #060709;
+    }
+    .market-radar-note {
+      font-size: .74rem;
+      color: var(--muted);
+      line-height: 1.5;
+      padding: 0 2px;
     }
 
     #sidebar .sidebar-section-label {
@@ -8637,6 +8668,10 @@ const HS_CONFIG = {
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
       <span class="nav-tab-label" id="sidebarSigAnaLabel" data-i18n="tab.signals">Signal</span>
     </span>
+    <span class="nav-tab" data-tab="marketradar" onclick="if(typeof switchPage==='function')switchPage('marketradar',this)">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 4v5c0 5-3.8 8-7 9-3.2-1-7-4-7-9V7l7-4Z"/><path d="M8 14a5 5 0 0 1 8-4"/><path d="M12 12l3-2"/></svg>
+      <span class="nav-tab-label" data-i18n="tab.marketradar">Radar de Marché</span>
+    </span>
   </div>
 
   <!-- Resources -->
@@ -8819,6 +8854,9 @@ const HS_CONFIG = {
     </span>
     <span class="nav-tab" data-tab="signals" onclick="if(typeof switchPage==='function')switchPage('signals',this)">
             <span data-i18n="tab.signals">Signal</span>
+    </span>
+    <span class="nav-tab" data-tab="marketradar" onclick="if(typeof switchPage==='function')switchPage('marketradar',this)">
+            <span data-i18n="tab.marketradar">Radar de Marché</span>
     </span>
     <span class="nav-tab" data-tab="analyse" onclick="if(typeof switchPage==='function')switchPage('analyse',this)">
             <span data-i18n="tab.analyse">Analysis</span>
@@ -9654,6 +9692,24 @@ const HS_CONFIG = {
     </div>
   </section>
 
+  <!-- PAGE : MARKET RADAR -->
+  <section id="page-marketradar" class="page">
+    <div class="market-radar-shell">
+      <div class="surface p-5">
+        <div class="section-h" style="margin-bottom:8px">
+          <span class="hs-section-icon hs-section-icon--signal" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 4v5c0 5-3.8 8-7 9-3.2-1-7-4-7-9V7l7-4Z"/><path d="M8 14a5 5 0 0 1 8-4"/><path d="M12 12l3-2"/></svg></span>
+          <div class="sig-section-head-text">
+            <span data-i18n="tab.marketradar">Radar de Marché</span>
+            <p class="sig-section-desc" data-i18n="marketradar.desc">Vue synthétique du régime macro, des signaux cross-asset et des actualités de marché.</p>
+          </div>
+        </div>
+        <div class="market-radar-frame-wrap">
+          <iframe class="market-radar-frame" src="market-radar.html" title="Radar de Marché" loading="lazy"></iframe>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- PAGE : FARMING -->
   <section id="page-farming" class="page">
     <div class="surface p-5 mb-6" id="farmingOverviewPanel">
@@ -10244,8 +10300,10 @@ const I18N = {
     'sig.scannerToolbarAria': 'Market scanner',
     'sig.scannerRegionAria': 'Scanner results',
     'tab.signals': 'Signal',
+    'tab.marketradar': 'Market Radar',
     'tab.farming': 'Farming',
     'tab.leaderboard': 'Leaderboard',
+    'marketradar.desc': 'Synthetic macro regime, cross-asset signals and market headlines in one view.',
     'sig.assetLabel': 'Asset',
     'sig.tabAsset': 'Asset',
     'sig.tabScanner': 'Market scanner',
@@ -11016,8 +11074,10 @@ const I18N = {
     'sig.scannerToolbarAria': 'Scanner marché',
     'sig.scannerRegionAria': 'Résultats du scanner',
     'tab.signals': 'Signal',
+    'tab.marketradar': 'Radar de Marché',
     'tab.farming': 'Farming',
     'tab.leaderboard': 'Classement',
+    'marketradar.desc': 'Vue synthétique du régime macro, des signaux cross-asset et des actualités de marché.',
     'sig.assetLabel': 'Asset',
     'sig.tabAsset': 'Asset',
     'sig.tabScanner': 'Scanner marché',
@@ -14748,7 +14808,7 @@ function initFilterRowDock() {
 }
 
 function applySupportTopBannerTheme(pageName) {
-  const FEATURE_PAGES = new Set(['dashboard', 'farming', 'leaderboard', 'analyse'])
+  const FEATURE_PAGES = new Set(['dashboard', 'farming', 'leaderboard', 'analyse', 'marketradar'])
   let theme = 'theme-feature'
   if (pageName === 'hyperliquid') theme = 'theme-hl'
   else if (pageName === 'variational') theme = 'theme-hl'
@@ -14796,7 +14856,7 @@ function switchPage(name, el) {
   const filterRow = document.getElementById('filterRow');
   const filterPills = document.getElementById('filterPeriodPills');
   if (filterRow) {
-    if (name === 'signals' || name === 'analyse') {
+    if (name === 'signals' || name === 'analyse' || name === 'marketradar') {
       filterRow.style.display = 'none';
     } else if (name === 'wallet') {
       filterRow.style.display = 'flex';
@@ -23610,6 +23670,14 @@ setTimeout(populateTpHip3, 1000)
       <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
     </svg>
     <span data-i18n="tab.signals">Signals</span>
+  </button>
+  <button class="mob-nav-btn" onclick="switchPage('marketradar',this)" data-mob="marketradar">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 3l7 4v5c0 5-3.8 8-7 9-3.2-1-7-4-7-9V7l7-4Z"/>
+      <path d="M8 14a5 5 0 0 1 8-4"/>
+      <path d="M12 12l3-2"/>
+    </svg>
+    <span data-i18n="tab.marketradar">Radar</span>
   </button>
   <button class="mob-nav-btn" onclick="switchPage('farming',this)" data-mob="farming">
     <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

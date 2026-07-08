@@ -1,0 +1,1381 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Macro Pulse — régime de marché</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --fs-xs:.62rem;
+  --fs-sm:.72rem;
+  --fs-base:.82rem;
+  --fs-md:.92rem;
+  --fs-lg:1.1rem;
+  --fs-xl:1.3rem;
+  --fs-2xl:1.6rem;
+  --hs-radius-tile:10px;
+  --hs-radius-panel:14px;
+  --hs-radius-badge:6px;
+  --bg:#060709;
+  --surface:#0d1117;
+  --surface-2:#161b24;
+  --border:#181d26;
+  --text:#e6edf3;
+  --muted:#7d8590;
+  --muted-2:#525b66;
+  --accent:#6ee7ff;
+  --accent-soft:rgba(110,231,255,.12);
+  --accent-border:rgba(110,231,255,.30);
+  --up:#22c55e;
+  --down:#ef4444;
+  --warn:#f59e0b;
+  --up-soft:rgba(34,197,94,.08);
+  --up-border:rgba(34,197,94,.35);
+  --down-soft:rgba(239,68,68,.08);
+  --down-border:rgba(239,68,68,.35);
+  --warn-soft:rgba(245,158,11,.08);
+  --warn-border:rgba(245,158,11,.35);
+  --space-1:8px;
+  --space-2:12px;
+  --space-3:14px;
+  --space-4:16px;
+  --space-5:18px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:var(--fs-base);line-height:1.55;min-height:100vh}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+.wrap{max-width:1240px;margin:0 auto;padding:var(--space-4) var(--space-4) 56px}
+
+header{margin-bottom:var(--space-2)}
+.title-wrap{display:flex;flex-direction:column;gap:4px}
+h1{font-family:'Bricolage Grotesque',sans-serif;font-size:var(--fs-xl);font-weight:700;letter-spacing:-.02em;line-height:1.2}
+.page-tagline{font-size:var(--fs-sm);color:var(--muted);font-weight:500;letter-spacing:.01em}
+
+.control-bar{
+  position:sticky;top:0;z-index:40;
+  display:flex;gap:var(--space-2);align-items:center;justify-content:space-between;flex-wrap:nowrap;
+  overflow-x:auto;padding:var(--space-2) 0 var(--space-3);margin:0 0 var(--space-3);
+  background:linear-gradient(to bottom,rgba(6,7,9,.97),rgba(6,7,9,.92));
+  backdrop-filter:blur(10px);scrollbar-width:thin;
+}
+.control-bar::-webkit-scrollbar{height:8px}
+.control-bar::-webkit-scrollbar-thumb{background:#243041;border-radius:999px}
+.page-tabs{display:flex;gap:var(--space-1);flex-wrap:nowrap;margin:0}
+.page-btn,.tf-btn,#refresh-btn{
+  background:var(--surface-2);border:1px solid transparent;color:var(--muted);
+  font-family:'Inter',sans-serif;font-size:var(--fs-sm);font-weight:500;
+  padding:8px 14px;border-radius:var(--hs-radius-tile);cursor:pointer;
+  transition:border-color .15s,color .15s,background .15s;white-space:nowrap;
+}
+.page-btn:hover,.tf-btn:hover,#refresh-btn:hover{color:var(--text);background:var(--surface)}
+.page-btn.active,.tf-btn.active{
+  color:var(--accent);border-color:var(--accent-border);background:var(--accent-soft);font-weight:600;
+}
+.toolbar-group{display:flex;gap:var(--space-1);align-items:center;flex:0 0 auto}
+.control-actions{display:flex;gap:var(--space-2);align-items:center;justify-content:flex-end;flex:0 0 auto}
+#refresh-btn{color:var(--text);font-weight:600}
+#refresh-btn:disabled{opacity:.5;cursor:wait}
+.page-btn:focus-visible,.tf-btn:focus-visible,#refresh-btn:focus-visible,.tab:focus-visible{
+  outline:2px solid var(--accent);outline-offset:2px;
+}
+
+.view-page{display:none}
+.view-page.active{display:block}
+.view-page+.view-page{margin-top:0}
+
+.panel{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--hs-radius-panel);
+  padding:var(--space-5) var(--space-5) var(--space-4);
+}
+.panel+.panel{margin-top:var(--space-3)}
+.section-title,.panel h2,.category-head h3,.news-header h3,.cal-card h3{
+  display:flex;align-items:center;gap:10px;
+  font-family:'Inter',sans-serif;font-size:var(--fs-base);font-weight:600;
+  color:var(--text);letter-spacing:-.01em;margin-bottom:var(--space-3);
+}
+.section-title::before,.panel h2::before,.category-head h3::before,.news-header h3::before,.cal-card h3::before{
+  content:'';width:3px;height:14px;border-radius:2px;background:var(--accent);flex-shrink:0;
+}
+.category-head p,.news-header p{font-size:var(--fs-sm);color:var(--muted);max-width:720px;line-height:1.5;margin:0}
+
+[data-help]{position:relative}
+[data-help]:hover::after,[data-help]:focus-visible::after{
+  content:attr(data-help);position:absolute;left:0;top:calc(100% + 8px);
+  width:min(320px,calc(100vw - 48px));background:var(--surface-2);border:1px solid var(--border);
+  border-radius:var(--hs-radius-tile);padding:10px 12px;color:var(--text);
+  font-size:var(--fs-sm);line-height:1.45;white-space:pre-line;z-index:50;
+  box-shadow:0 8px 32px rgba(0,0,0,.35);
+}
+[data-help]:hover::before,[data-help]:focus-visible::before{
+  content:'';position:absolute;left:16px;top:100%;
+  border:7px solid transparent;border-bottom-color:var(--border);z-index:51;
+}
+
+.hero{display:grid;grid-template-columns:minmax(290px,360px) minmax(320px,1fr);gap:var(--space-3);margin-bottom:var(--space-3)}
+.gauge-panel{display:flex;flex-direction:column;align-items:center;text-align:center}
+.gauge-svg{width:100%;max-width:300px;display:block}
+#gauge-needle{transition:transform .9s cubic-bezier(.34,1.3,.5,1);transform-origin:150px 150px}
+@media (prefers-reduced-motion:reduce){#gauge-needle{transition:none}}
+.gauge-score{font-family:'Bricolage Grotesque',sans-serif;font-size:var(--fs-2xl);font-weight:700;line-height:1;margin-top:-18px}
+.gauge-score small{font-size:var(--fs-md);color:var(--muted-2);font-weight:600}
+.gauge-verdict{font-family:'Bricolage Grotesque',sans-serif;font-size:var(--fs-md);font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-top:var(--space-2)}
+.gauge-sub{font-size:var(--fs-sm);color:var(--muted);margin-top:var(--space-1);max-width:280px}
+.gauge-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-2);width:100%;margin-top:var(--space-3)}
+.mini-kpi{border:1px solid var(--border);border-radius:var(--hs-radius-tile);padding:10px;background:var(--surface-2);text-align:left}
+.mini-kpi.up{border-color:var(--up-border);background:var(--up-soft)}
+.mini-kpi.down{border-color:var(--down-border);background:var(--down-soft)}
+.mini-kpi.warn{border-color:var(--warn-border);background:var(--warn-soft)}
+.mini-kpi .k{display:block;font-size:var(--fs-xs);color:var(--muted);text-transform:uppercase;letter-spacing:.07em;font-weight:600}
+.mini-kpi .v{display:block;font-family:'JetBrains Mono',monospace;font-size:var(--fs-md);font-weight:500;margin-top:4px}
+.mini-kpi .s{display:block;font-size:var(--fs-xs);color:var(--muted-2);margin-top:3px}
+.mini-kpi.up .v{color:var(--up)}
+.mini-kpi.down .v{color:var(--down)}
+.mini-kpi.warn .v{color:var(--warn)}
+
+.overview{display:grid;grid-template-columns:1.2fr .8fr;gap:var(--space-3)}
+.summary-box{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--hs-radius-tile);padding:var(--space-3)}
+.summary-box p{color:var(--text);font-size:var(--fs-sm);line-height:1.55}
+.summary-title{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:var(--space-1)}
+.summary-title strong{font-family:'Bricolage Grotesque',sans-serif;font-size:var(--fs-lg);font-weight:700;letter-spacing:-.02em}
+.regime-pill{font-family:'JetBrains Mono',monospace;font-size:var(--fs-xs);font-weight:600;padding:4px 8px;border-radius:999px;border:1px solid var(--border)}
+.regime-pill.up{color:var(--up);border-color:var(--up-border);background:var(--up-soft)}
+.regime-pill.down{color:var(--down);border-color:var(--down-border);background:var(--down-soft)}
+.regime-pill.warn{color:var(--warn);border-color:var(--warn-border);background:var(--warn-soft)}
+.summary-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-2);margin:var(--space-3) 0 4px}
+.summary-metric{border:1px solid var(--border);border-radius:var(--hs-radius-tile);padding:10px;background:var(--surface)}
+.summary-metric .label{display:block;font-size:var(--fs-xs);color:var(--muted);text-transform:uppercase;letter-spacing:.07em;font-weight:600}
+.summary-metric .value{display:block;font-family:'JetBrains Mono',monospace;font-size:var(--fs-sm);font-weight:500;margin-top:4px}
+.summary-metric .hint{display:block;font-size:var(--fs-xs);color:var(--muted-2);margin-top:3px}
+.bullet-list{display:flex;flex-direction:column;gap:var(--space-1);margin-top:var(--space-3)}
+.bullet{display:flex;gap:10px;align-items:flex-start;color:var(--text);font-size:var(--fs-sm)}
+.bullet i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-top:7px;flex:0 0 7px;background:var(--muted-2)}
+.bullet.positive i{background:var(--up)}
+.bullet.negative i{background:var(--down)}
+.bullet.neutral i{background:var(--warn)}
+
+.drivers{display:flex;flex-direction:column;gap:var(--space-2)}
+.driver{border:1px solid var(--border);border-radius:var(--hs-radius-tile);padding:11px 12px;background:var(--surface-2)}
+.driver.up{border-color:var(--up-border);background:var(--up-soft)}
+.driver.down{border-color:var(--down-border);background:var(--down-soft)}
+.driver.warn{border-color:var(--warn-border);background:var(--warn-soft)}
+.driver-top{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:4px}
+.driver-top strong{font-size:var(--fs-sm);font-weight:600}
+.driver-state{font-family:'JetBrains Mono',monospace;font-size:var(--fs-xs);color:var(--muted);padding:3px 7px;border-radius:999px;border:1px solid var(--border)}
+.driver-state.up{color:var(--up);border-color:var(--up-border);background:var(--up-soft)}
+.driver-state.down{color:var(--down);border-color:var(--down-border);background:var(--down-soft)}
+.driver-state.warn{color:var(--warn);border-color:var(--warn-border);background:var(--warn-soft)}
+.driver p{font-size:var(--fs-sm);color:var(--muted);line-height:1.5}
+
+.signals{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-2);margin-top:var(--space-1)}
+.signal{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--hs-radius-tile);background:var(--surface-2);font-size:var(--fs-sm)}
+.signal .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:5px}
+.dot.on{background:var(--up);box-shadow:0 0 6px rgba(34,197,94,.35)}
+.dot.off{background:var(--down)}
+.dot.na{background:var(--muted-2)}
+.signal .lbl{flex:1;font-weight:500}
+.signal .val{display:block;font-family:'JetBrains Mono',monospace;font-size:var(--fs-xs);color:var(--muted);margin-top:2px}
+
+.category-sections{display:flex;flex-direction:column;gap:var(--space-3)}
+.category-section{background:var(--surface);border:1px solid var(--border);border-radius:var(--hs-radius-panel);padding:var(--space-4) var(--space-5)}
+.category-head{display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin-bottom:var(--space-3)}
+.category-title-row{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:var(--space-2)}
+.card{
+  background:var(--surface-2);border:1px solid var(--border);border-radius:var(--hs-radius-tile);
+  padding:var(--space-3) var(--space-3) 10px;display:flex;flex-direction:column;gap:6px;min-height:118px;
+  transition:border-color .15s;
+}
+.card:hover{border-color:var(--accent-border)}
+.card .name{font-size:var(--fs-xs);color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.card .badge{font-family:'JetBrains Mono',monospace;font-size:var(--fs-xs);padding:2px 6px;border-radius:var(--hs-radius-badge);border:1px solid var(--border);color:var(--muted-2);white-space:nowrap}
+.badge.above{color:var(--up);border-color:var(--up-border)}
+.badge.below{color:var(--down);border-color:var(--down-border)}
+.card .price{font-family:'Bricolage Grotesque',sans-serif;font-size:var(--fs-lg);font-weight:700;letter-spacing:-.02em}
+.card .chg{font-family:'JetBrains Mono',monospace;font-size:var(--fs-sm);font-weight:500}
+.card .note{font-size:var(--fs-xs);color:var(--muted);line-height:1.4}
+.chg.up{color:var(--up)} .chg.down{color:var(--down)} .chg.flat{color:var(--muted)}
+.card svg.spark{width:100%;height:32px;margin-top:auto}
+.card.err .price{color:var(--muted-2);font-size:var(--fs-sm);font-weight:600}
+
+.news-layout{display:grid;grid-template-columns:minmax(230px,280px) 1fr;gap:var(--space-3);align-items:start}
+.tabs{display:flex;flex-direction:column;gap:var(--space-1)}
+.tab{
+  background:var(--surface-2);border:1px solid transparent;color:var(--muted);
+  font-family:'Inter',sans-serif;font-size:var(--fs-sm);font-weight:500;
+  padding:10px 12px;border-radius:var(--hs-radius-tile);cursor:pointer;transition:all .15s;text-align:left;
+}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--accent);border-color:var(--accent-border);background:var(--accent-soft);font-weight:600}
+.tab small{display:block;font-size:var(--fs-xs);color:var(--muted-2);margin-top:3px;font-weight:400}
+.news-header{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:var(--space-3)}
+.news-summary{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--hs-radius-tile);padding:var(--space-3);margin-bottom:var(--space-2)}
+.news-summary strong{display:block;font-size:var(--fs-sm);font-weight:600;margin-bottom:6px}
+.news-summary ul{padding-left:18px;color:var(--text);font-size:var(--fs-sm)}
+.news-summary li+li{margin-top:4px}
+.news-list{display:flex;flex-direction:column}
+.news-item{display:flex;gap:var(--space-2);padding:var(--space-3) 4px;border-bottom:1px solid var(--border);align-items:flex-start}
+.news-item:last-child{border-bottom:none}
+.news-item .meta{font-family:'JetBrains Mono',monospace;font-size:var(--fs-xs);color:var(--muted-2);white-space:nowrap;min-width:118px}
+.news-item .body{flex:1}
+.news-item .title{font-size:var(--fs-sm);font-weight:600;display:inline-block;line-height:1.45}
+.news-item .orig{font-size:var(--fs-xs);color:var(--muted);margin-top:4px}
+.news-item .tag{display:inline-flex;font-family:'JetBrains Mono',monospace;font-size:var(--fs-xs);border:1px solid var(--border);border-radius:999px;padding:2px 6px;color:var(--muted-2);margin-bottom:6px}
+.news-item .tag-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.tone{display:inline-flex;font-family:'JetBrains Mono',monospace;font-size:var(--fs-xs);border:1px solid var(--border);border-radius:999px;padding:2px 6px;font-weight:600}
+.tone.bullish,.tone.riskon{color:var(--up);border-color:var(--up-border);background:var(--up-soft)}
+.tone.bearish,.tone.riskoff{color:var(--down);border-color:var(--down-border);background:var(--down-soft)}
+.tone.neutral{color:var(--warn);border-color:var(--warn-border);background:var(--warn-soft)}
+.news-empty{color:var(--muted);font-size:var(--fs-sm);padding:var(--space-3) 4px}
+.calendar-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:var(--space-2)}
+.cal-card{border:1px solid var(--border);border-radius:var(--hs-radius-tile);padding:var(--space-3);background:var(--surface-2)}
+.cal-item{display:flex;gap:var(--space-1);align-items:flex-start;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.cal-item:last-child{border-bottom:none}
+.cal-date{font-family:'JetBrains Mono',monospace;font-size:var(--fs-xs);color:var(--muted-2);min-width:64px}
+.cal-text{font-size:var(--fs-sm);color:var(--text)}
+
+footer{margin-top:var(--space-5);font-size:var(--fs-xs);color:var(--muted-2);line-height:1.7}
+
+@media (max-width:980px){
+  .overview,.news-layout,.hero{grid-template-columns:1fr}
+}
+@media (max-width:820px){
+  .signals{grid-template-columns:1fr}
+  .gauge-kpis,.summary-strip{grid-template-columns:1fr}
+  .news-item .meta{min-width:auto}
+  .news-item{flex-direction:column;gap:4px}
+  .tabs{flex-direction:row;flex-wrap:wrap}
+  .tab{flex:1 1 180px}
+  .control-bar{padding-top:var(--space-1)}
+  .control-actions{margin-left:auto}
+  h1{font-size:var(--fs-lg)}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="title-wrap">
+    <h1>Lecture macro</h1>
+    <p class="page-tagline">Vue synthétique du marché global</p>
+  </div>
+</header>
+
+<div class="control-bar">
+  <div class="page-tabs" id="page-tabs">
+    <button class="page-btn active" data-view="barometre" onclick="switchView('barometre')">Régime</button>
+    <button class="page-btn" data-view="marche" onclick="switchView('marche')">Marchés</button>
+    <button class="page-btn" data-view="actus" onclick="switchView('actus')">Actus</button>
+  </div>
+  <div class="control-actions">
+    <div class="toolbar-group" id="tf-toggle" role="group" aria-label="Fenêtre d'analyse">
+      <button class="tf-btn active" id="tf-daily" onclick="setTimeframe('daily')">Daily</button>
+      <button class="tf-btn" id="tf-weekly" onclick="setTimeframe('weekly')">Hebdo</button>
+    </div>
+    <div class="toolbar-group">
+      <button id="refresh-btn" onclick="loadAll()">↻ Actualiser</button>
+    </div>
+  </div>
+</div>
+
+<div class="view-page active" id="view-barometre">
+<div class="hero">
+  <div class="panel gauge-panel">
+    <h2>Régime global</h2>
+    <svg class="gauge-svg" viewBox="0 0 300 175" role="img" aria-label="Jauge risk-on risk-off">
+      <defs>
+        <linearGradient id="riskgrad" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#ef4444"/>
+          <stop offset="50%" stop-color="#f59e0b"/>
+          <stop offset="100%" stop-color="#22c55e"/>
+        </linearGradient>
+      </defs>
+      <path d="M 30 150 A 120 120 0 0 1 270 150" fill="none" stroke="#181d26" stroke-width="18" stroke-linecap="round"/>
+      <path d="M 30 150 A 120 120 0 0 1 270 150" fill="none" stroke="url(#riskgrad)" stroke-width="18" stroke-linecap="round" opacity="0.92"/>
+      <text x="30" y="172" fill="#525b66" font-size="11" font-family="JetBrains Mono" text-anchor="middle">RISK-OFF</text>
+      <text x="270" y="172" fill="#525b66" font-size="11" font-family="JetBrains Mono" text-anchor="middle">RISK-ON</text>
+      <g id="gauge-needle" style="transform:rotate(-90deg)">
+        <line x1="150" y1="150" x2="150" y2="52" stroke="#e6edf3" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="150" cy="150" r="7" fill="#e6edf3"/>
+      </g>
+    </svg>
+    <div class="gauge-score"><span id="score-val">–</span><small>/<span id="score-max">10</span></small></div>
+    <div class="gauge-verdict" id="verdict" style="color:var(--muted)">Chargement…</div>
+    <div class="gauge-sub" id="gauge-sub"></div>
+    <div class="gauge-kpis" id="gauge-kpis">
+      <div class="mini-kpi"><span class="k">Volatilité</span><span class="v">—</span><span class="s">VIX</span></div>
+      <div class="mini-kpi"><span class="k">Dollar</span><span class="v">—</span><span class="s">DXY broad</span></div>
+      <div class="mini-kpi"><span class="k">Sentiment</span><span class="v">—</span><span class="s">Fear & Greed</span></div>
+    </div>
+  </div>
+
+  <div class="overview">
+    <div class="panel">
+      <h2>Diagnostic de marché</h2>
+      <div class="summary-box">
+        <div class="summary-title">
+          <strong id="summary-headline">Lecture en cours…</strong>
+          <span class="regime-pill warn" id="summary-pill">Analyse</span>
+        </div>
+        <p id="summary-text">Le tableau de bord collecte les principales données de marché puis construit une lecture synthétique de l'environnement.</p>
+        <div class="summary-strip" id="summary-strip">
+          <div class="summary-metric"><span class="label">Actions</span><span class="value">—</span><span class="hint">largeur</span></div>
+          <div class="summary-metric"><span class="label">Liquidité</span><span class="value">—</span><span class="hint">crypto / dollar</span></div>
+          <div class="summary-metric"><span class="label">Défensif</span><span class="value">—</span><span class="hint">or / taux</span></div>
+        </div>
+        <div class="bullet-list" id="summary-bullets"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Ce qui pilote le marché</h2>
+      <div class="drivers" id="drivers"></div>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Checklist des signaux</h2>
+  <div class="signals" id="signals"></div>
+</div>
+</div>
+
+<div class="view-page" id="view-marche">
+<div class="category-sections" id="cards"></div>
+</div>
+
+<div class="view-page" id="view-actus">
+<div class="panel">
+  <h2>Calendrier hebdomadaire (à venir)</h2>
+  <div class="calendar-grid" id="calendar"></div>
+</div>
+
+<div class="panel">
+  <h2>Actualités clés par catégorie</h2>
+  <div class="news-layout">
+    <div class="tabs" id="tabs"></div>
+    <div>
+      <div class="news-header">
+        <div>
+          <h3 id="news-title">Actualités</h3>
+          <p id="news-desc">Les titres sont traduits automatiquement en français quand la source est anglophone. Affichage limité au daily/hebdo selon le filtre.</p>
+        </div>
+      </div>
+      <div class="news-summary" id="news-summary">
+        <strong>Résumé de la catégorie</strong>
+        <ul><li>Chargement…</li></ul>
+      </div>
+      <div class="news-list" id="news"></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<footer>
+  Données : CoinGecko, DeFiLlama, alternative.me, Convex, Yahoo Finance via proxy en secours, flux RSS Google News, Journal du Coin et Cryptoast.<br>
+  Outil informatif, non constitutif d'un conseil en investissement. Si certaines sources échouent, l'analyse s'ajuste aux données réellement disponibles.
+</footer>
+</div>
+
+<script>
+'use strict';
+
+const PROXIES = [
+  u => 'https://corsproxy.io/?url=' + encodeURIComponent(u),
+  u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+  u => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u),
+];
+
+async function fetchDirect(url, asText){
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 12000);
+  const r = await fetch(url, {signal: ctrl.signal});
+  clearTimeout(timer);
+  if(!r.ok) throw new Error('HTTP ' + r.status);
+  return asText ? r.text() : r.json();
+}
+
+async function fetchSmart(url, asText=false, proxyOnly=false){
+  if(!proxyOnly){
+    try{ return await fetchDirect(url, asText); }catch(e){}
+  }
+  for(const p of PROXIES){
+    try{ return await fetchDirect(p(url), asText); }catch(e){}
+  }
+  throw new Error('Toutes les sources ont échoué pour ' + url);
+}
+
+const fmtNum = (v, dec=2) => v==null ? '—' : v.toLocaleString('fr-FR',{minimumFractionDigits:dec, maximumFractionDigits:dec});
+const fmtPct = v => v==null ? '—' : (v>0?'+':'') + v.toLocaleString('fr-FR',{maximumFractionDigits:2}) + '%';
+const fmtBn  = v => v==null ? '—' : (v/1e9).toLocaleString('fr-FR',{maximumFractionDigits:1}) + ' Md$';
+
+function sma(arr, n){
+  if(!arr || arr.length < n) return null;
+  const s = arr.slice(-n);
+  return s.reduce((a,b)=>a+b,0)/n;
+}
+function pctChange(arr, back){
+  if(!arr || arr.length <= back) return null;
+  const last = arr[arr.length-1], prev = arr[arr.length-1-back];
+  return (last/prev - 1) * 100;
+}
+function sparkline(values, color){
+  if(!values || values.length < 2) return '';
+  const v = values.slice(-60);
+  const min = Math.min(...v), max = Math.max(...v), range = (max-min)||1;
+  const W=200, H=32, pad=2;
+  const pts = v.map((x,i)=>{
+    const px = pad + i*(W-2*pad)/(v.length-1);
+    const py = H-pad - ((x-min)/range)*(H-2*pad);
+    return px.toFixed(1)+','+py.toFixed(1);
+  }).join(' ');
+  return `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
+    <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.6" opacity="0.85"/>
+  </svg>`;
+}
+function escapeHtml(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+function escapeAttr(s){ return String(s ?? '').replace(/"/g,'&quot;'); }
+function decodeHtmlEntities(s){
+  const txt = document.createElement('textarea');
+  txt.innerHTML = s || '';
+  return txt.value;
+}
+function uniq(arr){ return [...new Set(arr.filter(Boolean))]; }
+
+const HELP_ASSETS = {
+  btc: "Bitcoin\nActif directeur du risque crypto.\nFavorable: au-dessus de sa MM50 et stable/haussier.\nNeutre: latéral ou proche de sa tendance.\nDéfavorable: sous sa MM50 ou en forte baisse.",
+  eth: "Ethereum\nDeuxième actif crypto, sensible au sentiment et à la liquidité.\nFavorable: momentum positif et participation du marché.\nNeutre: sous-performance modérée sans stress.\nDéfavorable: baisse marquée avec sentiment fragile.",
+  spx: "S&P 500 (via SPY)\nBaromètre principal des actions US.\nFavorable: variation 1 mois positive / tendance constructive.\nNeutre: performance hésitante.\nDéfavorable: repli persistant ou perte de momentum.",
+  ndx: "Nasdaq 100 (via QQQ)\nIndice croissance/tech, sensible aux taux.\nFavorable: hausse régulière et appétit pour le risque.\nNeutre: consolidation.\nDéfavorable: sous-performance liée à des taux plus hauts ou au stress de marché.",
+  vix: "VIX\nMesure implicite de la volatilité actions US.\nFavorable: < 20.\nNeutre: 20 à 25.\nDéfavorable: > 25, signe de stress.",
+  dxy: "Dollar broad\nIndice large du dollar US contre plusieurs partenaires commerciaux.\nFavorable pour le risque: dollar sous sa tendance ou en baisse.\nNeutre: dollar stable.\nDéfavorable: dollar fort et en hausse, car il resserre souvent les conditions financières.",
+  tnx: "US 10 ans\nRendement du Treasury 10 ans.\nFavorable: stable ou en baisse.\nNeutre: hausse modérée sans tension.\nDéfavorable: remontée nette, car elle pèse sur les valorisations.",
+  hyg: "HYG (crédit haut rendement)\nETF proxy du crédit corporate risqué.\nFavorable: porteur / hausse sur 1 mois.\nNeutre: stable.\nDéfavorable: baisse ou élargissement du stress crédit.",
+  gold: "Or\nActif défensif et baromètre de stress monétaire / géopolitique.\nLecture: une hausse de l'or n'est pas automatiquement bullish pour le marché. Elle peut signaler une recherche de refuge.\nDéfavorable pour le risque si l'or surperforme fortement.",
+  oil: "Pétrole WTI\nMesure l'énergie et le risque d'inflation importée.\nFavorable: stable ou en baisse modérée.\nNeutre: fluctuation normale.\nDéfavorable: envolée rapide, car elle peut raviver l'inflation et peser sur la croissance.",
+  dom: "Dominance BTC\nPart de Bitcoin dans la capitalisation crypto totale.\nHausse: le marché se concentre sur la qualité.\nBaisse: plus d'appétit pour les altcoins.\nLecture neutre sans contexte, à combiner avec le sentiment global.",
+  stables: "Stablecoins (total)\nApproximation de la liquidité disponible dans l'écosystème crypto.\nFavorable: expansion sur 30 jours.\nNeutre: stable.\nDéfavorable: contraction, signe de liquidité plus faible.",
+  fng: "Fear & Greed crypto\nIndice de sentiment crypto de 0 à 100.\nFavorable: > 55.\nNeutre: 40 à 55.\nDéfavorable: < 40, surtout < 25."
+};
+
+const HELP_SIGNALS = {
+  'VIX < 20': "Le VIX sous 20 suggère une volatilité contenue et un climat plus favorable aux actifs risqués.",
+  'VIX en baisse (5j)': "Une baisse du VIX sur 5 jours indique une détente du stress actions.",
+  'DXY sous sa MM50': "Un dollar sous sa tendance moyenne est généralement plus favorable à la liquidité mondiale et aux actifs risqués.",
+  'US 10 ans stable / en baisse (5j)': "Des taux longs stables ou en baisse réduisent la pression sur les valorisations.",
+  'Crédit HY porteur': "Le haut rendement qui tient signale un marché du crédit encore sain.",
+  'S&P 500 porteur': "Actions US en soutien. Une hausse sur 1 mois ou une tendance positive confirme l'appétit pour le risque.",
+  'Bitcoin au-dessus de sa MM50': "Bitcoin au-dessus de sa tendance de moyen terme = momentum crypto plus propre.",
+  'Nasdaq 100 porteur': "Le Nasdaq valide le goût du marché pour la croissance et la tech.",
+  'Stablecoins en expansion (30j)': "Plus de stablecoins en circulation = plus de liquidité potentielle pour le marché crypto.",
+  'Fear & Greed >= 40': "Au-dessus de 40, le marché n'est plus en peur marquée."
+};
+
+const HELP_DRIVERS = {
+  'Stress de marché': "Stress de marché\nMesure si le marché actions évolue dans un climat calme ou tendu, surtout via le VIX.\nFavorable: VIX < 20 et en baisse.\nNeutre: VIX autour de 20-25.\nDéfavorable: VIX > 25 ou forte remontée.",
+  'Taux et liquidité': "Taux et liquidité\nCroise les rendements longs US et la force du dollar.\nFavorable: taux stables / en baisse + dollar contenu.\nNeutre: un facteur bon, un facteur mitigé.\nDéfavorable: taux en hausse et dollar ferme, car cela resserre les conditions financières.",
+  'Largeur du risque': "Largeur du risque\nVérifie si la prise de risque est confirmée par plusieurs poches du marché, pas une seule.\nFavorable: actions et crypto tiennent ensemble.\nNeutre: une seule jambe reste solide.\nDéfavorable: les deux perdent leur momentum.",
+  'Flux crypto': "Flux crypto\nObserve la liquidité interne du marché crypto et le sentiment.\nFavorable: stablecoins en expansion + Fear & Greed au-dessus de la zone de peur.\nNeutre: signaux partagés.\nDéfavorable: liquidité en retrait et sentiment prudent."
+};
+
+function getHelpText(id, fallback='Survolez pour obtenir une explication détaillée.'){
+  return HELP_ASSETS[id] || HELP_SIGNALS[id] || fallback;
+}
+
+const state = {};
+
+const ASSETS = [
+  {id:'btc', label:'Bitcoin', type:'gecko', coin:'bitcoin', prefix:'$', dec:0, category:'crypto'},
+  {id:'eth', label:'Ethereum', type:'gecko', coin:'ethereum', prefix:'$', dec:0, category:'crypto'},
+  // Yahoo donne ici un historique exploitable, donc une vraie MM50 plus proche de TradingView.
+  {id:'spx', label:'S&P 500 (SPY)', type:'yahoo', sym:'SPY', dec:2, category:'equities'},
+  {id:'ndx', label:'Nasdaq 100 (QQQ)', type:'yahoo', sym:'QQQ', dec:2, category:'equities'},
+  // Le VIX FRED arrive avec retard: on le lit sur Yahoo pour éviter un faux signal 5j.
+  {id:'vix', label:'VIX', type:'yahoo', sym:'^VIX', dec:1, noMa:true, category:'macro'},
+  {id:'dxy', label:'Dollar broad', type:'convex', sym:'DTWEXBGS', dec:2, category:'macro'},
+  {id:'tnx', label:'US 10 ans', type:'yahoo', sym:'^TNX', dec:2, suffix:' %', noMa:true, category:'macro'},
+  {id:'hyg', label:'HYG (crédit HY)', type:'yahoo', sym:'HYG', prefix:'$', dec:2, category:'credit'},
+  {id:'gold', label:'Or', type:'convex_metric', sym:'gold', prefix:'$', dec:0, category:'defensive'},
+  {id:'oil', label:'Pétrole WTI', type:'convex', sym:'DCOILWTICO', prefix:'$', dec:2, category:'defensive'},
+];
+
+const CARD_CATEGORIES = [
+  {id:'crypto', title:'Crypto', desc:'Prix, sentiment et liquidité interne du marché crypto.'},
+  {id:'equities', title:'Actions', desc:'Indices directeurs et appétit pour le risque sur les marchés actions.'},
+  {id:'macro', title:'Macro & Taux', desc:'Volatilité, dollar et coût du capital.'},
+  {id:'credit', title:'Crédit', desc:'Lecture du risque corporate et de la qualité du financement.'},
+  {id:'defensive', title:'Défensif & Matières Premières', desc:'Refuge, inflation implicite et énergie.'},
+];
+
+function parseYahooChartResponse(payload){
+  const text = typeof payload === 'string' ? payload : JSON.stringify(payload);
+  const start = text.indexOf('{"chart":');
+  if(start === -1) throw new Error('Réponse Yahoo invalide');
+  const json = JSON.parse(text.slice(start));
+  const res = json.chart?.result?.[0];
+  const closes = res?.indicators?.quote?.[0]?.close?.filter(v => v != null) || [];
+  if(!closes.length) throw new Error('Historique Yahoo vide');
+  return closes;
+}
+async function loadYahoo(a){
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(a.sym)}?range=6mo&interval=1d`;
+  let closes = [];
+  try{
+    const direct = await fetchDirect(url, false);
+    closes = parseYahooChartResponse(direct);
+  }catch(e){
+    const viaJina = await fetchDirect('https://r.jina.ai/http://' + url.replace(/^https?:\/\//,''), true);
+    closes = parseYahooChartResponse(viaJina);
+  }
+  if(a.scale) closes = closes.map(v=>v*a.scale);
+  return closes;
+}
+function parseConvexCsv(csv){
+  const lines = csv.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  if(lines.length < 2) throw new Error('CSV Convex vide');
+  const header = lines[0].toLowerCase().split(',');
+  const valueIdx = header.findIndex(h => h === 'value');
+  if(valueIdx === -1) throw new Error('Colonne value absente');
+  const out = [];
+  for(let i=1;i<lines.length;i++){
+    const cols = lines[i].split(',');
+    const raw = String(cols[valueIdx] ?? '').replace(/"/g,'').trim();
+    if(raw === '' || raw === '.') continue;
+    const v = Number(raw);
+    if(Number.isFinite(v)) out.push(v);
+  }
+  if(!out.length) throw new Error('Aucune valeur numerique dans le CSV');
+  return out;
+}
+async function loadConvex(a){
+  try{
+    const url = `https://convextrade.com/api/public/data/${encodeURIComponent(a.sym)}?start=2025-01-01`;
+    const j = await fetchSmart(url);
+    const closes = (j.data || [])
+      .map(row => Number(row.value))
+      .filter(v => Number.isFinite(v));
+    if(closes.length) return closes;
+  }catch(e){}
+
+  const csvUrl = `https://convextrade.com/metrics/${encodeURIComponent(a.sym.toLowerCase())}/data.csv`;
+  const csv = await fetchSmart(csvUrl, true);
+  return parseConvexCsv(csv);
+}
+async function loadConvexMetric(a){
+  const url = `https://convextrade.com/api/public/metrics/${encodeURIComponent(a.sym)}`;
+  const j = await fetchSmart(url);
+  if(!Number.isFinite(Number(j.value))) throw new Error('Metric Convex invalide');
+  return {
+    last: Number(j.value),
+    chg1d: null,
+    chg7d: Number.isFinite(Number(j.changes?.['7d'])) ? Number(j.changes['7d']) : null,
+    chg30d: Number.isFinite(Number(j.changes?.['30d'])) ? Number(j.changes['30d']) : null,
+    ma50: null,
+    interpretation: j.interpretation || '',
+    metricDate: j.date || '',
+  };
+}
+async function loadGecko(a){
+  const url = `https://api.coingecko.com/api/v3/coins/${a.coin}/market_chart?vs_currency=usd&days=90&interval=daily`;
+  const j = await fetchSmart(url);
+  return j.prices.map(p=>p[1]);
+}
+async function loadAsset(a){
+  try{
+    if(a.type==='convex_metric'){
+      state[a.id] = await loadConvexMetric(a);
+      renderCard(a);
+      return;
+    }
+    let closes;
+    if(a.type==='gecko'){
+      closes = await loadGecko(a);
+    }else if(a.type==='convex'){
+      try{
+        closes = await loadConvex(a);
+      }catch(e){
+        if(a.yahooFallback){
+          closes = await loadYahoo({...a, sym:a.yahooFallback});
+        }else{
+          throw e;
+        }
+      }
+    }else{
+      closes = await loadYahoo(a);
+    }
+    const last = closes[closes.length-1];
+    state[a.id] = {
+      closes,
+      last,
+      chg1d: pctChange(closes, 1),
+      chg5d: pctChange(closes, 5),
+      chg7d: pctChange(closes, 5),
+      chg30d: pctChange(closes, 22),
+      ma50: sma(closes, 50),
+    };
+  }catch(e){
+    state[a.id] = {error:true};
+  }
+  renderCard(a);
+}
+async function loadDominance(){
+  try{
+    const j = await fetchSmart('https://api.coingecko.com/api/v3/global');
+    state.dom = {last:j.data.market_cap_percentage.btc};
+  }catch(e){ state.dom = {error:true}; }
+  renderExtraCards();
+}
+async function loadStables(){
+  try{
+    const j = await fetchSmart('https://stablecoins.llama.fi/stablecoincharts/all');
+    const series = j.map(d => d.totalCirculatingUSD && d.totalCirculatingUSD.peggedUSD).filter(v=>v!=null);
+    state.stables = {closes:series, last:series[series.length-1], chg30d:pctChange(series,30)};
+  }catch(e){ state.stables = {error:true}; }
+  renderExtraCards();
+}
+async function loadFng(){
+  try{
+    const j = await fetchSmart('https://api.alternative.me/fng/?limit=2');
+    state.fng = {last:parseInt(j.data[0].value,10), label:j.data[0].value_classification};
+  }catch(e){ state.fng = {error:true}; }
+  renderExtraCards();
+}
+
+function cardHtml(name, price, chgTxt, chgCls, badge, spark, note=''){
+  return `<div class="name"><span>${name}</span>${badge}</div>
+    <div class="price">${price}</div>
+    <div class="chg ${chgCls}">${chgTxt}</div>
+    <div class="note">${note}</div>${spark}`;
+}
+function renderCard(a){
+  const el = document.getElementById('card-'+a.id);
+  const s = state[a.id];
+  el.setAttribute('data-help', escapeAttr(getHelpText(a.id, a.label)));
+  if(!s || s.error){
+    el.classList.add('err');
+    el.innerHTML = cardHtml(a.label, 'indisponible', 'donnée temporairement indisponible', 'flat', '', '', '');
+    return;
+  }
+  el.classList.remove('err');
+  const price = (a.prefix||'') + fmtNum(s.last, a.dec ?? 2) + (a.suffix||'');
+  const mainChg = TIMEFRAME === 'weekly'
+    ? (s.chg7d ?? s.chg5d ?? s.chg30d)
+    : (s.chg1d ?? s.chg7d ?? s.chg30d);
+  const chgCls = mainChg>0.02 ? 'up' : mainChg<-0.02 ? 'down' : 'flat';
+  let badge = '';
+  if(!a.noMa && s.ma50!=null){
+    const above = s.last >= s.ma50;
+    badge = `<span class="badge ${above?'above':'below'}">${above?'&gt;':'&lt;'} MM50</span>`;
+  }
+  let note = s.chg30d==null ? 'Tendance 1 mois n/d' : `Tendance 1 mois ${fmtPct(s.chg30d)}`;
+  if(s.interpretation){
+    note = s.interpretation.slice(0, 110) + (s.interpretation.length > 110 ? '…' : '');
+  }
+  const chgLabel = TIMEFRAME === 'weekly'
+    ? (s.chg7d!=null ? `${fmtPct(s.chg7d)} (7j)` : s.chg30d!=null ? `${fmtPct(s.chg30d)} (30j)` : 'variation n/d')
+    : (s.chg1d!=null ? `${fmtPct(s.chg1d)} (24h)` : s.chg7d!=null ? `${fmtPct(s.chg7d)} (7j)` : 'variation n/d');
+  el.innerHTML = cardHtml(a.label, price, chgLabel, chgCls, badge, sparkline(s.closes, chgCls==='down'?'#ef4444':'#22c55e'), note);
+}
+function renderExtraCards(){
+  const d = document.getElementById('card-dom');
+  if(state.dom){
+    d.setAttribute('data-help', escapeAttr(getHelpText('dom')));
+    d.innerHTML = state.dom.error
+      ? cardHtml('Dominance BTC','indisponible','source hors ligne','flat','','','')
+      : cardHtml('Dominance BTC', fmtNum(state.dom.last,1)+' %','poids relatif de BTC','flat','','','Utile pour juger si le marché crypto se concentre sur la qualité.');
+  }
+  const st = document.getElementById('card-stables');
+  if(state.stables){
+    st.setAttribute('data-help', escapeAttr(getHelpText('stables')));
+    st.innerHTML = state.stables.error
+      ? cardHtml('Stablecoins (total)','indisponible','source hors ligne','flat','','','')
+      : cardHtml('Stablecoins (total)', fmtBn(state.stables.last), fmtPct(state.stables.chg30d)+' (30j)', state.stables.chg30d>0?'up':state.stables.chg30d<0?'down':'flat', '', sparkline(state.stables.closes, state.stables.chg30d>=0?'#22c55e':'#ef4444'), 'Expansion = liquidité potentielle pour la crypto.');
+  }
+  const f = document.getElementById('card-fng');
+  if(state.fng){
+    f.setAttribute('data-help', escapeAttr(getHelpText('fng')));
+    if(state.fng.error){
+      f.innerHTML = cardHtml('Fear & Greed crypto','indisponible','source hors ligne','flat','','','');
+    }else{
+      const cls = state.fng.last>=55 ? 'up' : state.fng.last<=40 ? 'down' : 'flat';
+      f.innerHTML = cardHtml('Fear & Greed crypto', state.fng.last + '/100', state.fng.label, cls, '', '', 'Mesure rapide du positionnement émotionnel du marché crypto.');
+    }
+  }
+  computeScore();
+}
+
+const SIGNALS = [
+  {lbl:'VIX < 20', eval:()=> chk(state.vix, s=>s.last < 20, s=>fmtNum(s.last,1)), group:'stress'},
+  {lbl:'VIX en baisse (5j)', eval:()=> chk(state.vix, s=>s.chg5d < 0, s=>fmtPct(s.chg5d)), group:'stress'},
+  {lbl:'DXY sous sa MM50', eval:()=>{
+    const s = state.dxy;
+    if(!s || s.error || s.last==null) return {ok:null, val:'n/d'};
+    if(s.ma50==null){
+      return s.chg30d!=null ? {ok: s.chg30d <= 0, val: fmtPct(s.chg30d)+' (30j)'} : {ok:null, val:'n/d'};
+    }
+    return {ok: s.last < s.ma50, val: fmtNum(s.last,2)};
+  }, group:'liquidity'},
+  {lbl:'US 10 ans stable / en baisse (5j)', eval:()=> chk(state.tnx, s=>s.chg5d <= 1, s=>fmtNum(s.last,2)+' %'), group:'rates'},
+  {lbl:'Crédit HY porteur', eval:()=> chk(state.hyg, s=> s.ma50!=null ? s.last >= s.ma50 : (s.chg30d!=null && s.chg30d >= 0), s=> s.ma50!=null ? '$'+fmtNum(s.last,2) : fmtPct(s.chg30d)), group:'credit'},
+  {lbl:'S&P 500 porteur', eval:()=> chk(state.spx, s=> s.ma50!=null ? s.last >= s.ma50 : (s.chg30d!=null && s.chg30d >= 0), s=> s.ma50!=null ? fmtNum(s.last,0) : fmtPct(s.chg30d)), group:'equities'},
+  {lbl:'Bitcoin au-dessus de sa MM50', eval:()=> chk(state.btc, s=>s.ma50!=null && s.last >= s.ma50, s=>'$'+fmtNum(s.last,0)), group:'crypto'},
+  {lbl:'Nasdaq 100 porteur', eval:()=> chk(state.ndx, s=> s.ma50!=null ? s.last >= s.ma50 : (s.chg30d!=null && s.chg30d >= 0), s=> s.ma50!=null ? fmtNum(s.last,0) : fmtPct(s.chg30d)), group:'equities'},
+  {lbl:'Stablecoins en expansion (30j)', eval:()=> chk(state.stables, s=>s.chg30d > 0, s=>fmtPct(s.chg30d)), group:'crypto'},
+  {lbl:'Fear & Greed >= 40', eval:()=> chk(state.fng, s=>s.last >= 40, s=>s.last + '/100'), group:'crypto'},
+];
+
+function chk(s, cond, valFn){
+  if(!s || s.error || s.last==null) return {ok:null, val:'n/d'};
+  return {ok:!!cond(s), val:valFn(s)};
+}
+
+function getRegime(ratio){
+  if(ratio >= 0.72) return {label:'RISK-ON', color:'var(--up)', cls:'up', text:'L’environnement soutient plutôt les actifs risqués.'};
+  if(ratio >= 0.45) return {label:'NEUTRE', color:'var(--warn)', cls:'warn', text:'Les signaux sont partagés, sans impulsion nette.'};
+  return {label:'RISK-OFF', color:'var(--down)', cls:'down', text:'Le marché privilégie la prudence et la défense.'};
+}
+
+function metricState(ok){
+  if(ok === true) return {label:'Solide', cls:'up'};
+  if(ok === false) return {label:'Fragile', cls:'down'};
+  return {label:'Mixte', cls:'warn'};
+}
+
+function computeScore(){
+  const results = SIGNALS.map(s => ({lbl:s.lbl, group:s.group, ...s.eval()}));
+  const avail = results.filter(r=>r.ok!==null);
+  const score = avail.filter(r=>r.ok).length;
+  const max = avail.length;
+  const ratio = max ? score/max : 0;
+
+  document.getElementById('signals').innerHTML = results.map(r=>`
+    <div class="signal" data-help="${escapeAttr(getHelpText(r.lbl, r.lbl))}">
+      <span class="dot ${r.ok===null?'na':r.ok?'on':'off'}"></span>
+      <div class="lbl">${r.lbl}<span class="val">${r.val}</span></div>
+    </div>`).join('');
+
+  document.getElementById('score-val').textContent = max ? score : '–';
+  document.getElementById('score-max').textContent = max || 10;
+  document.getElementById('gauge-needle').style.transform = `rotate(${-90 + ratio*180}deg)`;
+
+  const MIN_SIGNALS_FOR_VERDICT = 6;
+  const regime = max >= MIN_SIGNALS_FOR_VERDICT
+    ? getRegime(ratio)
+    : {label:'DONNÉES PARTIELLES', color:'var(--warn)', cls:'warn', text:'Trop peu de signaux disponibles — verdict directionnel suspendu.'};
+  const verdictEl = document.getElementById('verdict');
+  verdictEl.textContent = regime.label;
+  verdictEl.style.color = regime.color;
+  document.getElementById('gauge-sub').textContent = regime.text + (max<10 ? ` (${max}/10 signaux disponibles)` : '');
+  renderTopKpis();
+
+  renderMacroSummary({results, ratio, score, max, regime});
+}
+
+function describeSignal(ok, positive, negative){
+  if(ok===true) return positive;
+  if(ok===false) return negative;
+  return 'Lecture indisponible.';
+}
+
+function signalOk(label){
+  return SIGNALS.find(s => s.lbl===label)?.eval().ok ?? null;
+}
+
+function renderMacroSummary(ctx){
+  if(!ctx.max){
+    document.getElementById('summary-headline').textContent = 'Données insuffisantes';
+    document.getElementById('summary-pill').className = 'regime-pill warn';
+    document.getElementById('summary-pill').textContent = 'Attente';
+    document.getElementById('summary-text').textContent = 'Impossible de produire une lecture fiable tant que plusieurs séries restent indisponibles.';
+    document.getElementById('summary-bullets').innerHTML = '';
+    document.getElementById('drivers').innerHTML = '';
+    return;
+  }
+
+  const vixOk = signalOk('VIX < 20');
+  const dxyOk = signalOk('DXY sous sa MM50');
+  const tnxOk = signalOk('US 10 ans stable / en baisse (5j)');
+  const spxOk = signalOk('S&P 500 porteur');
+  const btcOk = signalOk('Bitcoin au-dessus de sa MM50');
+  const liqOk = signalOk('Stablecoins en expansion (30j)');
+  const fngOk = signalOk('Fear & Greed >= 40');
+
+  const head = ctx.regime.label==='DONNÉES PARTIELLES'
+    ? 'Lecture suspendue'
+    : ctx.regime.label==='RISK-ON'
+    ? 'Les acheteurs gardent la main'
+    : ctx.regime.label==='NEUTRE'
+      ? 'Le marché reste partagé'
+      : 'Le contexte appelle à la prudence';
+  const text = ctx.regime.label==='DONNÉES PARTIELLES'
+    ? 'Plusieurs séries macro sont indisponibles. Le score affiché ne doit pas être interprété comme un verdict directionnel tant que moins de 6 signaux sur 10 sont exploitables.'
+    : ctx.regime.label==='RISK-ON'
+    ? 'La majorité des indicateurs de volatilité, de tendance et d’appétit pour le risque penchent du bon côté. Le scénario dominant reste constructif, tant que le stress obligataire et le dollar ne se tendent pas.'
+    : ctx.regime.label==='NEUTRE'
+      ? 'Les actifs risqués tiennent encore, mais le tableau n’est pas assez homogène pour parler d’élan franc. La discipline de gestion du risque compte davantage que la conviction directionnelle.'
+      : 'Le régime général se dégrade: soit la volatilité, soit le dollar, soit les taux freinent la prise de risque. Tant que ces freins restent en place, les rebonds peuvent rester fragiles.';
+
+  const bullets = [
+    {cls: spxOk && btcOk ? 'positive' : (!spxOk && !btcOk ? 'negative' : 'neutral'), txt: spxOk && btcOk ? 'Les grands actifs risqués restent au-dessus de leur tendance de moyen terme.' : 'La tendance sur les actifs risqués n’est pas uniformément confirmée.'},
+    {cls: vixOk && tnxOk ? 'positive' : (!vixOk || !tnxOk ? 'negative' : 'neutral'), txt: describeSignal(vixOk && tnxOk, 'La volatilité et les taux ne signalent pas de stress majeur immédiat.', 'Le duo volatilité / taux constitue un point de vigilance.')},
+    {cls: dxyOk ? 'positive' : dxyOk===false ? 'negative' : 'neutral', txt: describeSignal(dxyOk, 'Le dollar ne durcit pas fortement les conditions financières.', 'Le dollar reste un frein potentiel à la liquidité mondiale.')},
+    {cls: liqOk && fngOk ? 'positive' : (!liqOk || !fngOk ? 'negative' : 'neutral'), txt: describeSignal(liqOk && fngOk, 'La liquidité crypto et le sentiment restent globalement soutenants.', 'La liquidité ou le sentiment crypto ne valident pas pleinement le scénario haussier.')},
+  ];
+
+  document.getElementById('summary-headline').textContent = head;
+  const pill = document.getElementById('summary-pill');
+  pill.className = `regime-pill ${ctx.regime.cls}`;
+  pill.textContent = `${ctx.regime.label} · ${ctx.score}/${ctx.max}`;
+  document.getElementById('summary-text').textContent = text;
+  const eqState = metricState(spxOk && btcOk);
+  const liqState = metricState(liqOk && dxyOk);
+  const defState = metricState(vixOk && tnxOk);
+  document.getElementById('summary-strip').innerHTML = `
+    <div class="summary-metric" data-help="${escapeAttr("Actions / Crypto\nRésume la qualité de la tendance sur les actifs risqués.\nSolide: actions + crypto confirment.\nMixte: un seul des deux tient.\nFragile: les deux se dégradent.")}">
+      <span class="label">Actions / Crypto</span>
+      <span class="value" style="color:var(--${eqState.cls === 'up' ? 'up' : eqState.cls === 'down' ? 'down' : 'warn'})">${eqState.label}</span>
+      <span class="hint">${spxOk ? 'S&P ok' : 'S&P fragile'} · ${btcOk ? 'BTC ok' : 'BTC fragile'}</span>
+    </div>
+    <div class="summary-metric" data-help="${escapeAttr("Liquidité\nCroise la force du dollar et la liquidité crypto.\nFavorable: dollar contenu + stablecoins en hausse.\nMixte: un seul soutien.\nDéfavorable: dollar ferme et liquidité en baisse.")}">
+      <span class="label">Liquidité</span>
+      <span class="value" style="color:var(--${liqState.cls === 'up' ? 'up' : liqState.cls === 'down' ? 'down' : 'warn'})">${liqState.label}</span>
+      <span class="hint">${dxyOk ? 'dollar contenu' : 'dollar ferme'} · ${liqOk ? 'stables en hausse' : 'stables en baisse'}</span>
+    </div>
+    <div class="summary-metric" data-help="${escapeAttr("Stress / Taux\nCroise volatilité actions et rendements longs.\nFavorable: VIX calme + taux contenus.\nMixte: un seul facteur propre.\nDéfavorable: stress et/ou tension de taux.")}">
+      <span class="label">Stress / Taux</span>
+      <span class="value" style="color:var(--${defState.cls === 'up' ? 'up' : defState.cls === 'down' ? 'down' : 'warn'})">${defState.label}</span>
+      <span class="hint">${vixOk ? 'volatilité calme' : 'volatilité tendue'} · ${tnxOk ? 'taux contenus' : 'taux fermes'}</span>
+    </div>`;
+  document.getElementById('summary-bullets').innerHTML = bullets.map(b => `<div class="bullet ${b.cls}"><i></i><span>${escapeHtml(b.txt)}</span></div>`).join('');
+
+  const drivers = [
+    {
+      title:'Stress de marché',
+      state:vixOk ? 'Calme relatif' : vixOk===false ? 'Stress à surveiller' : 'n/d',
+      level:vixOk ? 'up' : vixOk===false ? 'down' : 'warn',
+      text:describeSignal(vixOk, 'Le VIX reste compatible avec un environnement de prise de risque normalisé.', 'La volatilité actions ne permet pas de parler de confort complet.')
+    },
+    {
+      title:'Taux et liquidité',
+      state:(tnxOk && dxyOk) ? 'Plutôt favorable' : (!tnxOk || !dxyOk) ? 'Conditions plus dures' : 'mixte',
+      level:(tnxOk && dxyOk) ? 'up' : (!tnxOk || !dxyOk) ? 'down' : 'warn',
+      text:`${describeSignal(tnxOk, 'La dynamique récente des taux longs ne se détend pas contre le marché.', 'La remontée des taux longs peut peser sur les multiples.')} ${describeSignal(dxyOk, 'Le dollar ne rajoute pas de pression notable.', 'Un dollar ferme peut resserrer les conditions financières.')}`
+    },
+    {
+      title:'Largeur du risque',
+      state:(spxOk && btcOk) ? 'Confirmée' : (!spxOk && !btcOk) ? 'Fragile' : 'Partielle',
+      level:(spxOk && btcOk) ? 'up' : (!spxOk && !btcOk) ? 'down' : 'warn',
+      text:`Actions: ${describeSignal(spxOk, 'tendance constructive.', 'tendance moins propre.') } Crypto: ${describeSignal(btcOk, 'momentum préservé.', 'momentum plus fragile.')}`
+    },
+    {
+      title:'Flux crypto',
+      state:(liqOk && fngOk) ? 'Soutien interne' : (!liqOk || !fngOk) ? 'Moins porteur' : 'mixte',
+      level:(liqOk && fngOk) ? 'up' : (!liqOk || !fngOk) ? 'down' : 'warn',
+      text:`Stablecoins: ${describeSignal(liqOk, 'la base monétaire crypto se développe.', 'pas de signe clair d’expansion de liquidité.')} Sentiment: ${describeSignal(fngOk, 'la peur extrême n’écrase pas le marché.', 'le sentiment reste prudent.')}`
+    },
+  ];
+  document.getElementById('drivers').innerHTML = drivers.map(d => `
+    <div class="driver ${d.level}" data-help="${escapeAttr(HELP_DRIVERS[d.title] || `${d.title}\n${d.text}`)}">
+      <div class="driver-top"><strong>${escapeHtml(d.title)}</strong><span class="driver-state ${d.level}">${escapeHtml(d.state)}</span></div>
+      <p>${escapeHtml(d.text)}</p>
+    </div>`).join('');
+}
+
+function renderTopKpis(){
+  const vix = state.vix;
+  const dxy = state.dxy;
+  const fng = state.fng;
+  const kpis = [
+    {
+      k:'Volatilité',
+      v: vix && !vix.error ? fmtNum(vix.last, 1) : '—',
+      s: vix && !vix.error ? (vix.chg5d != null ? `${fmtPct(vix.chg5d)} sur 5j` : 'VIX') : 'VIX',
+      level: !vix || vix.error ? 'warn' : vix.last < 20 ? 'up' : vix.last <= 25 ? 'warn' : 'down'
+    },
+    {
+      k:'Dollar',
+      v: dxy && !dxy.error ? fmtNum(dxy.last, 2) : '—',
+      s: dxy && !dxy.error ? (dxy.chg30d != null ? `${fmtPct(dxy.chg30d)} sur 1 mois` : 'DXY broad') : 'DXY broad',
+      level: !dxy || dxy.error ? 'warn' : (dxy.ma50!=null ? (dxy.last < dxy.ma50 ? 'up' : 'down') : (dxy.chg30d != null ? (dxy.chg30d <= 0 ? 'up' : 'down') : 'warn'))
+    },
+    {
+      k:'Sentiment',
+      v: fng && !fng.error ? `${fng.last}/100` : '—',
+      s: fng && !fng.error ? fng.label : 'Fear & Greed',
+      level: !fng || fng.error ? 'warn' : fng.last >= 55 ? 'up' : fng.last >= 40 ? 'warn' : 'down'
+    }
+  ];
+  document.getElementById('gauge-kpis').innerHTML = kpis.map(item => `
+    <div class="mini-kpi ${item.level}" data-help="${escapeAttr(getHelpText(item.k.toLowerCase() === 'volatilité' ? 'vix' : item.k.toLowerCase() === 'dollar' ? 'dxy' : 'fng'))}">
+      <span class="k">${escapeHtml(item.k)}</span>
+      <span class="v">${escapeHtml(item.v)}</span>
+      <span class="s">${escapeHtml(item.s)}</span>
+    </div>`).join('');
+}
+
+const NEWS_TABS = [
+  {id:'crypto', label:'Crypto', desc:'Bitcoin, Ethereum, altcoins, adoption et régulation crypto.', keywords:['bitcoin','ethereum','crypto','etf','stablecoin','token','blockchain','btc','eth','sol'], exclude:['app store','iphone','tesla car','vehicle sales'], feeds:[
+    {url:'https://journalducoin.com/feed/', src:'Journal du Coin', lang:'fr'},
+    {url:'https://cryptoast.fr/feed/', src:'Cryptoast', lang:'fr'},
+    {url:'https://news.google.com/rss/search?q=bitcoin+OR+ethereum+OR+crypto+market&hl=en-US&gl=US&ceid=US:en', src:'Google News', lang:'en'},
+    {url:'https://www.cnbc.com/id/100003114/device/rss/rss.html', src:'CNBC', lang:'en'},
+  ]},
+  {id:'macro', label:'Macro & Marchés', desc:'Croissance, inflation, valorisation des actions et tonalité générale du marché.', keywords:['inflation','growth','recession','stocks','economy','market','earnings','equity','indices','wall street','s&p','nasdaq'], exclude:['bitcoin','ethereum','crypto','oil prices','gold prices','opec'], feeds:[
+    {url:'https://news.google.com/rss/search?q=US+inflation+CPI+PCE+labor+market+PMI&hl=en-US&gl=US&ceid=US:en', src:'Google News Macro', lang:'en'},
+    {url:'https://news.google.com/rss/search?q=global+growth+recession+manufacturing+services+PMI&hl=en-US&gl=US&ceid=US:en', src:'Google News Macro', lang:'en'},
+    {url:'https://news.google.com/rss/search?q=S%26P+500+Nasdaq+earnings+valuation+Wall+Street&hl=en-US&gl=US&ceid=US:en', src:'Google News Markets', lang:'en'},
+    {url:'https://news.google.com/rss/search?q=jobs+report+unemployment+wages+economy+US&hl=en-US&gl=US&ceid=US:en', src:'Google News Labor', lang:'en'},
+  ]},
+  {id:'rates', label:'Banques centrales', desc:'Fed, BCE, taux obligataires, attentes de baisse ou de maintien.', keywords:['fed','ecb','rates','yield','central bank','powell','lagarde','boj','boe','interest rate','treasury','bond'], exclude:['bitcoin','crypto','oil company','apple','tesla','vehicle'], feeds:[
+    {url:'https://news.google.com/rss/search?q=fed+ecb+interest+rates+bond+yields&hl=en-US&gl=US&ceid=US:en', src:'Google News', lang:'en'},
+    {url:'https://news.google.com/rss/search?q=powell+lagarde+inflation+rates&hl=en-US&gl=US&ceid=US:en', src:'Google News', lang:'en'},
+    {url:'https://www.cnbc.com/id/20910258/device/rss/rss.html', src:'CNBC Policy', lang:'en'},
+    {url:'https://www.investing.com/rss/news_14.rss', src:'Investing', lang:'en'},
+  ]},
+  {id:'commodities', label:'Matières premières', desc:'Or, pétrole, OPEP, énergie et matières premières stratégiques.', keywords:['oil','gold','opec','commodities','energy','brent','wti','crude','gas','natural gas','silver','copper','metals','barrel'], exclude:['apple','alibaba','app store','vehicle sales','stocks close lower','robotics','humanoid'], feeds:[
+    {url:'https://news.google.com/rss/search?q=oil+gold+commodities+opec+energy&hl=en-US&gl=US&ceid=US:en', src:'Google News', lang:'en'},
+    {url:'https://news.google.com/rss/search?q=WTI+Brent+crude+OPEC+production+cuts&hl=en-US&gl=US&ceid=US:en', src:'Google News Oil', lang:'en'},
+    {url:'https://news.google.com/rss/search?q=gold+silver+copper+metals+commodities+futures&hl=en-US&gl=US&ceid=US:en', src:'Google News Metals', lang:'en'},
+    {url:'https://news.google.com/rss/search?q=natural+gas+LNG+energy+prices+EIA&hl=en-US&gl=US&ceid=US:en', src:'Google News Gas', lang:'en'},
+    {url:'https://news.google.com/rss/search?q=agricultural+commodities+wheat+corn+soybean+prices&hl=en-US&gl=US&ceid=US:en', src:'Google News Agri', lang:'en'},
+  ]},
+  {id:'geopolitics', label:'Géopolitique', desc:'Conflits, diplomatie, sanctions, commerce mondial et risques pays.', keywords:['geopolitics','war','conflict','sanctions','tariffs','trade war','nato','middle east','china','russia','iran','ukraine','election'], exclude:['earnings','iphone','app store'], feeds:[
+    {url:'https://news.google.com/rss/search?q=geopolitics+war+sanctions+trade+routes+energy&hl=en-US&gl=US&ceid=US:en', src:'Google News Geo', lang:'en'},
+    {url:'https://news.google.com/rss/search?q=china+us+trade+tariffs+sanctions&hl=en-US&gl=US&ceid=US:en', src:'Google News Trade', lang:'en'},
+    {url:'https://news.google.com/rss/search?q=middle+east+iran+israel+oil+shipping&hl=en-US&gl=US&ceid=US:en', src:'Google News Middle East', lang:'en'},
+  ]},
+];
+
+let activeTab = 'crypto';
+const newsCache = {};
+const translationCache = {};
+let TIMEFRAME = 'daily'; // 'daily' | 'weekly'
+
+function getNewsWindowDays(){
+  return TIMEFRAME === 'weekly' ? 7 : 1;
+}
+
+function setTimeframe(tf){
+  TIMEFRAME = tf === 'weekly' ? 'weekly' : 'daily';
+  document.getElementById('tf-daily')?.classList.toggle('active', TIMEFRAME === 'daily');
+  document.getElementById('tf-weekly')?.classList.toggle('active', TIMEFRAME === 'weekly');
+  Object.keys(newsCache).forEach(k => delete newsCache[k]);
+  ASSETS.forEach(a => renderCard(a));
+  renderExtraCards();
+  computeScore();
+  loadNews(activeTab);
+}
+const WEEKLY_CALENDAR = {
+  crypto: [
+    {weekday:1, label:'Flux ETF BTC/ETH (US)'},
+    {weekday:3, label:'Suivi funding et open interest perps'},
+    {weekday:5, label:'Bilan hebdo liquidité stablecoins'},
+  ],
+  macro: [
+    {weekday:1, label:'PMI / enquêtes activité (selon calendrier)'},
+    {weekday:3, label:'Inflation (CPI/PPI) ou mises à jour macro'},
+    {weekday:5, label:'Emploi US / inscriptions chômage (si publié)'},
+  ],
+  rates: [
+    {weekday:2, label:'Discours banquiers centraux (Fed/BCE/BoE)'},
+    {weekday:4, label:'Adjudications obligataires clés'},
+    {weekday:5, label:'Points de marché taux (UST/Bund)'},
+  ],
+  commodities: [
+    {weekday:2, label:'Stats énergie (API/EIA, stocks US)'},
+    {weekday:3, label:'Suivi OPEP+ / production et exportations'},
+    {weekday:4, label:'Matières industrielles (cuivre, acier, fret)'},
+  ],
+  geopolitics: [
+    {weekday:1, label:'Suivi sanctions / routes commerciales'},
+    {weekday:3, label:'Points de tension Moyen-Orient / Mer Rouge'},
+    {weekday:5, label:'Risques pays & échéances diplomatiques'},
+  ],
+};
+
+async function translateToFrench(text){
+  const clean = (text || '').trim();
+  if(!clean) return clean;
+  if(translationCache[clean]) return translationCache[clean];
+  try{
+    const url = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=fr&dt=t&q=' + encodeURIComponent(clean);
+    const j = await fetchSmart(url, false, false);
+    const translated = Array.isArray(j?.[0]) ? j[0].map(part => part[0]).join('') : clean;
+    translationCache[clean] = translated || clean;
+    return translationCache[clean];
+  }catch(e){
+    translationCache[clean] = clean;
+    return clean;
+  }
+}
+
+function normalizeTitle(title){
+  return (title || '').toLowerCase()
+    .replace(/&amp;/g, '&')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function newsRelevanceScore(item, tab){
+  const text = normalizeTitle(`${item.titleFr || ''} ${item.title || ''}`);
+  let score = 0;
+  (tab.keywords || []).forEach(word => {
+    if(text.includes(normalizeTitle(word))) score += 2;
+  });
+  (tab.exclude || []).forEach(word => {
+    if(text.includes(normalizeTitle(word))) score -= 3;
+  });
+  if(tab.id === 'commodities'){
+    if(/oil|gold|opec|brent|wti|crude|gas|commodity|commodities|silver|copper|metal|barrel|energy/.test(text)) score += 2;
+  }
+  if(tab.id === 'rates'){
+    if(/fed|ecb|boj|boe|powell|lagarde|yield|yields|treasury|bond|interest rate|central bank/.test(text)) score += 2;
+  }
+  if(tab.id === 'macro'){
+    if(/market|markets|stocks|economy|inflation|earnings|wall street|s&p|nasdaq|recession|cpi|pce|pmi|jobs|unemployment|gdp|wages|consumer confidence/.test(text)) score += 2;
+    if(/apple|tesla|alibaba|android|iphone|app store|robotics|humanoid/.test(text)) score -= 3;
+  }
+  if(tab.id === 'crypto'){
+    if(/bitcoin|ethereum|crypto|stablecoin|token|blockchain|etf/.test(text)) score += 2;
+  }
+  if(tab.id === 'commodities'){
+    if(/apple|tesla|alibaba|nasdaq|s&p 500|wall street|app store/.test(text)) score -= 4;
+  }
+  return score;
+}
+
+function scoreNewsTone(text, tabId=''){
+  const t = normalizeTitle(text);
+  if(tabId === 'macro'){
+    let score = 0;
+    const marketPositive = [
+      'stocks rally','market rally','markets rally','s&p 500 rises','nasdaq rises','earnings beat','soft landing','cooling inflation','disinflation','rate cuts','fed cuts','cpi cools','pce cools','risk appetite improves',
+      'rebond des marchés','hausse des marchés','désinflation','inflation ralentit','baisse des taux','atterrissage en douceur'
+    ];
+    const marketNegative = [
+      'recession','economic slowdown','slowdown','contraction','jobs miss','unemployment rises','weak jobs','slowing wages','warning sign','stocks fall','market selloff','profit warning','earnings miss','inflation accelerates','higher for longer',
+      'récession','ralentissement','contraction','emplois décevants','hausse du chômage','faibles créations d emplois','salaire en ralentissement','signe inquiétant','baisse des marchés','sell off','inflation accélère'
+    ];
+    const ambiguousDovish = [
+      'weak jobs','soft jobs','slowing economy','cooling labor market','slowing wages','dovish fed','rate cut hopes',
+      'emplois faibles','marché du travail ralentit','salaires ralentissent','espoir de baisse des taux'
+    ];
+    marketPositive.forEach(word => { if(t.includes(word)) score += 2; });
+    marketNegative.forEach(word => { if(t.includes(word)) score -= 2; });
+    ambiguousDovish.forEach(word => { if(t.includes(word)) score += 1; });
+
+    if(/warning sign|inquiétant|inquietant|weak jobs|jobs miss|recession|slowdown|contraction/.test(t)) score -= 1;
+    if(/cooling inflation|disinflation|rate cuts|fed cuts|cpi cools|pce cools/.test(t)) score += 1;
+
+    if(score >= 2) return {label:'Favorable', cls:'bullish', score};
+    if(score <= -2) return {label:'Defavorable', cls:'bearish', score};
+    return {label:'Mitige', cls:'neutral', score};
+  }
+  if(tabId === 'rates'){
+    let score = 0;
+    const dovish = ['rate cuts','cut rates','dovish','yields fall','bond rally','easing','lower rates','baisse des taux','dovish fed'];
+    const hawkish = ['higher for longer','hawkish','yields rise','raise rates','sticky inflation','tightening','taux plus hauts'];
+    dovish.forEach(word => { if(t.includes(word)) score += 1; });
+    hawkish.forEach(word => { if(t.includes(word)) score -= 1; });
+    if(score >= 1) return {label:'Dovish', cls:'bullish', score};
+    if(score <= -1) return {label:'Hawkish', cls:'bearish', score};
+    return {label:'Neutre', cls:'neutral', score};
+  }
+  if(tabId === 'commodities'){
+    let score = 0;
+    const upPressure = ['oil rises','gold rises','opec cuts','supply disruption','inventory draw','crude climbs','copper rally','hausse du pétrole','hausse de l or','tensions sur l offre'];
+    const downPressure = ['oil falls','gold falls','inventory build','demand concerns','oversupply','opec output rises','crude drops','baisse du pétrole','surplus d offre'];
+    upPressure.forEach(word => { if(t.includes(word)) score += 1; });
+    downPressure.forEach(word => { if(t.includes(word)) score -= 1; });
+    if(score >= 1) return {label:'Pression haussiere', cls:'bullish', score};
+    if(score <= -1) return {label:'Pression baissiere', cls:'bearish', score};
+    return {label:'Neutre', cls:'neutral', score};
+  }
+  if(tabId === 'geopolitics'){
+    const easing = [
+      'ceasefire','truce','talks','deal','agreement','de escalation','deescalation','diplomacy','negotiation','resume talks','peace',
+      'cessez le feu','treve','accord','negociation','detente','désescalade','desescalade','pourparlers'
+    ];
+    const escalation = [
+      'war','strike','strikes','attack','attacks','missile','retaliation','sanctions','tariffs','shipping attacks','conflict','troops','nuclear','threat',
+      'guerre','frappe','frappes','attaque','attaques','missile','représailles','represailles','sanctions','conflit','troupes','menace','blocus'
+    ];
+    let score = 0;
+    easing.forEach(word => { if(t.includes(word)) score += 1; });
+    escalation.forEach(word => { if(t.includes(word)) score -= 1; });
+    if(score >= 1) return {label:'Detente', cls:'riskon', score};
+    if(score <= -1) return {label:'Risk-off', cls:'riskoff', score};
+    return {label:'Neutre', cls:'neutral', score};
+  }
+  const bullish = [
+    'surge','rally','gain','gains','rise','rises','up','beat','beats','bullish','record','records','breakout','approval','approved','launch','growth','expansion','strong',
+    'hausse','grimpe','bondit','progresse','gagne','rebond','rebondit','record','records','adoption','approuve','approuvee','lancement','croissance','solide'
+  ];
+  const bearish = [
+    'drop','drops','fall','falls','slump','slumps','selloff','crash','decline','declines','risk off','lawsuit','ban','banned','fear','liquidation','war','tension','miss','misses','weak',
+    'baisse','chute','rechute','recul','plonge','pression','peur','extreme fear','guerre','tensions','plainte','interdiction','faible','risque'
+  ];
+  let score = 0;
+  bullish.forEach(word => { if(t.includes(word)) score += 1; });
+  bearish.forEach(word => { if(t.includes(word)) score -= 1; });
+  if(score >= 1) return {label:'Bullish', cls:'bullish', score};
+  if(score <= -1) return {label:'Bearish', cls:'bearish', score};
+  return {label:'Neutre', cls:'neutral', score};
+}
+
+async function fetchFeed(f, tab){
+  const url = 'https://x2j.dev/rss?url=' + encodeURIComponent(f.url);
+  const j = await fetchSmart(url);
+  const rawItems = j.items
+    || j?.rss?.channel?.item
+    || j?.feed?.items
+    || [];
+  const normalizedItems = Array.isArray(rawItems) ? rawItems : [rawItems];
+  const items = normalizedItems.slice(0,10).map(it => {
+    const title = typeof it.title === 'string' ? it.title : (it.title?.['#text'] || '');
+    const link = typeof it.link === 'string'
+      ? it.link
+      : (it.link?.href || it.guid?.['#text'] || it.guid || '');
+    const pubDate = it.pubDate || it.published || it.isoDate || it.created || 0;
+    return {
+      title: decodeHtmlEntities(String(title || '').trim()),
+      link: String(link || '').trim(),
+      date: new Date(pubDate),
+      src:f.src,
+      lang:f.lang || 'en',
+    };
+  }).filter(it => it.title && it.link);
+
+  return Promise.all(items.map(async it => ({
+    ...it,
+    titleFr: decodeHtmlEntities(it.lang === 'fr' ? it.title : await translateToFrench(it.title)),
+    tone: scoreNewsTone(it.titleFr || it.title, tab?.id || ''),
+  })));
+}
+
+function dedupeNews(items){
+  const seen = new Set();
+  return items.filter(it => {
+    const key = normalizeTitle(it.titleFr || it.title);
+    if(!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function filterNewsByCategory(items, tab){
+  const minScore = tab.id === 'macro' || tab.id === 'commodities' ? 2 : 1;
+  return items
+    .map(it => ({...it, relevance: newsRelevanceScore(it, tab)}))
+    .filter(it => it.relevance >= minScore)
+    .sort((a,b) => {
+      if(b.relevance !== a.relevance) return b.relevance - a.relevance;
+      return b.date - a.date;
+    });
+}
+
+function summarizeNews(items, tab){
+  const text = items.map(it => normalizeTitle(it.titleFr || it.title)).join(' ');
+  const toneTotal = items.reduce((acc, it) => acc + (it.tone?.score || 0), 0);
+  const toneLabel = tab.id === 'geopolitics'
+    ? (toneTotal >= 2 ? 'Le ton global suggere plutot une detente geopolitique.' : toneTotal <= -2 ? 'Le ton global suggere plutot un environnement risk-off.' : 'Le ton global reste geopolitique mais sans biais net.')
+    : (toneTotal >= 2 ? 'Le ton global des titres ressort comme plutot bullish.' : toneTotal <= -2 ? 'Le ton global des titres ressort comme plutot bearish.' : 'Le ton global des titres reste plutot neutre ou partage.');
+  const checks = [
+    {match:/etf|fund|spot/, msg:'Le thème des flux d’investissement institutionnels reste présent dans les titres.'},
+    {match:/inflation|cpi|prices/, msg:'L’inflation reste un angle de lecture central.'},
+    {match:/fed|powell|ecb|lagarde|rate|rates|yield/, msg:'Les anticipations de politique monétaire dominent encore le narratif.'},
+    {match:/oil|gold|opec|energy|barrel/, msg:'Les matières premières sont traitées surtout sous l’angle de l’énergie et du refuge.'},
+    {match:/bitcoin|ethereum|crypto|stablecoin|token/, msg:'Le flux informationnel reste très orienté crypto et sentiment de marché.'},
+    {match:/tariff|war|geopolit|middle east|china/, msg:'Le risque géopolitique affleure dans plusieurs titres.'},
+    {match:/earnings|profit|revenue/, msg:'Les publications d’entreprises influencent directement la tonalité marché.'},
+  ];
+  const bullets = [];
+  bullets.push(toneLabel);
+  for(const c of checks){
+    if(c.match.test(text)) bullets.push(c.msg);
+    if(bullets.length === 3) break;
+  }
+  if(!bullets.length && items[0]) bullets.push(`Le flux du jour met surtout l’accent sur ${tab.label.toLowerCase()} sans catalyseur unique clairement dominant.`);
+  if(items[0]) bullets.unshift(`Titre le plus récent: ${items[0].titleFr || items[0].title}`);
+  return uniq(bullets).slice(0,4);
+}
+
+async function loadNews(tabId){
+  const tab = NEWS_TABS.find(t => t.id===tabId);
+  const listEl = document.getElementById('news');
+  const summaryEl = document.getElementById('news-summary');
+
+  document.getElementById('news-title').textContent = tab.label;
+  document.getElementById('news-desc').textContent = tab.desc;
+
+  if(newsCache[tabId]){
+    renderNews(tab, newsCache[tabId]);
+    return;
+  }
+
+  listEl.innerHTML = '<div class="news-empty">Chargement des flux et traduction…</div>';
+  summaryEl.innerHTML = '<strong>Résumé de la catégorie</strong><ul><li>Analyse en cours…</li></ul>';
+
+  const results = await Promise.allSettled(tab.feeds.map(feed => fetchFeed(feed, tab)));
+  let items = results.flatMap(r => r.status==='fulfilled' ? r.value : []);
+  const cutoff = Date.now() - getNewsWindowDays() * 24 * 60 * 60 * 1000;
+  items = items.filter(it => it.date instanceof Date && !Number.isNaN(it.date.getTime()) && it.date.getTime() >= cutoff);
+  items.sort((a,b)=>b.date-a.date);
+  items = dedupeNews(items);
+  items = filterNewsByCategory(items, tab).slice(0,8);
+  newsCache[tabId] = items;
+  if(activeTab===tabId) renderNews(tab, items);
+}
+
+function renderNews(tab, items){
+  const listEl = document.getElementById('news');
+  const summaryEl = document.getElementById('news-summary');
+  const summary = summarizeNews(items, tab);
+  summaryEl.innerHTML = `<strong>Résumé de la catégorie</strong><ul>${summary.map(line => `<li>${escapeHtml(line)}</li>`).join('')}</ul>`;
+
+  if(!items.length){
+    const d = getNewsWindowDays();
+    listEl.innerHTML = `<div class="news-empty">Aucune actualité publiée sur les ${d} dernier${d>1?'s':''} jour${d>1?'s':''} pour cette catégorie.</div>`;
+    return;
+  }
+
+  listEl.innerHTML = items.map(it => `
+    <div class="news-item">
+      <span class="meta">${it.date.toLocaleDateString('fr-FR',{day:'2-digit',month:'short'})} ${it.date.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}<br>${escapeHtml(it.src)}</span>
+      <div class="body">
+        <div class="tag-row">
+          <span class="tag">${escapeHtml(tab.label)}</span>
+          <span class="tone ${it.tone?.cls || 'neutral'}">${escapeHtml(it.tone?.label || 'Neutre')}</span>
+        </div>
+        <a class="title" href="${it.link}" target="_blank" rel="noopener">${escapeHtml(it.titleFr || it.title)}</a>
+        ${it.titleFr && it.titleFr !== it.title ? `<div class="orig">Titre source: ${escapeHtml(it.title)}</div>` : ''}
+      </div>
+    </div>`).join('');
+}
+
+function upcomingDateForWeekday(targetWeekday){
+  const now = new Date();
+  const day = now.getDay();
+  let delta = (targetWeekday - day + 7) % 7;
+  if(delta === 0) delta = 7;
+  const d = new Date(now);
+  d.setDate(now.getDate() + delta);
+  return d;
+}
+
+function renderCalendar(){
+  const calendarEl = document.getElementById('calendar');
+  const sections = [
+    {id:'crypto', label:'Crypto'},
+    {id:'macro', label:'Macro & Marchés'},
+    {id:'rates', label:'Banques centrales'},
+    {id:'commodities', label:'Matières premières'},
+    {id:'geopolitics', label:'Géopolitique'},
+  ];
+  calendarEl.innerHTML = sections.map(section => {
+    const events = (WEEKLY_CALENDAR[section.id] || []).map(e => {
+      const d = upcomingDateForWeekday(e.weekday);
+      return {
+        dateLabel: d.toLocaleDateString('fr-FR', {day:'2-digit', month:'short'}),
+        text: e.label,
+        ts: d.getTime(),
+      };
+    }).sort((a,b)=>a.ts-b.ts).slice(0,3);
+    return `<div class="cal-card" data-help="${escapeAttr(`${section.label}\nCalendrier hebdomadaire indicatif des points à surveiller pour cette catégorie.`)}">
+      <h3>${escapeHtml(section.label)}</h3>
+      ${events.map(ev => `<div class="cal-item"><span class="cal-date">${ev.dateLabel}</span><span class="cal-text">${escapeHtml(ev.text)}</span></div>`).join('')}
+    </div>`;
+  }).join('');
+}
+
+let activeView = 'barometre';
+function switchView(view){
+  activeView = view;
+  const pages = [
+    {id:'view-barometre', key:'barometre'},
+    {id:'view-marche', key:'marche'},
+    {id:'view-actus', key:'actus'},
+  ];
+  pages.forEach(p => {
+    const el = document.getElementById(p.id);
+    if(el) el.classList.toggle('active', p.key === view);
+  });
+  document.querySelectorAll('.page-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.view === view);
+  });
+}
+
+function renderTabs(){
+  document.getElementById('tabs').innerHTML = NEWS_TABS.map(t =>
+    `<button class="tab ${t.id===activeTab?'active':''}" onclick="switchTab('${t.id}')">${t.label}<small>${escapeHtml(t.desc)}</small></button>`
+  ).join('');
+}
+
+function switchTab(id){
+  activeTab = id;
+  renderTabs();
+  loadNews(id);
+}
+
+function buildSkeleton(){
+  const wrap = document.getElementById('cards');
+  const cardsByCategory = {
+    crypto: [
+      ...ASSETS.filter(a => a.category === 'crypto'),
+      {id:'dom', label:'Dominance BTC'},
+      {id:'stables', label:'Stablecoins (total)'},
+      {id:'fng', label:'Fear & Greed crypto'},
+    ],
+    equities: ASSETS.filter(a => a.category === 'equities'),
+    macro: ASSETS.filter(a => a.category === 'macro'),
+    credit: ASSETS.filter(a => a.category === 'credit'),
+    defensive: ASSETS.filter(a => a.category === 'defensive'),
+  };
+
+  wrap.innerHTML = CARD_CATEGORIES.map(cat => {
+    const cards = cardsByCategory[cat.id] || [];
+    return `<section class="category-section">
+      <div class="category-head">
+        <div class="category-title-row">
+          <h3>${cat.title}</h3>
+        </div>
+        <p>${cat.desc}</p>
+      </div>
+      <div class="grid">
+        ${cards.map(a => `<div class="card" id="card-${a.id}"><div class="name">${a.label}</div><div class="price" style="color:var(--muted-2)">…</div></div>`).join('')}
+      </div>
+    </section>`;
+  }).join('');
+}
+
+async function loadAll(){
+  const btn = document.getElementById('refresh-btn');
+  btn.disabled = true;
+  Object.keys(newsCache).forEach(k => delete newsCache[k]);
+  buildSkeleton();
+
+  const jobs = [
+    ...ASSETS.map(a => loadAsset(a)),
+    loadDominance(),
+    loadStables(),
+    loadFng(),
+    loadNews(activeTab),
+  ];
+  await Promise.allSettled(jobs);
+  computeScore();
+  document.getElementById('last-update').textContent = 'MàJ ' + new Date().toLocaleTimeString('fr-FR',{hour:'2-digit', minute:'2-digit'});
+  btn.disabled = false;
+}
+
+renderTabs();
+buildSkeleton();
+renderCalendar();
+switchView(activeView);
+loadAll();
+setInterval(loadAll, 10*60*1000);
+</script>
+</body>
+</html>
