@@ -423,12 +423,94 @@ const RADAR_I18N = {
   },
 };
 
+const RADAR_TEXT_EN = {
+  'Chargement…': 'Loading…',
+  'Lecture en cours…': 'Reading in progress…',
+  'Analyse': 'Analysis',
+  'Volatilité': 'Volatility',
+  'Dollar': 'Dollar',
+  'Sentiment': 'Sentiment',
+  'Actions': 'Equities',
+  'Liquidité': 'Liquidity',
+  'Défensif': 'Defensive',
+  'largeur': 'breadth',
+  'crypto / dollar': 'crypto / dollar',
+  'or / taux': 'gold / rates',
+  'Dominance BTC': 'BTC dominance',
+  'Stablecoins (total)': 'Stablecoins (total)',
+  'Fear & Greed crypto': 'Crypto Fear & Greed',
+  'poids relatif de BTC': 'relative BTC weight',
+  'Chargement des flux et traduction…': 'Loading feeds…',
+  'Analyse en cours…': 'Analysis in progress…',
+  'donnée temporairement indisponible': 'data temporarily unavailable',
+  'indisponible': 'unavailable',
+  'source hors ligne': 'source unavailable',
+  'variation n/d': 'change n/a',
+  'Tendance 1 mois n/d': '1-month trend n/a',
+  'Lecture suspendue': 'Reading suspended',
+  'Données insuffisantes': 'Insufficient data',
+  'DONNÉES PARTIELLES': 'PARTIAL DATA',
+  'NEUTRE': 'NEUTRAL',
+  'RISK-ON': 'RISK-ON',
+  'RISK-OFF': 'RISK-OFF',
+  'Stablecoins (total)': 'Stablecoins (total)',
+  'Macro & Taux': 'Macro & Rates',
+  'Défensif & Matières Premières': 'Defensive & Commodities',
+  'Matières premières': 'Commodities',
+  'Banques centrales': 'Central banks',
+  'Macro & Marchés': 'Macro & Markets',
+  'Géopolitique': 'Geopolitics',
+  'Crypto': 'Crypto',
+  'Crédit': 'Credit',
+};
+
 function radarLang(){
   try{
     const q = new URLSearchParams(location.search || '');
     const v = (q.get('lang') || '').toLowerCase();
     return (v === 'en' || v === 'fr') ? v : 'fr';
   }catch(_){ return 'fr'; }
+}
+
+function radarIsEn(){
+  return radarLang() === 'en';
+}
+
+function radarLocale(){
+  return radarIsEn() ? 'en-US' : 'fr-FR';
+}
+
+function radarTranslateExactText(root){
+  if(!root || !radarIsEn()) return;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let node;
+  while((node = walker.nextNode())){
+    const raw = node.nodeValue;
+    const trimmed = raw && raw.trim();
+    if(!trimmed) continue;
+    if(RADAR_TEXT_EN[trimmed]){
+      node.nodeValue = raw.replace(trimmed, RADAR_TEXT_EN[trimmed]);
+      continue;
+    }
+    if(trimmed.startsWith('MàJ ')){
+      node.nodeValue = raw.replace(trimmed, trimmed.replace('MàJ ', 'Updated '));
+    }
+  }
+}
+
+function setupRadarI18nObserver(){
+  if(window.__radarI18nObserverReady) return;
+  window.__radarI18nObserverReady = true;
+  const obs = new MutationObserver(muts => {
+    if(!radarIsEn()) return;
+    muts.forEach(m => {
+      m.addedNodes.forEach(n => {
+        if(n.nodeType === 1) radarTranslateExactText(n);
+        else if(n.nodeType === 3 && n.parentElement) radarTranslateExactText(n.parentElement);
+      });
+    });
+  });
+  obs.observe(document.body, {childList:true, subtree:true});
 }
 
 function applyRadarI18n(){
@@ -458,9 +540,13 @@ function applyRadarI18n(){
   setText('#news-desc', dict.newsDesc);
   const strong = document.querySelector('#news-summary strong');
   if(strong) strong.textContent = dict.newsSummary;
+  radarTranslateExactText(document.body);
 }
 
-document.addEventListener('DOMContentLoaded', applyRadarI18n);
+document.addEventListener('DOMContentLoaded', () => {
+  setupRadarI18nObserver();
+  applyRadarI18n();
+});
 
 const PROXIES = [
   u => 'https://corsproxy.io/?url=' + encodeURIComponent(u),
@@ -1288,16 +1374,16 @@ async function loadNews(tabId){
   const listEl = document.getElementById('news');
   const summaryEl = document.getElementById('news-summary');
 
-  document.getElementById('news-title').textContent = tab.label;
-  document.getElementById('news-desc').textContent = tab.desc;
+  document.getElementById('news-title').textContent = radarIsEn() ? (RADAR_TEXT_EN[tab.label] || tab.label) : tab.label;
+  document.getElementById('news-desc').textContent = radarIsEn() ? (RADAR_TEXT_EN[tab.desc] || tab.desc) : tab.desc;
 
   if(newsCache[tabId]){
     renderNews(tab, newsCache[tabId]);
     return;
   }
 
-  listEl.innerHTML = '<div class="news-empty">Chargement des flux et traduction…</div>';
-  summaryEl.innerHTML = '<strong>Résumé de la catégorie</strong><ul><li>Analyse en cours…</li></ul>';
+  listEl.innerHTML = `<div class="news-empty">${radarIsEn() ? 'Loading feeds…' : 'Chargement des flux et traduction…'}</div>`;
+  summaryEl.innerHTML = `<strong>${radarIsEn() ? 'Category summary' : 'Résumé de la catégorie'}</strong><ul><li>${radarIsEn() ? 'Analysis in progress…' : 'Analyse en cours…'}</li></ul>`;
 
   const results = await Promise.allSettled(tab.feeds.map(feed => fetchFeed(feed, tab)));
   let items = results.flatMap(r => r.status==='fulfilled' ? r.value : []);
@@ -1314,24 +1400,24 @@ function renderNews(tab, items){
   const listEl = document.getElementById('news');
   const summaryEl = document.getElementById('news-summary');
   const summary = summarizeNews(items, tab);
-  summaryEl.innerHTML = `<strong>Résumé de la catégorie</strong><ul>${summary.map(line => `<li>${escapeHtml(line)}</li>`).join('')}</ul>`;
+  summaryEl.innerHTML = `<strong>${radarIsEn() ? 'Category summary' : 'Résumé de la catégorie'}</strong><ul>${summary.map(line => `<li>${escapeHtml(line)}</li>`).join('')}</ul>`;
 
   if(!items.length){
     const d = getNewsWindowDays();
-    listEl.innerHTML = `<div class="news-empty">Aucune actualité publiée sur les ${d} dernier${d>1?'s':''} jour${d>1?'s':''} pour cette catégorie.</div>`;
+    listEl.innerHTML = `<div class="news-empty">${radarIsEn() ? `No news published in the last ${d} day${d>1?'s':''} for this category.` : `Aucune actualité publiée sur les ${d} dernier${d>1?'s':''} jour${d>1?'s':''} pour cette catégorie.`}</div>`;
     return;
   }
 
   listEl.innerHTML = items.map(it => `
     <div class="news-item">
-      <span class="meta">${it.date.toLocaleDateString('fr-FR',{day:'2-digit',month:'short'})} ${it.date.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}<br>${escapeHtml(it.src)}</span>
+      <span class="meta">${it.date.toLocaleDateString(radarLocale(),{day:'2-digit',month:'short'})} ${it.date.toLocaleTimeString(radarLocale(),{hour:'2-digit',minute:'2-digit'})}<br>${escapeHtml(it.src)}</span>
       <div class="body">
         <div class="tag-row">
-          <span class="tag">${escapeHtml(tab.label)}</span>
-          <span class="tone ${it.tone?.cls || 'neutral'}">${escapeHtml(it.tone?.label || 'Neutre')}</span>
+          <span class="tag">${escapeHtml(radarIsEn() ? (RADAR_TEXT_EN[tab.label] || tab.label) : tab.label)}</span>
+          <span class="tone ${it.tone?.cls || 'neutral'}">${escapeHtml(radarIsEn() ? (it.tone?.cls === 'neutral' ? 'Neutral' : it.tone?.label || 'Neutral') : (it.tone?.label || 'Neutre'))}</span>
         </div>
-        <a class="title" href="${it.link}" target="_blank" rel="noopener">${escapeHtml(it.titleFr || it.title)}</a>
-        ${it.titleFr && it.titleFr !== it.title ? `<div class="orig">Titre source: ${escapeHtml(it.title)}</div>` : ''}
+        <a class="title" href="${it.link}" target="_blank" rel="noopener">${escapeHtml(radarIsEn() ? it.title : (it.titleFr || it.title))}</a>
+        ${!radarIsEn() && it.titleFr && it.titleFr !== it.title ? `<div class="orig">Titre source: ${escapeHtml(it.title)}</div>` : ''}
       </div>
     </div>`).join('');
 }
@@ -1446,8 +1532,9 @@ async function loadAll(){
   ];
   await Promise.allSettled(jobs);
   computeScore();
-  document.getElementById('last-update').textContent = 'MàJ ' + new Date().toLocaleTimeString('fr-FR',{hour:'2-digit', minute:'2-digit'});
+  document.getElementById('last-update').textContent = (radarIsEn() ? 'Updated ' : 'MàJ ') + new Date().toLocaleTimeString(radarLocale(),{hour:'2-digit', minute:'2-digit'});
   btn.disabled = false;
+  applyRadarI18n();
 }
 
 renderTabs();
