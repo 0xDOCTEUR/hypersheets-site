@@ -11546,6 +11546,17 @@ function hsVar(name) {
 let currentLang = (_savedLang === 'fr') ? 'fr' : 'en';
 function t(key) { return I18N[currentLang]?.[key] ?? I18N.en[key] ?? key; }
 
+function syncMarketRadarLang(){
+  const frame = document.querySelector('#page-marketradar iframe.market-radar-frame');
+  if(!frame) return;
+  try{
+    const url = new URL(frame.getAttribute('src') || 'market-radar.html', location.href);
+    url.searchParams.set('lang', currentLang === 'fr' ? 'fr' : 'en');
+    const next = url.pathname.split('/').pop() + url.search;
+    if(frame.getAttribute('src') !== next) frame.setAttribute('src', next);
+  }catch(e){}
+}
+
 function setLang(lang) {
   currentLang = lang;
   localStorage.setItem('hf-lang', lang);
@@ -11556,6 +11567,7 @@ function setLang(lang) {
   document.getElementById('langBtnEn')?.classList.toggle('active', lang === 'en');
   document.getElementById('langBtnFr')?.classList.toggle('active', lang === 'fr');
   applyI18n();
+  syncMarketRadarLang();
   if (allFills.length || xyzFills.length || bridgeOps.length) renderAll();
 }
 
@@ -14852,6 +14864,7 @@ function switchPage(name, el) {
   if (el) el.classList.add('active');
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
+  if(name === 'marketradar') syncMarketRadarLang();
   // Period filter + refresh dock (masqué sur Signal ; leaderboard = refresh seul)
   const filterRow = document.getElementById('filterRow');
   const filterPills = document.getElementById('filterPeriodPills');

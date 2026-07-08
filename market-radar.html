@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Macro Pulse — régime de marché</title>
+<title>Market Radar — macro read</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
@@ -381,6 +381,86 @@ footer{margin-top:var(--space-5);font-size:var(--fs-xs);color:var(--muted-2);lin
 
 <script>
 'use strict';
+
+const RADAR_I18N = {
+  fr: {
+    title: 'Lecture macro',
+    tagline: 'Vue synthétique du marché global',
+    tabRegime: 'Régime',
+    tabMarkets: 'Marchés',
+    tabNews: 'Actus',
+    tfDaily: 'Daily',
+    tfWeekly: 'Hebdo',
+    refresh: '↻ Actualiser',
+    hRegime: 'Régime global',
+    hDiag: 'Diagnostic de marché',
+    hDrivers: 'Ce qui pilote le marché',
+    hChecklist: 'Checklist des signaux',
+    hCalendar: 'Calendrier hebdomadaire (à venir)',
+    hNews: 'Actualités clés par catégorie',
+    newsDesc: "Les titres sont traduits automatiquement en français quand la source est anglophone. Affichage limité au daily/hebdo selon le filtre.",
+    newsTitle: 'Actualités',
+    newsSummary: 'Résumé de la catégorie',
+  },
+  en: {
+    title: 'Market Radar',
+    tagline: 'Synthetic cross-asset market view',
+    tabRegime: 'Regime',
+    tabMarkets: 'Markets',
+    tabNews: 'News',
+    tfDaily: 'Daily',
+    tfWeekly: 'Weekly',
+    refresh: '↻ Refresh',
+    hRegime: 'Market regime',
+    hDiag: 'Macro read',
+    hDrivers: 'What drives the tape',
+    hChecklist: 'Signals checklist',
+    hCalendar: 'Weekly calendar (preview)',
+    hNews: 'Key news by category',
+    newsDesc: 'Headlines are auto-translated to English when needed. Display is limited by Daily/Weekly filter.',
+    newsTitle: 'News',
+    newsSummary: 'Category summary',
+  },
+};
+
+function radarLang(){
+  try{
+    const q = new URLSearchParams(location.search || '');
+    const v = (q.get('lang') || '').toLowerCase();
+    return (v === 'en' || v === 'fr') ? v : 'fr';
+  }catch(_){ return 'fr'; }
+}
+
+function applyRadarI18n(){
+  const lang = radarLang();
+  const dict = RADAR_I18N[lang] || RADAR_I18N.fr;
+  document.documentElement.lang = lang;
+  document.title = lang === 'en' ? 'Market Radar — macro read' : 'Lecture macro — radar de marché';
+
+  const setText = (sel, text) => { const el = document.querySelector(sel); if(el && text!=null) el.textContent = text; };
+  setText('header h1', dict.title);
+  setText('header .page-tagline', dict.tagline);
+  setText('#page-tabs .page-btn[data-view=\"barometre\"]', dict.tabRegime);
+  setText('#page-tabs .page-btn[data-view=\"marche\"]', dict.tabMarkets);
+  setText('#page-tabs .page-btn[data-view=\"actus\"]', dict.tabNews);
+  setText('#tf-daily', dict.tfDaily);
+  setText('#tf-weekly', dict.tfWeekly);
+  setText('#refresh-btn', dict.refresh);
+
+  // Section headings (order-dependent selectors)
+  setText('#view-barometre .gauge-panel h2', dict.hRegime);
+  setText('#view-barometre .overview .panel:nth-of-type(1) > h2', dict.hDiag);
+  setText('#view-barometre .overview .panel:nth-of-type(2) > h2', dict.hDrivers);
+  setText('#view-barometre > .panel > h2', dict.hChecklist);
+  setText('#view-actus .panel:nth-of-type(1) > h2', dict.hCalendar);
+  setText('#view-actus .panel:nth-of-type(2) > h2', dict.hNews);
+  setText('#news-title', dict.newsTitle);
+  setText('#news-desc', dict.newsDesc);
+  const strong = document.querySelector('#news-summary strong');
+  if(strong) strong.textContent = dict.newsSummary;
+}
+
+document.addEventListener('DOMContentLoaded', applyRadarI18n);
 
 const PROXIES = [
   u => 'https://corsproxy.io/?url=' + encodeURIComponent(u),
