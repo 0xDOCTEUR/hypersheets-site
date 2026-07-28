@@ -1,0 +1,57 @@
+{
+  "manifest_version": 3,
+  "name": "Hypersheets Omni Live",
+  "version": "2.9.22",
+  "description": "Positions Omni + HL en live · volumes Epoch/1D/7D · referral Omni & Hyperliquid.",
+  "icons": {
+    "16": "icons/16.png",
+    "48": "icons/48.png",
+    "128": "icons/128.png"
+  },
+  "action": {
+    "default_title": "Hypersheets Omni Live",
+    "default_icon": {
+      "16": "icons/16.png",
+      "48": "icons/48.png",
+      "128": "icons/128.png"
+    }
+  },
+  "side_panel": {
+    "default_path": "widget.html"
+  },
+  "permissions": ["storage", "alarms", "activeTab", "windows", "sidePanel", "tabs", "scripting", "notifications", "offscreen"],
+  "web_accessible_resources": [
+    {
+      "resources": ["icons/logo.png", "icons/48.png", "icons/128.png", "icons/variational-logo.png", "icons/hyperliquid-logo.png", "icons/tradexyz-logo.png"],
+      "matches": ["http://*/*", "https://*/*"]
+    }
+  ],
+  "host_permissions": [
+    "https://hypersheets.xyz/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*",
+    "https://omni.variational.io/*",
+    "https://*.variational.io/*",
+    "https://omni-client-api.prod.ap-northeast-1.variational.io/*",
+    "https://api.hyperliquid.xyz/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://hypersheets.xyz/*",
+        "http://localhost/*",
+        "http://127.0.0.1/*"
+      ],
+      "js": ["content.js", "content-hs-sync.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://omni.variational.io/*"],
+      "js": ["content-omni-collect.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

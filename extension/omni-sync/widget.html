@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hypersheets Omni Live</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,400;1,400&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #07080c;
+      --panel: rgba(255,255,255,.04);
+      --border: rgba(255,255,255,.09);
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --dim: #6e7681;
+      --ac: #6ee7ff;
+      --omni: #4c9af8;
+      --hl: #97FCE4;
+      --xyz: #FBBF24;
+      --ok: #3ddc84;
+      --bad: #f87171;
+      --grad: linear-gradient(90deg, #6ee7ff 0%, #97fce4 48%, #86efac 100%);
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; height: 100%; width: 100%;
+      min-width: 0; min-height: 420px;
+      background: var(--bg); color: var(--text);
+      font: 500 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      overflow: hidden;
+      color-scheme: dark;
+    }
+    select, option {
+      color-scheme: dark;
+      background-color: #0d1117;
+      color: var(--text);
+    }
+    option:checked,
+    option:hover {
+      background-color: #161b22;
+      color: var(--text);
+    }
+    .wrap { display: flex; flex-direction: column; height: 100%; }
+
+    .top {
+      flex-shrink: 0;
+      padding: 10px 12px 0;
+      display: flex; flex-direction: column; gap: 10px;
+      background: linear-gradient(180deg, #0d1117, transparent);
+    }
+    .top-row { display: flex; align-items: center; gap: 6px; }
+    .brand {
+      flex: 1; min-width: 0;
+      display: inline-flex; align-items: center; gap: 8px;
+      text-decoration: none; color: inherit;
+      font-family: Raleway, sans-serif; font-size: 16px; line-height: 1;
+    }
+    .brand:hover .a { color: #a5f3fc; }
+    .brand img {
+      width: 22px; height: 22px; object-fit: contain; flex-shrink: 0;
+      border-radius: 5px;
+    }
+    .brand .a { color: var(--ac); }
+    .brand .b {
+      font-style: italic;
+      background: var(--grad);
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .ref-btn,
+    .icon-btn,
+    .lang-switch button {
+      appearance: none;
+      box-sizing: border-box;
+      width: 30px;
+      height: 30px;
+      padding: 0;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      text-decoration: none;
+      overflow: hidden;
+      flex-shrink: 0;
+      color: var(--muted);
+    }
+    .ref-btn img {
+      width: 18px;
+      height: 18px;
+      object-fit: cover;
+      border-radius: 4px;
+      display: block;
+    }
+    .ref-btn:hover,
+    .icon-btn:hover {
+      color: var(--ac);
+      border-color: rgba(110,231,255,.35);
+    }
+    .ref-btn.omni:hover { border-color: rgba(76,154,248,.55); }
+    .ref-btn.hl:hover { border-color: rgba(151,252,228,.55); }
+    .lang-switch {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+      padding: 0;
+      border: 0;
+      background: transparent;
+    }
+    .lang-switch button {
+      font: 800 9px/1 inherit;
+      letter-spacing: .04em;
+      color: var(--muted);
+    }
+    .lang-switch button:hover {
+      color: var(--ac);
+      border-color: rgba(110,231,255,.35);
+    }
+    .lang-switch button.is-on {
+      color: var(--text);
+      background: rgba(110,231,255,.12);
+      border-color: rgba(110,231,255,.35);
+    }
+    .icon-btn svg { display: block; }
+
+    .tabs {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 4px;
+      padding: 3px; border-radius: 10px;
+      background: rgba(255,255,255,.04); border: 1px solid var(--border);
+    }
+    .tab {
+      appearance: none; border: 0; background: transparent;
+      color: var(--muted); font: 700 12px/1 inherit;
+      padding: 9px 8px; border-radius: 8px; cursor: pointer;
+    }
+    .tab.is-on {
+      background: rgba(110,231,255,.12); color: var(--ac);
+    }
+
+    .toast {
+      position: fixed; left: 12px; right: 12px; bottom: 40px; z-index: 50;
+      padding: 10px 12px; border-radius: 10px;
+      background: rgba(13,17,23,.96); border: 1px solid rgba(110,231,255,.3);
+      color: var(--text); font-size: 12px; font-weight: 600;
+      box-shadow: 0 8px 24px rgba(0,0,0,.45);
+    }
+    .toast.err { border-color: rgba(248,113,113,.4); }
+    .toast.ok { border-color: rgba(61,220,132,.4); }
+    .warn { font-size: 10px; color: #fbbf24; margin-top: 2px; }
+    .delta { font-size: 9px; color: var(--muted); font-weight: 600; }
+
+    .page { display: none; flex: 1; min-height: 0; flex-direction: column; }
+    .page.is-on { display: flex; }
+    #pagePositions { overflow: auto; }
+
+    .kpis {
+      flex-shrink: 0;
+      display: grid; grid-template-columns: 1fr; gap: 6px;
+      padding: 10px 12px 0;
+    }
+    #summary {
+      position: sticky; top: 0; z-index: 4;
+      background: linear-gradient(180deg, rgba(7,8,12,.98) 0%, rgba(7,8,12,.94) 78%, rgba(7,8,12,0) 100%);
+      padding-bottom: 8px;
+    }
+    .kpi {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 10px; padding: 8px 9px; min-width: 0;
+    }
+    .kpi.kpi-main { text-align: center; padding: 12px 10px; }
+    .kpi.kpi-main .v { font-size: 22px; }
+    .kpi .l { font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+    .kpi .v { font-size: 14px; font-weight: 800; margin-top: 2px; letter-spacing: -.02em; word-break: break-word; }
+
+    .vol {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 10px; padding: 8px 9px; min-width: 0;
+    }
+    .vol-hd {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      margin-bottom: 7px;
+    }
+    .vol-hd .l {
+      font-size: 9px; font-weight: 700; letter-spacing: .06em;
+      text-transform: uppercase; color: var(--muted);
+    }
+    .vol-seg {
+      display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 3px;
+      padding: 2px; border-radius: 8px;
+      background: rgba(0,0,0,.25); border: 1px solid rgba(255,255,255,.06);
+    }
+    .vol-seg button {
+      appearance: none; border: 0; background: transparent;
+      padding: 5px 4px; border-radius: 6px; cursor: pointer;
+      display: grid; place-items: center;
+      opacity: .55;
+    }
+    .vol-seg button img {
+      width: 18px; height: 18px; object-fit: cover; border-radius: 4px;
+      display: block; pointer-events: none;
+    }
+    .vol-seg button.is-on { opacity: 1; }
+    .vol-seg button[data-src="omni"].is-on { background: rgba(76,154,248,.2); }
+    .vol-seg button[data-src="hl"].is-on { background: rgba(151,252,228,.16); }
+    .vol-seg button[data-src="xyz"].is-on { background: rgba(251,191,36,.16); }
+    .vol-seg button:hover { opacity: .85; }
+    .vol-slot {
+      display: none;
+      width: 100%;
+      margin-top: 7px;
+      appearance: none;
+      border: 1px solid var(--border);
+      background: rgba(0,0,0,.28);
+      color: var(--text);
+      font: 600 11px/1.2 inherit;
+      padding: 7px 28px 7px 9px;
+      border-radius: 8px;
+      cursor: pointer;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b949e' stroke-width='2.2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+    }
+    .vol-slot.is-on { display: block; }
+    .vol-slot:focus { outline: none; border-color: rgba(76,154,248,.45); }
+    .vol-slot option { background: #0d1117; color: var(--text); }
+    .vol-pills {
+      display: flex; flex-wrap: wrap; gap: 3px;
+      margin-bottom: 8px;
+    }
+    .vol-pills button {
+      appearance: none; border: 1px solid var(--border);
+      background: transparent; color: var(--dim);
+      font: 700 9px/1 inherit; letter-spacing: .04em;
+      padding: 5px 7px; border-radius: 999px; cursor: pointer;
+    }
+    .vol-pills button.is-on {
+      color: var(--ac); border-color: rgba(110,231,255,.35);
+      background: rgba(110,231,255,.1);
+    }
+    .vol-val {
+      font-size: 18px; font-weight: 800; letter-spacing: -.02em;
+      line-height: 1.15;
+    }
+    .vol-meta {
+      margin-top: 3px; font-size: 10px; color: var(--muted); font-weight: 600;
+      line-height: 1.35;
+    }
+    .vol-meta .hint { color: #fbbf24; }
+
+    .alert-card {
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.025));
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 12px; padding: 8px 9px; min-width: 0;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
+    }
+    .alert-hd {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    }
+    .alert-hd .l {
+      font-size: 9px; font-weight: 700; letter-spacing: .06em;
+      text-transform: uppercase; color: var(--muted);
+    }
+    .alert-hd-main {
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    .alert-fold {
+      appearance: none; border: 1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.04); color: var(--muted);
+      width: 24px; height: 24px; border-radius: 7px;
+      display: inline-grid; place-items: center;
+      font-size: 13px; line-height: 1; cursor: pointer; padding: 0;
+    }
+    .alert-fold:hover { color: var(--ac); border-color: rgba(110,231,255,.35); }
+    .alert-body { margin-top: 7px; }
+    .alert-card.is-collapsed .alert-body { display: none; }
+    .alert-toggle {
+      display: inline-flex; align-items: center; gap: 6px; color: var(--muted);
+      font-size: 10px; font-weight: 700;
+    }
+    .alert-toggle input { accent-color: var(--ac); }
+    .alert-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+    }
+    .alert-field { display: flex; flex-direction: column; gap: 4px; }
+    .alert-field--full { grid-column: 1 / -1; }
+    .alert-field label {
+      font-size: 9px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+      color: var(--muted);
+    }
+    .alert-field select,
+    .alert-field input:not([type="checkbox"]) {
+      appearance: none; border: 1px solid var(--border);
+      background: rgba(0,0,0,.28); color: var(--text);
+      font: 600 11px/1.2 inherit;
+      padding: 7px 9px; border-radius: 8px;
+      color-scheme: dark;
+    }
+    .alert-field select option {
+      background: #0d1117;
+      color: var(--text);
+    }
+    .alert-field select:focus,
+    .alert-field input:not([type="checkbox"]):focus {
+      outline: none; border-color: rgba(110,231,255,.35);
+    }
+    .alert-note {
+      margin-top: 7px; font-size: 10px; color: var(--muted); line-height: 1.35;
+    }
+    .alert-card.is-off .alert-grid,
+    .alert-card.is-off .alert-note { opacity: .55; }
+    .alert-sep {
+      margin: 10px 0 7px; border-top: 1px solid rgba(255,255,255,.06);
+      padding-top: 9px;
+    }
+    .alert-mini-h {
+      font-size: 9px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+      color: #a7b0ba; margin-bottom: 7px;
+    }
+    .alert-subpanel {
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.025));
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 12px;
+      padding: 8px 9px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
+    }
+    .alert-subhd {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    }
+    .alert-subghost {
+      width: 52px;
+      flex-shrink: 0;
+    }
+    .alert-subbody { margin-top: 8px; }
+    .alert-subpanel.is-collapsed .alert-subbody { display: none; }
+    .alert-pos-list { display: flex; flex-direction: column; gap: 6px; }
+    .alert-pos-item {
+      border: 1px solid rgba(255,255,255,.08); border-radius: 8px;
+      padding: 7px 8px; background: rgba(0,0,0,.16);
+    }
+    .alert-pos-top {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      margin-bottom: 6px;
+    }
+    .alert-pos-name { font-size: 11px; font-weight: 700; color: var(--text); }
+    .alert-pos-net { font-size: 10px; font-weight: 700; color: var(--muted); }
+    .alert-pos-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+    }
+    .alert-empty {
+      font-size: 10px; color: var(--muted); line-height: 1.4;
+      padding: 4px 0 2px;
+    }
+    .alert-rem-list { display: flex; flex-direction: column; gap: 6px; }
+    .alert-rem-item {
+      border: 1px solid rgba(255,255,255,.08); border-radius: 8px;
+      padding: 7px 8px; background: rgba(0,0,0,.16);
+    }
+    .alert-rem-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+    }
+    .alert-rem-actions {
+      margin-top: 6px; display: flex; justify-content: flex-end;
+    }
+    .alert-add {
+      appearance: none; border: 1px solid var(--border);
+      background: rgba(110,231,255,.08); color: var(--ac);
+      font: 700 11px/1 inherit; padding: 7px 9px; border-radius: 8px; cursor: pointer;
+    }
+    .alert-add:hover { border-color: rgba(110,231,255,.35); }
+    .alert-rem-remove {
+      appearance: none; border: 1px solid rgba(248,113,113,.25);
+      background: rgba(248,113,113,.08); color: #fca5a5;
+      font: 700 10px/1 inherit; padding: 5px 7px; border-radius: 7px; cursor: pointer;
+    }
+    .alert-rem-remove:hover { background: rgba(248,113,113,.18); }
+
+    .scroll {
+      flex: 0 0 auto; min-height: auto; overflow: visible;
+      padding: 10px 12px 56px;
+    }
+    .h {
+      font-size: 10px; font-weight: 700; letter-spacing: .07em;
+      text-transform: uppercase; color: var(--dim);
+      margin: 12px 0 6px;
+    }
+    .h:first-child { margin-top: 0; }
+    .empty {
+      color: var(--muted); font-size: 12px; line-height: 1.55;
+      padding: 16px 4px; text-align: center;
+    }
+
+    .group {
+      border: 1px solid var(--border); border-radius: 12px;
+      background: var(--panel); margin-bottom: 8px; overflow: hidden;
+    }
+    .group-hd {
+      display: flex; align-items: center; gap: 6px;
+      padding: 8px 10px; border-bottom: 1px solid var(--border);
+      background: rgba(0,0,0,.2);
+    }
+    .group.is-closed .group-hd { border-bottom: 0; }
+    .group.is-closed .group-body { display: none; }
+    .group-hd .tog {
+      appearance: none; border: 1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.04); color: var(--muted);
+      width: 24px; height: 24px; border-radius: 7px;
+      display: inline-grid; place-items: center;
+      cursor: pointer; padding: 0; font-size: 13px; line-height: 1; flex-shrink: 0;
+    }
+    .group-hd .tog:hover { color: var(--ac); border-color: rgba(110,231,255,.35); }
+    .group-hd input {
+      flex: 1; min-width: 0; appearance: none;
+      border: 1px solid transparent; background: transparent;
+      color: var(--text); font: 700 12px/1.2 inherit;
+      padding: 3px 4px; border-radius: 6px;
+    }
+    .group-hd input:focus {
+      outline: none; border-color: rgba(110,231,255,.35);
+      background: rgba(0,0,0,.3);
+    }
+    .group-hd .tag {
+      font-size: 9px; font-weight: 800; color: var(--omni);
+      background: rgba(76,154,248,.12); padding: 3px 6px; border-radius: 999px;
+      flex-shrink: 0;
+    }
+    .group-hd .pnl {
+      font-size: 11px; font-weight: 800;
+      flex-shrink: 0;
+    }
+    .group-hd .del {
+      appearance: none; border: 1px solid rgba(248,113,113,.25);
+      background: rgba(248,113,113,.08); color: #fca5a5;
+      font: 700 10px/1 inherit; padding: 5px 7px; border-radius: 7px;
+      cursor: pointer; flex-shrink: 0;
+    }
+    .group-hd .del:hover { background: rgba(248,113,113,.18); }
+    .group-empty {
+      padding: 10px; font-size: 11px; color: var(--muted); text-align: center;
+    }
+
+    .row {
+      display: grid; grid-template-columns: minmax(0,1fr) auto;
+      gap: 8px; align-items: center;
+      padding: 9px 10px; border-bottom: 1px solid rgba(255,255,255,.04);
+    }
+    .row:last-child { border-bottom: 0; }
+    .row .main { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; min-width: 0; }
+    .pill {
+      font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 999px;
+    }
+    .pill.s { background: rgba(248,113,113,.18); color: #fca5a5; }
+    .pill.l { background: rgba(61,220,132,.18); color: #86efac; }
+    .asset { font-weight: 700; }
+    .venue { font-size: 10px; font-weight: 700; }
+    .venue.hl { color: var(--hl); }
+    .venue.xyz { color: var(--xyz); }
+    .venue.omni { color: var(--omni); }
+    .right { text-align: right; }
+    .right .u { font-weight: 800; font-size: 13px; }
+    .right .n { font-size: 10px; color: var(--muted); font-weight: 600; }
+    .pos { color: var(--ok); }
+    .neg { color: var(--bad); }
+    .muted { color: var(--muted); }
+
+    .pair {
+      display: grid;
+      grid-template-columns: minmax(0,1fr) auto;
+      gap: 10px;
+      align-items: center;
+      padding: 12px 10px 10px;
+      border-bottom: 1px solid rgba(255,255,255,.04);
+      font-size: 11px;
+    }
+    .pair:last-child { border-bottom: 0; }
+    .pair-main {
+      min-width: 0;
+      display: flex; flex-direction: column; gap: 7px;
+    }
+    .pair-side {
+      min-width: 0;
+      display: flex; flex-direction: column; gap: 3px;
+      padding: 6px 8px;
+      border-radius: 10px;
+      background: rgba(255,255,255,.025);
+      border: 1px solid rgba(255,255,255,.04);
+    }
+    .pair-side + .pair-side {
+      margin-top: 2px;
+    }
+    .pair .net {
+      text-align: right; min-width: 78px;
+      align-self: center;
+      display: flex; flex-direction: column; justify-content: center;
+      padding: 8px 9px;
+      border-radius: 10px;
+      background: rgba(255,255,255,.03);
+      border: 1px solid rgba(255,255,255,.05);
+    }
+    .pair .net .u { font-weight: 900; font-size: 16px; line-height: 1.05; letter-spacing: -.02em; }
+    .pair .net .l { font-size: 9px; color: var(--muted); }
+    .pair .leg-line { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+    .pair .leg-meta {
+      font-size: 9px; color: rgba(139,148,158,.92);
+      line-height: 1.2; display: flex; flex-wrap: wrap; gap: 6px;
+    }
+    .pair .asset { font-weight: 800; letter-spacing: .01em; }
+    .match-pill {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 54px; padding: 2px 6px; border-radius: 999px;
+      font-size: 8px; font-weight: 800; letter-spacing: .05em;
+      border: 1px solid rgba(255,255,255,.08);
+      margin-top: 6px;
+      align-self: flex-end;
+    }
+    .match-pill.ok { color: #86efac; background: rgba(61,220,132,.12); border-color: rgba(61,220,132,.24); }
+    .match-pill.warn { color: #fcd34d; background: rgba(251,191,36,.12); border-color: rgba(251,191,36,.24); }
+    .match-pill.bad { color: #fca5a5; background: rgba(248,113,113,.12); border-color: rgba(248,113,113,.24); }
+    .pair-link {
+      grid-column: 1 / -1;
+      display: flex; align-items: center; gap: 6px;
+      margin-top: 2px;
+      padding-top: 6px;
+      border-top: 1px dashed rgba(255,255,255,.06);
+    }
+    .pair-link select.pair-hl {
+      flex: 1; min-width: 0;
+      appearance: none;
+      border: 1px solid var(--border); background: rgba(0,0,0,.35);
+      color: var(--text); font: 600 10px/1.2 inherit;
+      padding: 5px 8px; border-radius: 7px;
+    }
+    .pair-link select.pair-hl:focus {
+      outline: none; border-color: rgba(110,231,255,.35); color: var(--text);
+    }
+
+    .pane {
+      flex: 1; min-height: 0; overflow: auto;
+      padding: 12px 12px 56px; display: flex; flex-direction: column; gap: 12px;
+    }
+    .flow {
+      border: 1px solid var(--border); border-radius: 12px;
+      background: var(--panel); padding: 12px;
+      display: flex; flex-direction: column; gap: 14px;
+    }
+    .step { display: flex; flex-direction: column; gap: 8px; }
+    .step-h {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 11px; font-weight: 800; letter-spacing: .03em;
+      text-transform: uppercase; color: var(--muted);
+    }
+    .step-n {
+      width: 20px; height: 20px; border-radius: 999px;
+      display: grid; place-items: center;
+      background: rgba(110,231,255,.14); color: var(--ac);
+      font-size: 11px; font-weight: 800;
+    }
+    .step .help { font-size: 11px; color: var(--dim); margin: 0; line-height: 1.4; }
+    .how {
+      display: flex; flex-direction: column; gap: 10px;
+      margin: 0; padding: 0; list-style: none;
+    }
+    .how > li {
+      display: grid;
+      grid-template-columns: 18px 1fr;
+      gap: 8px;
+      align-items: start;
+    }
+    .how .how-n {
+      width: 18px; height: 18px; border-radius: 999px;
+      display: grid; place-items: center;
+      margin-top: 1px;
+      background: rgba(255,255,255,.06);
+      color: var(--muted);
+      font-size: 10px; font-weight: 800;
+      text-transform: lowercase;
+    }
+    .how .how-body {
+      display: flex; flex-direction: column; gap: 6px; min-width: 0;
+    }
+    .how .how-txt {
+      font-size: 11px; color: var(--dim); margin: 0; line-height: 1.4;
+    }
+    .how .how-txt a {
+      color: var(--ac);
+      font-weight: 700;
+      text-decoration: none;
+    }
+    .how .how-txt a:hover { text-decoration: underline; }
+    .step-div {
+      height: 1px; background: rgba(255,255,255,.06); margin: 2px 0;
+    }
+
+    .row-in { display: flex; gap: 6px; }
+    .row-in input, .row-in select {
+      flex: 1; min-width: 0; appearance: none;
+      border: 1px solid var(--border); background: rgba(0,0,0,.28);
+      color: var(--text); border-radius: 9px; padding: 9px 10px;
+      font: 500 12px/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    .row-in select { font-family: inherit; }
+    .btn {
+      appearance: none; border: 1px solid var(--border);
+      background: rgba(255,255,255,.05); color: var(--text);
+      font: 700 12px/1 inherit; padding: 9px 12px; border-radius: 9px;
+      cursor: pointer; white-space: nowrap;
+    }
+    .btn:hover { border-color: rgba(255,255,255,.2); }
+    .btn-ac {
+      border-color: rgba(110,231,255,.35);
+      background: rgba(110,231,255,.14); color: var(--ac);
+    }
+    .btn-hl {
+      border-color: rgba(151,252,228,.3);
+      background: rgba(151,252,228,.1); color: var(--hl);
+    }
+    .btn-block { width: 100%; }
+    .btn:disabled { opacity: .5; cursor: wait; }
+    .status { font-size: 11px; color: var(--muted); min-height: 1.2em; margin: 0; }
+    .status.ok { color: #86efac; }
+    .status.err { color: #fca5a5; }
+    .field-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      margin: 0 0 5px;
+      letter-spacing: .02em;
+    }
+    .active-rename {
+      display: block;
+      margin: 0;
+    }
+    .active-rename input {
+      width: 100%; box-sizing: border-box; appearance: none;
+      border: 1px solid var(--border); background: rgba(0,0,0,.28);
+      color: var(--text); border-radius: 9px; padding: 9px 10px;
+      font: 600 12px/1.2 inherit;
+    }
+    .active-rename input:focus {
+      outline: none;
+      border-color: rgba(110,231,255,.4);
+    }
+    .active-rename input:disabled {
+      opacity: .55;
+    }
+
+    .chip {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px; border-radius: 9px;
+      border: 1px solid rgba(151,252,228,.22);
+      background: rgba(151,252,228,.06);
+    }
+    .chip .addr {
+      flex: 1; min-width: 0; font: 600 11px/1.2 ui-monospace, Menlo, Consolas, monospace;
+      color: var(--hl); overflow: hidden; text-overflow: ellipsis;
+    }
+    .chip .x {
+      appearance: none; border: 0; background: transparent;
+      color: var(--muted); cursor: pointer; font-weight: 800; padding: 4px;
+    }
+    .chip .x:hover { color: #fca5a5; }
+    #walletsList { display: flex; flex-direction: column; gap: 6px; }
+
+    .drop {
+      border: 1px dashed rgba(255,255,255,.18); border-radius: 10px;
+      padding: 12px 10px; text-align: center; cursor: pointer;
+      background: rgba(255,255,255,.02);
+    }
+    .drop.is-drag { border-color: rgba(110,231,255,.45); background: rgba(110,231,255,.06); }
+    .drop strong { display: block; font-size: 12px; margin-bottom: 4px; }
+    .drop span { font-size: 11px; color: var(--muted); }
+    .drop input { display: none; }
+
+    .leg {
+      border: 1px solid var(--border); border-radius: 10px;
+      padding: 10px; display: flex; flex-direction: column; gap: 7px;
+      background: rgba(0,0,0,.15);
+    }
+    .leg.is-on { border-color: rgba(110,231,255,.35); background: rgba(110,231,255,.05); }
+    .leg .hd { display: flex; gap: 6px; align-items: center; }
+    .leg .hd input {
+      flex: 1; appearance: none; border: 1px solid transparent;
+      background: transparent; color: var(--text);
+      font: 700 12px/1.2 inherit; padding: 2px 4px; border-radius: 6px;
+    }
+    .leg .hd input:focus {
+      outline: none; border-color: rgba(110,231,255,.35); background: rgba(0,0,0,.25);
+    }
+    .badge {
+      font-size: 9px; font-weight: 800; color: var(--ac);
+      background: rgba(110,231,255,.12); padding: 3px 7px; border-radius: 999px;
+    }
+    .leg .meta { font-size: 10px; color: var(--muted); }
+    .leg .acts { display: flex; flex-wrap: wrap; gap: 5px; }
+    .leg .acts .btn { padding: 6px 8px; font-size: 10px; }
+
+    .progress {
+      height: 4px; border-radius: 99px; background: rgba(255,255,255,.06);
+      overflow: hidden;
+    }
+    .progress > span {
+      display: block; height: 100%; width: 30%;
+      background: linear-gradient(90deg, var(--ac), #86efac);
+      animation: prog 1.1s ease-in-out infinite;
+    }
+    @keyframes prog {
+      0% { transform: translateX(-120%); }
+      100% { transform: translateX(320%); }
+    }
+    .foot {
+      flex-shrink: 0; padding: 8px 12px;
+      font-size: 10px; color: var(--dim);
+      border-top: 1px solid rgba(255,255,255,.05);
+    }
+    .legs-hd {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 8px;
+    }
+    .legs-hd .title {
+      flex: 1; font-size: 11px; font-weight: 800; letter-spacing: .04em;
+      text-transform: uppercase; color: var(--muted);
+    }
+    @media (max-width: 360px) {
+      .top-row {
+        flex-wrap: wrap;
+        align-items: center;
+        row-gap: 8px;
+      }
+      .brand {
+        min-width: 0;
+        flex: 1 1 auto;
+      }
+      .top-actions {
+        margin-left: auto;
+        justify-content: flex-end;
+        flex-wrap: nowrap;
+      }
+      .tabs {
+        grid-template-columns: 1fr;
+      }
+      .alert-grid,
+      .alert-pos-grid,
+      .alert-rem-grid {
+        grid-template-columns: 1fr;
+      }
+      .alert-field--full {
+        grid-column: auto;
+      }
+      .legs-hd {
+        flex-wrap: wrap;
+      }
+      .row-in {
+        flex-wrap: wrap;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div class="top-row">
+        <a class="brand" href="https://hypersheets.xyz/" target="_blank" rel="noopener noreferrer" title="Ouvrir Hypersheets">
+          <img src="icons/logo.png" alt="" width="22" height="22" decoding="async" />
+          <span><span class="a">Hyper</span><span class="b">sheets</span></span>
+        </a>
+        <div class="top-actions">
+          <a class="ref-btn omni" href="https://omni.variational.io/?ref=OMNILGUPC6GM" target="_blank" rel="noopener noreferrer" title="Referral Omni / Variational">
+            <img src="icons/variational-logo.png" alt="Omni" width="18" height="18" decoding="async" />
+          </a>
+          <a class="ref-btn hl" href="https://app.hyperliquid.xyz/join/DOCTEUR" target="_blank" rel="noopener noreferrer" title="Referral Hyperliquid">
+            <img src="icons/hyperliquid-logo.png" alt="Hyperliquid" width="18" height="18" decoding="async" />
+          </a>
+          <div class="lang-switch" id="langSwitch" aria-label="Language">
+            <button type="button" data-lang="fr" class="is-on">FR</button>
+            <button type="button" data-lang="en">EN</button>
+          </div>
+          <button type="button" class="icon-btn" id="popOut" title="Fenêtre libre" data-i18n-title="popoutTitle">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M14 4h6v6M20 4l-9 9" stroke="currentColor" stroke-width="1.85" stroke-linecap="round"/><path d="M10 6H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" stroke="currentColor" stroke-width="1.85" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="tabs" role="tablist">
+        <button type="button" class="tab is-on" data-page="positions" id="tabPos" data-i18n="tabPositions">Positions</button>
+        <button type="button" class="tab" data-page="collecte" id="tabCol" data-i18n="tabCollect">Collecte</button>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" hidden></div>
+
+    <div class="page is-on" id="pagePositions" data-page="positions">
+      <div class="kpis" id="summary"></div>
+      <div class="kpis" id="volSection" hidden>
+        <div class="vol">
+          <div class="vol-hd">
+            <div class="l" data-i18n="volumeTitle">Volume</div>
+          </div>
+          <div class="vol-seg" id="volSource" role="tablist" aria-label="Source volume">
+            <button type="button" data-src="omni" class="is-on" title="Omni / Variational" aria-label="Omni">
+              <img src="icons/variational-logo.png" alt="" width="18" height="18" decoding="async" />
+            </button>
+            <button type="button" data-src="hl" title="Hyperliquid" aria-label="Hyperliquid">
+              <img src="icons/hyperliquid-logo.png" alt="" width="18" height="18" decoding="async" />
+            </button>
+            <button type="button" data-src="xyz" title="Trade XYZ" aria-label="Trade XYZ">
+              <img src="icons/tradexyz-logo.png" alt="" width="18" height="18" decoding="async" />
+            </button>
+          </div>
+          <select class="vol-slot" id="volSlot" aria-label="Jambe Omni" title="Jambe / CSV Omni"></select>
+          <div class="vol-pills" id="volPeriod" role="tablist" aria-label="Période volume" style="margin-top:7px"></div>
+          <div class="vol-val" id="volValue">—</div>
+          <div class="vol-meta" id="volMeta"></div>
+        </div>
+      </div>
+      <div class="kpis" id="alertSection">
+        <div class="alert-card is-off is-collapsed" id="alertCard">
+          <div class="alert-hd">
+            <div class="alert-hd-main">
+              <button type="button" class="alert-fold" id="alertFold" title="Replier">▾</button>
+              <div class="l" data-i18n="alertTitle">Alerte PnL</div>
+            </div>
+            <label class="alert-toggle">
+              <input type="checkbox" id="alertEnabled" />
+              <span data-i18n="alertEnabled">Active</span>
+            </label>
+          </div>
+          <div class="alert-body" id="alertBody">
+            <div class="alert-grid">
+              <div class="alert-field">
+                <label for="alertScope" data-i18n="alertScope">Portee</label>
+                <select id="alertScope">
+                  <option value="total" data-i18n="alertScopeTotal">PnL total</option>
+                  <option value="position" data-i18n="alertScopePosition">PnL position</option>
+                </select>
+              </div>
+              <div class="alert-field">
+                <label for="alertDirection" data-i18n="alertDirection">Condition</label>
+                <select id="alertDirection">
+                  <option value="above" data-i18n="alertDirectionAbove">Au-dessus de</option>
+                  <option value="below" data-i18n="alertDirectionBelow">En-dessous de</option>
+                </select>
+              </div>
+              <div class="alert-field">
+                <label for="alertThreshold" data-i18n="alertThreshold">Seuil USD</label>
+                <input id="alertThreshold" type="number" step="0.01" inputmode="decimal" placeholder="100" />
+              </div>
+              <div class="alert-field">
+                <label for="alertSound" data-i18n="alertSound">Son</label>
+                <select id="alertSound">
+                  <option value="none" data-i18n="alertSoundNone">Aucun</option>
+                  <option value="beep" data-i18n="alertSoundBeep">Beep</option>
+                  <option value="double" data-i18n="alertSoundDouble">Double beep</option>
+                  <option value="ping" data-i18n="alertSoundPing">Ping</option>
+                </select>
+              </div>
+            </div>
+            <div class="alert-sep">
+              <div class="alert-mini-h" data-i18n="alertMonitorTitle">Surveillance</div>
+              <label class="alert-toggle">
+                <input type="checkbox" id="alertHlMissing" />
+                <span data-i18n="alertHlMissing">Alerte si une position HL disparait</span>
+              </label>
+            </div>
+            <div class="alert-sep">
+              <div class="alert-mini-h" data-i18n="alertPositionsTitle">Alertes par position</div>
+              <div class="alert-pos-list" id="alertPositions"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="kpis" id="alertReminderWrap">
+        <div class="alert-subpanel is-collapsed" id="alertReminderSection">
+          <div class="alert-subhd">
+            <div class="alert-hd-main">
+              <button type="button" class="alert-fold" id="alertReminderFold" title="Replier">▾</button>
+              <div class="alert-mini-h" data-i18n="alertReminderSectionTitle" style="margin-bottom:0">Rappels</div>
+            </div>
+            <span class="alert-subghost" aria-hidden="true"></span>
+          </div>
+          <div class="alert-subbody">
+            <div class="alert-rem-item" style="margin-bottom:8px">
+              <div class="alert-mini-h" data-i18n="alertRemindersTitle">Rappels quotidiens</div>
+              <div class="alert-rem-list" id="alertReminders"></div>
+              <div class="alert-rem-actions">
+                <button type="button" class="alert-add" id="alertAddReminder" data-i18n="alertReminderAdd">+ Rappel</button>
+              </div>
+            </div>
+            <div class="alert-rem-item">
+              <div class="alert-mini-h" data-i18n="alertRedundancyTitle">Redondance rappel</div>
+              <div class="alert-rem-grid">
+                <label class="alert-toggle">
+                  <input type="checkbox" id="alertRedundancyEnabled" />
+                  <span data-i18n="alertEnabled">Active</span>
+                </label>
+                <div class="alert-field">
+                  <label data-i18n="alertRedundancyInterval">Intervalle</label>
+                  <div class="row-in">
+                    <button type="button" class="btn" id="alertRedundancyMinus">-</button>
+                    <input id="alertRedundancyEvery" type="text" value="1H" readonly />
+                    <button type="button" class="btn" id="alertRedundancyPlus">+</button>
+                  </div>
+                </div>
+                <div class="alert-field" style="grid-column:1/-1">
+                  <label for="alertRedundancyTitleInput" data-i18n="alertReminderTitle">Titre</label>
+                  <input id="alertRedundancyTitleInput" type="text" maxlength="48" placeholder="Nom" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="scroll" id="posScroll"></div>
+    </div>
+
+    <div class="page" id="pageCollecte" data-page="collecte">
+      <div class="pane">
+        <div class="flow">
+          <div class="step">
+            <div class="step-h"><span class="step-n">1</span><span data-i18n="stepWalletTitle">Wallet Hyperliquid</span></div>
+            <p class="help" data-i18n="stepWalletHelp">Adresse EVM pour charger les hedges HL / XYZ.</p>
+            <div class="row-in">
+              <input id="walletInput" placeholder="0x…" spellcheck="false" autocomplete="off" />
+              <button type="button" class="btn btn-hl" id="addWallet" data-i18n="addWallet">Ajouter</button>
+            </div>
+            <p class="status" id="walletHint"></p>
+            <div id="walletsList"></div>
+          </div>
+
+          <div class="step-div"></div>
+
+          <div class="step">
+            <div class="step-h"><span class="step-n">2</span><span data-i18n="stepCollectTitle">Collecter Omni</span></div>
+            <ol class="how">
+              <li>
+                <span class="how-n">a</span>
+                <div class="how-body">
+                  <p class="how-txt">
+                    <span data-i18n="collectStep1Before">Connecte-toi a ton wallet sur</span>
+                    <a href="https://omni.variational.io/?ref=OMNILGUPC6GM" target="_blank" rel="noopener noreferrer">Omni</a><span data-i18n="collectStep1After">.</span>
+                  </p>
+                </div>
+              </li>
+              <li>
+                <span class="how-n">b</span>
+                <div class="how-body">
+                  <p class="how-txt" data-i18n="collectStep2">Donne un nom a la position active (optionnel).</p>
+                  <div class="active-rename" id="activeRenameRow">
+                    <label class="field-label" for="activePositionRename" data-i18n="positionNameLabel">Nom de la position</label>
+                    <input
+                      id="activePositionRename"
+                      type="text"
+                      maxlength="32"
+                      spellcheck="false"
+                      autocomplete="off"
+                      data-i18n-placeholder="positionNamePlaceholder"
+                      placeholder="Ex. Variational, Hedge BTC…"
+                      title="Renommer la position active"
+                      data-i18n-title="rename"
+                    />
+                  </div>
+                </div>
+              </li>
+              <li>
+                <span class="how-n">c</span>
+                <div class="how-body">
+                  <p class="how-txt" data-i18n="collectStep3">Clique pour collecter automatiquement toutes tes datas Omni en CSV.</p>
+                  <button type="button" class="btn btn-ac btn-block" id="collectOmni">
+                    <span id="collectLabel" data-i18n="collectOmni">Collecter Omni</span>
+                  </button>
+                  <p class="status" id="collectStatus"></p>
+                  <div class="progress" id="collectProgress" hidden><span></span></div>
+                </div>
+              </li>
+              <li>
+                <span class="how-n">d</span>
+                <div class="how-body">
+                  <p class="how-txt" data-i18n="collectStep4">Sinon, depose un export JSON / CSV manuellement.</p>
+                  <label class="drop" id="dropZone" for="dropFile">
+                    <strong data-i18n="dropTitle">Déposer JSON / CSV (par compte)</strong>
+                    <span id="dropHint" data-i18n="dropHintDefault">vers la jambe active · ou nouvelle jambe si déjà remplie</span>
+                    <input type="file" id="dropFile" accept=".json,.csv,application/json,text/csv" multiple />
+                  </label>
+                </div>
+              </li>
+            </ol>
+          </div>
+
+          <div class="step-div"></div>
+
+          <div class="step">
+            <div class="step-h"><span class="step-n">3</span><span data-i18n="stepSyncTitle">Envoyer vers Hypersheets</span></div>
+            <p class="help" data-i18n="stepSyncHelp">Pousse tes trades + points + positions vers le Dashboard Omni sur Hypersheets (garde l’onglet Hypersheets ouvert).</p>
+            <button type="button" class="btn btn-ac btn-block" id="syncHs" data-i18n="syncButton">Synchroniser</button>
+            <p class="status" id="syncHsStatus"></p>
+          </div>
+        </div>
+
+        <div>
+          <div class="legs-hd">
+            <div class="title" data-i18n="legsTitle">Positions</div>
+            <button type="button" class="btn" id="addLeg" data-i18n="addLeg">+ Position</button>
+            <button type="button" class="btn" id="refreshHl" title="Rafraîchir HL" data-i18n-title="refreshHlTitle">↻ HL</button>
+          </div>
+          <div id="legsList"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="foot" id="foot">Positions · Collecte</div>
+  </div>
+  <script src="widget-app.js?v=2.9.22"></script>
+</body>
+</html>

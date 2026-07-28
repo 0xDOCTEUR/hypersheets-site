@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Hypersheets Omni Live</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,400;1,400&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ac: #6ee7ff;
+      --ac-mid: #97fce4;
+      --ac-end: #86efac;
+      --omni: #4c9af8;
+      --hl: #97FCE4;
+      --brand-grad: linear-gradient(90deg, var(--ac) 0%, var(--ac-mid) 48%, var(--ac-end) 100%);
+    }
+    body {
+      margin: 0;
+      width: 300px;
+      font: 500 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: #f3f4f6;
+      background: #0b0d14;
+      padding: 14px;
+    }
+    h1 {
+      margin: 0 0 6px;
+      font-size: 14px;
+      font-weight: 400;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    h1 a {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      text-decoration: none;
+      color: inherit;
+    }
+    h1 img {
+      width: 22px; height: 22px;
+      object-fit: contain;
+      border-radius: 5px;
+      background: transparent;
+    }
+    .hs-brand-wordmark {
+      font-family: 'Raleway', sans-serif;
+      font-weight: 400;
+      font-size: 18px;
+      line-height: 1;
+      white-space: nowrap;
+    }
+    .hs-brand-hyper { font-style: normal; color: var(--ac); }
+    .hs-brand-sheets {
+      font-style: italic;
+      background: var(--brand-grad);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      color: transparent;
+    }
+    p { margin: 0 0 10px; color: #9ca3af; font-size: 12px; }
+    .topline {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      margin-bottom: 10px;
+    }
+    .lang-switch {
+      display: inline-flex; align-items: center; gap: 2px;
+      padding: 2px; border-radius: 8px;
+      border: 1px solid rgba(255,255,255,.09);
+      background: rgba(255,255,255,.04);
+      flex-shrink: 0;
+    }
+    .lang-switch button {
+      appearance: none; border: 0; background: transparent;
+      color: #9ca3af; font: 800 9px/1 inherit;
+      letter-spacing: .04em; padding: 6px 6px;
+      border-radius: 6px; cursor: pointer; min-width: 28px;
+    }
+    .lang-switch button.is-on {
+      color: #f3f4f6;
+      background: rgba(110,231,255,.12);
+    }
+    a.open, button.open {
+      display: block;
+      width: 100%;
+      text-align: center;
+      text-decoration: none;
+      background: #6ee7ff;
+      color: #0b0d14;
+      font-weight: 700;
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 8px;
+      border: 0;
+      font: inherit;
+      cursor: pointer;
+      box-sizing: border-box;
+    }
+    a.ghost {
+      background: #1f2937;
+      color: #e5e7eb;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      text-decoration: none;
+      font-weight: 700;
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 8px;
+      box-sizing: border-box;
+    }
+    a.ghost.omni:hover { color: var(--omni); }
+    a.ghost.hl:hover { color: var(--hl); }
+    a.ghost .ext { font-size: 11px; opacity: .85; }
+    .ok { color: #3ddc84; font-size: 11px; margin: 0 0 10px; }
+    .hint { margin-top: 8px; font-size: 11px; color: #6b7280; line-height: 1.4; }
+  </style>
+</head>
+<body>
+  <div class="topline">
+    <h1>
+      <a href="https://hypersheets.xyz/" target="_blank" rel="noopener noreferrer" title="Open Hypersheets" data-i18n-title="openHypersheets">
+        <img src="icons/logo.png" alt="" width="22" height="22" decoding="async" />
+        <span class="hs-brand-wordmark" aria-label="Hypersheets"><span class="hs-brand-hyper">Hyper</span><span class="hs-brand-sheets">sheets</span></span>
+      </a>
+    </h1>
+    <div class="lang-switch" id="langSwitch" aria-label="Language">
+      <button type="button" data-lang="fr" class="is-on">FR</button>
+      <button type="button" data-lang="en">EN</button>
+    </div>
+  </div>
+  <p class="ok">Hypersheets Omni Live · v2.9.18</p>
+  <p data-i18n="popupLead">Clique l’icône pour ouvrir le panel Positions / Collecte.</p>
+  <button type="button" class="open" id="openWin" data-i18n="openWindow">Ouvrir la fenêtre</button>
+  <a class="ghost omni" href="https://omni.variational.io/?ref=OMNILGUPC6GM" target="_blank" rel="noopener" title="Referral Omni">
+    <img src="icons/variational-logo.png" alt="" width="16" height="16" style="width:16px;height:16px;border-radius:4px;object-fit:cover" decoding="async" />
+    <span data-i18n="refOmni">Referral Omni</span> <span class="ext">↗</span>
+  </a>
+  <a class="ghost hl" href="https://app.hyperliquid.xyz/join/DOCTEUR" target="_blank" rel="noopener" title="Referral Hyperliquid">
+    <img src="icons/hyperliquid-logo.png" alt="" width="16" height="16" style="width:16px;height:16px;border-radius:4px;object-fit:cover" decoding="async" />
+    <span data-i18n="refHl">Referral Hyperliquid</span> <span class="ext">↗</span>
+  </a>
+  <p class="hint" data-i18n="popupHint">Reload l’extension après mise à jour pour voir Omni Live.</p>
+  <script src="popup.js"></script>
+</body>
+</html>
