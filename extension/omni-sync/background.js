@@ -313,34 +313,86 @@ async function broadcastExportToHypersheets(payload) {
     'http://localhost/*',
     'http://127.0.0.1/*',
   ];
-  return new Promise((resolve) => {
-    chrome.tabs.query({ url: patterns }, (tabs) => {
-      const list = tabs || [];
-      let left = list.length;
-      if (!left) return resolve(0);
-      let sent = 0;
-      list.forEach((tab) => {
-        if (tab.id == null) {
-          left -= 1;
-          if (!left) resolve(sent);
-          return;
-        }
-        chrome.tabs.sendMessage(
-          tab.id,
-          {
-            type: 'HS_OMNI_EXPORT_APPLY',
-            payload,
-            fileName: 'variational-export-ext.json',
-          },
-          () => {
-            if (!chrome.runtime.lastError) sent += 1;
-            left -= 1;
-            if (!left) resolve(sent);
-          }
-        );
-      });
-    });
+  const tabs = await new Promise((resolve) => {
+    chrome.tabs.query({ url: patterns }, (list) => resolve(list || []));
   });
+  let sent = 0;
+  for (const tab of tabs) {
+    if (tab.id == null) continue;
+    const ok = await pushExportToTab(tab.id, payload);
+    if (ok) sent += 1;
+  }
+  return sent;
+}
+
+function injectHsBridge(tabId) {
+  return new Promise((resolve) => {
+    try {
+      chrome.scripting.executeScript(
+        { target: { tabId }, files: ['content.js', 'content-hs-sync.js'] },
+        () => resolve(!chrome.runtime.lastError)
+      );
+    } catch (_) {
+      resolve(false);
+    }
+  });
+}
+
+function sendExportMessage(tabId, payload) {
+  return new Promise((resolve) => {
+    try {
+      chrome.tabs.sendMessage(
+        tabId,
+        {
+          type: 'HS_OMNI_EXPORT_APPLY',
+          payload,
+          fileName: 'variational-export-ext.json',
+        },
+        (res) => {
+          if (chrome.runtime.lastError) return resolve(false);
+          resolve(!!(res && res.ok !== false));
+        }
+      );
+    } catch (_) {
+      resolve(false);
+    }
+  });
+}
+
+async function pushExportToTab(tabId, payload) {
+  await waitTabComplete(tabId, 25000);
+  let ok = await sendExportMessage(tabId, payload);
+  if (ok) return true;
+  await injectHsBridge(tabId);
+  await new Promise((r) => setTimeout(r, 200));
+  ok = await sendExportMessage(tabId, payload);
+  if (ok) return true;
+  // One more delayed retry — page bridge may still be binding.
+  await new Promise((r) => setTimeout(r, 800));
+  return sendExportMessage(tabId, payload);
+}
+
+async function syncToHypersheets() {
+  const payload = await rebuildExportFromState();
+  let n = await broadcastExportToHypersheets(payload);
+  if (!n) {
+    const tabId = await new Promise((resolve) => {
+      chrome.tabs.create(
+        { url: 'https://hypersheets.xyz/#var-omni-live', active: true },
+        (tab) => resolve(tab && tab.id != null ? tab.id : null)
+      );
+    });
+    if (tabId != null) {
+      const ok = await pushExportToTab(tabId, payload);
+      n = ok ? 1 : 0;
+    }
+  }
+  return {
+    ok: n > 0,
+    hsTabs: n,
+    counts: payload.counts || null,
+    error: n > 0 ? null : 'Hypersheets tab not ready — open hypersheets.xyz and retry',
+  };
 }
 
 function injectOmniCollector(tabId) {
@@ -589,23 +641,6 @@ async function rebuildExportFromState() {
     points_history: (pts && pts.points_history) || [],
     points_summary: (pts && pts.points_summary) || null,
     competition: (pts && pts.competition) || null,
-  };
-}
-
-async function syncToHypersheets() {
-  const payload = await rebuildExportFromState();
-  let n = await broadcastExportToHypersheets(payload);
-  if (!n) {
-    await new Promise((resolve) => {
-      chrome.tabs.create({ url: 'https://hypersheets.xyz/#var-dashboard', active: true }, () => resolve());
-    });
-    await new Promise((r) => setTimeout(r, 2500));
-    n = await broadcastExportToHypersheets(payload);
-  }
-  return {
-    ok: true,
-    hsTabs: n,
-    counts: payload.counts || null,
   };
 }
 

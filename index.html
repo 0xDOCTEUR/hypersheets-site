@@ -15124,6 +15124,7 @@ function hlRequestLabel(body) {
 async function hlPost(body, opts) {
   const label = (opts && opts.label) || hlRequestLabel(body)
   const maxRetries = (opts && opts.maxRetries != null) ? opts.maxRetries : HL_MAX_RETRIES
+  const timeoutMs = (opts && opts.timeoutMs != null) ? opts.timeoutMs : 25000
   await hlAcquireSlot()
   try {
     let lastErr = null
@@ -15132,12 +15133,16 @@ async function hlPost(body, opts) {
       const wait = Math.max(0, _hlNextSlot - now)
       if (wait) await new Promise(r => setTimeout(r, wait))
       _hlNextSlot = Date.now() + HL_MIN_GAP_MS
+      const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null
+      const timer = ctrl ? setTimeout(() => { try { ctrl.abort() } catch (_) {} }, timeoutMs) : null
       try {
         const res = await fetch(HL_API, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
+          signal: ctrl ? ctrl.signal : undefined,
         })
+        if (timer) clearTimeout(timer)
         if (res.status === 429) {
           lastErr = new Error('HL API HTTP 429')
           if (attempt < maxRetries - 1) {
@@ -15162,11 +15167,13 @@ async function hlPost(body, opts) {
         }
         return await res.json()
       } catch (e) {
+        if (timer) clearTimeout(timer)
         lastErr = e
-        const retriable = e.name === 'TypeError' || /fetch|network|Failed/i.test(String(e.message || ''))
+        const aborted = e && (e.name === 'AbortError' || /aborted/i.test(String(e.message || '')))
+        const retriable = aborted || e.name === 'TypeError' || /fetch|network|Failed/i.test(String(e.message || ''))
         if (retriable && attempt < maxRetries - 1) {
           const delay = hlBackoffMs(attempt)
-          console.warn(`[hlPost] ${e.message || e} ${label} — retry ${attempt + 1}/${maxRetries} in ${delay}ms`)
+          console.warn(`[hlPost] ${aborted ? 'timeout' : (e.message || e)} ${label} — retry ${attempt + 1}/${maxRetries} in ${delay}ms`)
           _hlNextSlot = Date.now() + delay
           await new Promise(r => setTimeout(r, delay))
           continue
@@ -16146,6 +16153,11 @@ async function loadDemoWalletData() {
     const btn = document.getElementById('connectBtn');
     if (btn) { btn.disabled = false; btn.textContent = typeof t === 'function' ? t('btn.load') : 'Load'; }
     if (typeof setXyzPageLoading === 'function') setXyzPageLoading(false);
+    try {
+      if (typeof window.__hsFlushPendingOmniImportUi === 'function') {
+        window.__hsFlushPendingOmniImportUi();
+      }
+    } catch (_) {}
   }
 }
 
@@ -16168,6 +16180,7 @@ async function loadData(opts = {}) {
     return;
   }
   _loadDataRunning = true;
+  window._loadDataRunning = true;
   const mySeq = ++_loadDataSeq;
   hsBeginScrollPreserve()
   const maxPages = currentPeriod === 'all' ? 100 : 30;
@@ -16459,6 +16472,12 @@ async function loadData(opts = {}) {
     if (btn) { btn.disabled = false; btn.textContent = typeof t === 'function' ? t('btn.load') : 'Load'; }
     if (typeof setXyzPageLoading === 'function') setXyzPageLoading(false);
     _loadDataRunning = false;
+    window._loadDataRunning = false;
+    try {
+      if (typeof window.__hsFlushPendingOmniImportUi === 'function') {
+        window.__hsFlushPendingOmniImportUi();
+      }
+    } catch (_) {}
     if (_loadDataPending) {
       _loadDataPending = false;
       loadData(opts);

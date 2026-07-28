@@ -126,11 +126,14 @@
     }
   }
 
-  // Apply Omni export collected by the extension (from Omni tab).
+  // Apply Omni export collected by the extension (from Omni tab / Sync button).
   try {
-    chrome.runtime.onMessage.addListener((msg) => {
+    chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       if (!msg || msg.type !== 'HS_OMNI_EXPORT_APPLY') return;
-      if (!msg.payload) return;
+      if (!msg.payload) {
+        try { sendResponse({ ok: false, error: 'empty payload' }); } catch (_) {}
+        return true;
+      }
       try {
         window.postMessage(
           {
@@ -141,7 +144,11 @@
           },
           '*'
         );
-      } catch (_) {}
+        try { sendResponse({ ok: true }); } catch (_) {}
+      } catch (e) {
+        try { sendResponse({ ok: false, error: String(e && e.message || e) }); } catch (_) {}
+      }
+      return true;
     });
   } catch (_) {}
 })();

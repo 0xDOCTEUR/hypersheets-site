@@ -5651,9 +5651,27 @@
     return src.startsWith('javascript:') ? src : ('javascript:' + src);
   }
 
-  function varImportOmniPayload(payload, fileName) {
-    if (!varIsOmniExport(payload)) return false;
-    varApplyOmniExport(payload, fileName || 'variational-export-live.json');
+  function varPageIsBusyLoading() {
+    try {
+      if (window._loadDataRunning) return true;
+      if (window._glpLoading) return true;
+      if (document.body && document.body.classList.contains('hs-launch-overlay-on')) return true;
+      if (document.body && document.body.classList.contains('hs-welcome-loading')) return true;
+    } catch (_) {}
+    return false;
+  }
+
+  function varFlushPendingOmniImportUi() {
+    const fn = window.__hsVarPendingOmniImportUi;
+    if (typeof fn !== 'function') return;
+    window.__hsVarPendingOmniImportUi = null;
+    setTimeout(() => {
+      try { fn(); } catch (_) {}
+    }, 0);
+  }
+  window.__hsFlushPendingOmniImportUi = varFlushPendingOmniImportUi;
+
+  function varShowImportedOmniUi() {
     try {
       if (typeof switchPage === 'function') {
         const tab = document.querySelector('.nav-tab[data-tab="variational"]');
@@ -5662,6 +5680,20 @@
     } catch (_) {}
     try { varSetSub('live', null); } catch (_) {}
     try { renderVarActivity(); } catch (_) {}
+    try {
+      if (_varSub === 'live') varRenderLiveDashboard();
+    } catch (_) {}
+  }
+
+  function varImportOmniPayload(payload, fileName) {
+    if (!varIsOmniExport(payload)) return false;
+    varApplyOmniExport(payload, fileName || 'variational-export-live.json');
+    // Never run heavy Variational renders while Hypersheets is still on the HL launch overlay.
+    if (varPageIsBusyLoading()) {
+      window.__hsVarPendingOmniImportUi = varShowImportedOmniUi;
+    } else {
+      varShowImportedOmniUi();
+    }
     return true;
   }
 
@@ -6098,9 +6130,6 @@
           _varLastImportFp = fp;
           _varDashAnalyticsMemo = null;
           varToastAutoImported();
-          if (_varSub === 'live') {
-            try { varRenderLiveDashboard(); } catch (_) {}
-          }
         } else if (typeof toast === 'function') {
           toast(varT('var.collectorAutoImportFail'), true);
         }
