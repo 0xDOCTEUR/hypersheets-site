@@ -2658,16 +2658,22 @@
     try {
       const hashMap = {
         live: '#var-omni-live',
-        dashboard: '#var-dashboard',
         points: '#var-points',
         lab: '#var-lab',
         competition: '#var-competition',
         airdrop: '#var-airdrop',
         radar: '#var-radar',
       };
-      const nextHash = hashMap[tab];
-      if (nextHash && location.hash !== nextHash) {
-        history.replaceState(null, '', nextHash);
+      if (tab === 'dashboard') {
+        // Never keep #var-dashboard in the address bar (it stuck on HL / XYZ too).
+        if (String(location.hash || '').startsWith('#var-')) {
+          history.replaceState(null, '', location.pathname + location.search);
+        }
+      } else {
+        const nextHash = hashMap[tab];
+        if (nextHash && location.hash !== nextHash) {
+          history.replaceState(null, '', nextHash);
+        }
       }
     } catch (_) {}
 

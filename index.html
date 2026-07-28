@@ -16711,6 +16711,16 @@ function syncSupportBannerVisibility() {
   el.style.display = hide ? 'none' : ''
 }
 
+function clearVarRouteHashOutsideVariational(pageName) {
+  try {
+    const h = String(location.hash || '');
+    if (!h.startsWith('#var-')) return;
+    if (pageName === 'variational') return;
+    // Keep HL / XYZ / Unit / etc. URLs clean — Variational anchors must not stick.
+    history.replaceState(null, '', location.pathname + location.search);
+  } catch (_) {}
+}
+
 function switchPage(name, el) {
   // Sync mobile bottom nav
   document.querySelectorAll('.mob-nav-btn').forEach(b => b.classList.toggle('active', b.dataset.mob === name))
@@ -16722,6 +16732,7 @@ function switchPage(name, el) {
   }
   currentPage = name;
   document.body.dataset.page = name;
+  clearVarRouteHashOutsideVariational(name);
   syncGlobalLoadStripPosition()
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   if (el) el.classList.add('active');
