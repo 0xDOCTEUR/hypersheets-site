@@ -22,8 +22,10 @@
   <meta name="twitter:description" content="Farming tracker for Hyperliquid, Trade XYZ and Unit — volumes, PnL, signals, airdrop." />
   <meta name="twitter:creator" content="@0xDOCTEUR" />
 
-  <!-- Favicon (waveform pulse, inline SVG) -->
-  <link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><defs><linearGradient id="g" x1="0" y1="0" x2="24" y2="0"><stop offset="0%25" stop-color="%236ee7ff"/><stop offset="50%25" stop-color="%2397FCE4"/><stop offset="100%25" stop-color="%23FBBF24"/></linearGradient></defs><rect width="24" height="24" rx="5" fill="%2308090d"/><path d="M3 12 L7 12 L9 5 L13 19 L15 9 L17 14 L21 12" stroke="url(%23g)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>' />
+  <!-- Favicon (file URL — required so bookmarks can pick up the Hypersheets logo) -->
+  <link rel="icon" type="image/png" href="img/hypersheets-logo.png" />
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="apple-touch-icon" href="img/hypersheets-logo.png" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -397,6 +399,7 @@ const HS_CONFIG = {
         .var-hedge-leg--hl .var-hedge-leg-label { color: var(--var-hl); }
         .var-hedge-leg-val { font-size: 1.05rem; font-weight: 600; line-height: 1.3; margin-bottom: 6px; }
         .var-hedge-leg-sub { font-size: .74rem; color: var(--muted); line-height: 1.35; }
+        .var-hedge-leg-pnl { font-size: .88rem; font-weight: 700; margin-top: 8px; }
         .var-hedge-bridge-mid { display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--muted); font-size: 1.1rem; padding: 0 2px; gap: 4px; }
         .var-hedge-bridge-mid span { font-size: .6rem; text-transform: uppercase; letter-spacing: .08em; }
         .var-hedge-hero { text-align: center; padding: 20px 16px; border-radius: 14px; margin-bottom: 14px; background: linear-gradient(135deg, rgba(76,154,248,.1), rgba(94,234,212,.07)); border: 1px solid var(--border); }
@@ -433,6 +436,41 @@ const HS_CONFIG = {
         .var-hedge-earn-item strong { display: block; font-size: .85rem; margin-top: 4px; }
         .var-hedge-earn-item span { font-size: .65rem; color: var(--muted); }
         .var-hedge-open-tip { font-size: .76rem; color: var(--muted); margin: 8px 0 0; line-height: 1.5; padding: 8px 10px; border-radius: 8px; background: rgba(76,154,248,.06); border: 1px solid rgba(76,154,248,.15); }
+        .var-hedge-books { margin-bottom: 18px; padding: 14px 16px; border-radius: 12px; border: 1px solid var(--border); background: linear-gradient(165deg, rgba(76,154,248,.05), var(--surface-2)); }
+        .var-hedge-books-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 12px; }
+        .var-hedge-books-title { font-size: .82rem; font-weight: 600; margin: 0; flex: 1 1 auto; }
+        .var-hedge-books-meta { font-size: .68rem; color: var(--muted); width: 100%; }
+        .var-hedge-books-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+        .var-hedge-books-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+        @media (min-width: 900px) { .var-hedge-books-grid { grid-template-columns: 1fr 1fr; } }
+        .var-hedge-books-col { border-radius: 10px; border: 1px solid var(--border); background: var(--surface-1, var(--bg)); overflow: hidden; }
+        .var-hedge-books-col-h { font-size: .65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; padding: 8px 12px; border-bottom: 1px solid var(--border); color: var(--muted); }
+        .var-hedge-books-col--omni .var-hedge-books-col-h { color: var(--var-omni, #4c9af8); }
+        .var-hedge-books-col--trade .var-hedge-books-col-h { color: var(--var-hl, #5eead4); }
+        .var-hedge-books-empty { padding: 14px 12px; font-size: .76rem; color: var(--muted); line-height: 1.45; }
+        .var-hedge-book-row { display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background .12s; text-align: left; width: 100%; background: transparent; color: inherit; font: inherit; border-left: 0; border-right: 0; border-top: 0; }
+        .var-hedge-book-row:last-child { border-bottom: 0; }
+        .var-hedge-book-row:hover { background: rgba(76,154,248,.07); }
+        .var-hedge-book-row.is-active { background: rgba(76,154,248,.12); }
+        .var-hedge-book-row.is-paired { box-shadow: inset 3px 0 0 var(--success); }
+        .var-hedge-book-row.is-unpaired { box-shadow: inset 3px 0 0 var(--warning-brand, #e6a817); }
+        .var-hedge-book-main { font-size: .82rem; font-weight: 600; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+        .var-hedge-book-sub { font-size: .68rem; color: var(--muted); grid-column: 1 / -1; line-height: 1.35; }
+        .var-hedge-book-usd { font-size: .8rem; font-weight: 600; white-space: nowrap; }
+        .var-hedge-book-venue { font-size: .58rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; background: rgba(94,234,212,.12); color: var(--var-hl, #5eead4); }
+        .var-hedge-book-venue--xyz { background: rgba(251,191,36,.14); color: #fbbf24; }
+        .var-hedge-pairs { margin-top: 12px; }
+        .var-hedge-pairs-title { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 0 0 8px; }
+        .var-hedge-pair { display: grid; grid-template-columns: 1fr auto 1fr auto; gap: 8px; align-items: center; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-1, var(--bg)); margin-bottom: 8px; cursor: pointer; transition: border-color .12s, background .12s; width: 100%; text-align: left; font: inherit; color: inherit; }
+        .var-hedge-pair:hover { border-color: rgba(76,154,248,.45); background: rgba(76,154,248,.06); }
+        .var-hedge-pair-mid { color: var(--muted); font-size: .85rem; }
+        .var-hedge-pair-delta { font-size: .72rem; font-weight: 600; white-space: nowrap; }
+        .var-hedge-pair-delta.ok { color: var(--success); }
+        .var-hedge-pair-delta.warn { color: var(--warning-brand, #e6a817); }
+        @media (max-width: 640px) {
+          .var-hedge-pair { grid-template-columns: 1fr; gap: 6px; }
+          .var-hedge-pair-mid { display: none; }
+        }
         .var-leg-ticker-wrap { position: relative; }
         .var-leg-ticker-menu {
           position: fixed;
@@ -500,6 +538,719 @@ const HS_CONFIG = {
         .var-csv-slot-meta strong { color: var(--text); font-weight: 600; }
         .var-csv-slot-actions { display: flex; gap: 6px; flex-wrap: wrap; }
         .var-csv-slot-actions .btn { font-size: .72rem; padding: 4px 10px; }
+        .var-json-drop {
+          border: 1.5px dashed rgba(76,154,248,.45);
+          border-radius: 14px;
+          background: rgba(76,154,248,.05);
+          padding: 18px 16px;
+          text-align: center;
+          margin-bottom: 16px;
+          transition: border-color .15s, background .15s;
+          cursor: pointer;
+        }
+        .var-json-drop.is-drag { border-color: var(--var-accent,#4c9af8); background: rgba(76,154,248,.12); }
+        .var-json-drop-title { font-size: .88rem; font-weight: 600; margin: 0 0 4px; }
+        .var-json-drop-sub { font-size: .76rem; color: var(--muted); margin: 0 0 10px; line-height: 1.45; }
+        .var-json-drop-meta { font-size: .72rem; color: var(--muted); margin-top: 8px; }
+        .var-json-drop-meta strong { color: var(--text); }
+        .var-omni-slots {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+          gap: 8px;
+          margin: 10px 0 8px;
+          text-align: left;
+          cursor: default;
+        }
+        .var-omni-slot {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          padding: 10px;
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          background: transparent;
+          cursor: pointer;
+          min-width: 0;
+        }
+        .var-omni-slot.is-active {
+          border-color: rgba(76,154,248,.55);
+          background: rgba(76,154,248,.08);
+          box-shadow: 0 0 0 1px rgba(76,154,248,.2);
+        }
+        .var-omni-slot-top {
+          display: flex;
+          align-items: flex-start;
+          gap: 8px;
+          min-width: 0;
+        }
+        .var-omni-slot-top input { margin-top: 2px; flex-shrink: 0; }
+        .var-omni-slot-copy { flex: 1; min-width: 0; }
+        .var-omni-slot-copy strong {
+          display: block;
+          font-size: .82rem;
+          line-height: 1.25;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .var-omni-slot-copy span {
+          display: block;
+          font-size: .7rem;
+          color: var(--muted);
+          line-height: 1.3;
+          margin-top: 2px;
+        }
+        .var-omni-slot-actions {
+          display: flex;
+          gap: 4px;
+          justify-content: flex-end;
+        }
+        .var-omni-slot-actions .btn { padding: 3px 8px; font-size: .68rem; }
+        .var-omni-slots-foot {
+          grid-column: 1 / -1;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+          margin-top: 2px;
+          cursor: default;
+        }
+        .var-onboard {
+          display: block;
+          padding: 14px 16px;
+          border-radius: 12px;
+          border: 1px solid var(--border);
+          background: var(--surface-2);
+          margin-bottom: 14px;
+          font-size: .78rem;
+          line-height: 1.5;
+          color: var(--muted);
+        }
+        .var-guide-title {
+          display: block;
+          color: var(--text);
+          font-size: .92rem;
+          font-weight: 700;
+          margin: 0 0 4px;
+        }
+        .var-guide-lead { margin: 0 0 12px; }
+        .var-guide-steps {
+          list-style: none;
+          margin: 0;
+          padding: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+        .var-guide-step {
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          background: rgba(0,0,0,.18);
+          padding: 12px 14px;
+        }
+        .var-guide-step-h {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin: 0 0 6px;
+          color: var(--text);
+          font-size: .8rem;
+          font-weight: 700;
+        }
+        .var-guide-num {
+          flex-shrink: 0;
+          width: 22px;
+          height: 22px;
+          border-radius: 999px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: .72rem;
+          font-weight: 800;
+          color: #041016;
+          background: linear-gradient(180deg, #9af0ff, #4c9af8);
+        }
+        .var-guide-step p { margin: 0 0 8px; }
+        .var-guide-step p:last-child { margin-bottom: 0; }
+        .var-guide-sub {
+          margin: 0 0 10px;
+          padding-left: 18px;
+          color: var(--muted);
+        }
+        .var-guide-sub li { margin: 0 0 4px; }
+        .var-guide-actions {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          align-items: center;
+          margin-top: 4px;
+        }
+        .var-guide-note {
+          margin: 8px 0 0 !important;
+          font-size: .72rem;
+          color: var(--muted);
+          line-height: 1.45;
+        }
+        .var-guide-note code,
+        .var-ext-install code {
+          font-size: .7rem;
+          padding: 1px 5px;
+          border-radius: 5px;
+          background: rgba(255,255,255,.06);
+          border: 1px solid var(--border);
+          color: var(--text);
+        }
+        .var-guide-inline {
+          margin: 0 0 12px;
+          font-size: .74rem;
+          line-height: 1.45;
+          color: var(--muted);
+          padding: 8px 12px;
+          border-radius: 10px;
+          border: 1px dashed var(--border);
+          background: rgba(76,154,248,.06);
+        }
+        .var-guide-inline strong { color: var(--text); }
+        .var-guide-credit {
+          margin: 12px 0 0;
+          font-size: .7rem;
+          color: var(--muted);
+        }
+        .var-live-ready { display: flex; flex-direction: column; gap: 14px; }
+        .var-live-ready-head {
+          display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between;
+          gap: 10px 14px;
+        }
+        .var-live-ready-title { font-size: 1.05rem; font-weight: 700; }
+        .var-live-ready-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+        .var-live-period-row {
+          display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+          gap: 8px;
+        }
+        .var-live-kpis {
+          display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;
+        }
+        @media (min-width: 720px) { .var-live-kpis { grid-template-columns: repeat(3, 1fr); } }
+        @media (min-width: 1100px) { .var-live-kpis { grid-template-columns: repeat(6, 1fr); } }
+        .var-live-kpi {
+          padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border);
+          background: var(--surface-2);
+        }
+        .var-live-kpi-label {
+          font-size: .65rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+          color: var(--muted); margin-bottom: 6px;
+        }
+        .var-live-kpi-val {
+          font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2;
+        }
+        .var-live-kpi-val.is-pos { color: #3dba7a; }
+        .var-live-kpi-val.is-neg { color: #e06b6b; }
+        .var-live-kpi-sub { font-size: .7rem; color: var(--muted); margin-top: 4px; line-height: 1.35; }
+        .var-live-panel {
+          border: 1px solid var(--border); border-radius: 14px; background: var(--surface-2);
+          padding: 14px 16px;
+        }
+        .var-live-panel-h { font-size: .92rem; font-weight: 650; margin: 0 0 2px; }
+        .var-live-panel-sub { font-size: .72rem; color: var(--muted); margin: 0 0 12px; }
+        .var-live-pos .var-pos-empty,
+        .var-live-markets .var-pos-empty { font-size: .82rem; color: var(--muted); padding: 8px 0; }
+        #varLivePositions .is-pos,
+        #varLiveMarkets .is-pos { color: #3dba7a; }
+        #varLivePositions .is-neg,
+        #varLiveMarkets .is-neg { color: #e06b6b; }
+        #varLiveMarkets table { width: 100%; min-width: 560px; }
+        .var-live-hedge { display: flex; flex-direction: column; gap: 12px; }
+        .var-live-hedge-hint {
+          font-size: .78rem; color: var(--muted); line-height: 1.45;
+          padding: 10px 12px; border-radius: 10px; border: 1px dashed var(--border);
+          background: rgba(76,154,248,.05);
+        }
+        .var-live-hedge-card {
+          border: 1px solid var(--border);
+          border-radius: 14px;
+          background: var(--surface-1, var(--bg));
+          overflow: hidden;
+        }
+        .var-live-hedge-card-hd {
+          display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between;
+          gap: 8px 14px;
+          padding: 12px 14px 10px;
+          border-bottom: 1px solid var(--border);
+        }
+        .var-live-hedge-card-title {
+          display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+          font-size: .95rem; font-weight: 700;
+        }
+        .var-live-hedge-card-title .acct {
+          font-size: .68rem; font-weight: 700; padding: 2px 7px; border-radius: 999px;
+          background: rgba(76,154,248,.16); color: var(--var-accent,#4c9af8);
+        }
+        .var-live-hedge-card-meta {
+          font-size: .72rem; color: var(--muted); font-weight: 500;
+        }
+        .var-live-hedge-card-net {
+          text-align: right; font-variant-numeric: tabular-nums;
+        }
+        .var-live-hedge-card-net .lbl {
+          display: block; font-size: .62rem; font-weight: 700; letter-spacing: .06em;
+          text-transform: uppercase; color: var(--muted); margin-bottom: 2px;
+        }
+        .var-live-hedge-card-net .val {
+          font-size: 1.05rem; font-weight: 700;
+        }
+        .var-live-hedge-grid {
+          display: grid;
+          grid-template-columns: 72px 88px minmax(64px,1fr) minmax(64px,1fr) minmax(72px,1fr) minmax(72px,1fr) minmax(80px,1fr);
+          gap: 0 8px;
+          align-items: center;
+          padding: 0 14px;
+          font-size: .78rem;
+        }
+        @media (max-width: 760px) {
+          .var-live-hedge-grid {
+            grid-template-columns: 64px 72px 1fr 1fr;
+            grid-template-areas:
+              "venue side size upnl"
+              "venue side entry mark";
+          }
+          .var-live-hedge-grid .c-venue { grid-area: venue; }
+          .var-live-hedge-grid .c-side { grid-area: side; }
+          .var-live-hedge-grid .c-size { grid-area: size; }
+          .var-live-hedge-grid .c-entry { grid-area: entry; }
+          .var-live-hedge-grid .c-mark { grid-area: mark; }
+          .var-live-hedge-grid .c-upnl { grid-area: upnl; }
+          .var-live-hedge-grid .c-qty { display: none; }
+          .var-live-hedge-cols .c-qty { display: none; }
+        }
+        .var-live-hedge-cols {
+          padding-top: 8px; padding-bottom: 4px;
+          color: var(--muted);
+          font-size: .62rem;
+          font-weight: 700;
+          letter-spacing: .05em;
+          text-transform: uppercase;
+        }
+        .var-live-hedge-row {
+          padding-top: 10px; padding-bottom: 10px;
+          border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+        }
+        .var-live-hedge-row:first-of-type { border-top: none; }
+        .var-live-hedge-row.is-omni { background: rgba(76,154,248,.04); }
+        .var-live-hedge-row.is-trade { background: rgba(230,168,23,.04); }
+        .var-live-hedge-row.is-missing {
+          color: var(--muted); font-size: .78rem; padding: 12px 14px;
+        }
+        .var-live-hedge-grid .mono { font-variant-numeric: tabular-nums; }
+        .var-live-hedge-grid .c-upnl { font-weight: 700; text-align: right; }
+        .var-live-hedge-grid .c-size,
+        .var-live-hedge-grid .c-qty,
+        .var-live-hedge-grid .c-entry,
+        .var-live-hedge-grid .c-mark { text-align: right; }
+        .var-live-hedge-cols .c-upnl,
+        .var-live-hedge-cols .c-size,
+        .var-live-hedge-cols .c-qty,
+        .var-live-hedge-cols .c-entry,
+        .var-live-hedge-cols .c-mark { text-align: right; }
+        .var-live-venue {
+          display: inline-flex; align-items: center; justify-content: center;
+          min-width: 44px; padding: 2px 7px; border-radius: 6px;
+          font-size: .68rem; font-weight: 700; letter-spacing: .02em;
+        }
+        .var-live-venue.is-omni {
+          background: rgba(76,154,248,.18); color: var(--var-accent,#4c9af8);
+        }
+        .var-live-venue.is-xyz {
+          background: rgba(230,168,23,.18); color: #e6a817;
+        }
+        .var-live-venue.is-hl {
+          background: rgba(61,186,122,.16); color: #3dba7a;
+        }
+        .var-onboard a.btn-ac {
+          display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+          text-align: center; cursor: pointer; text-decoration: none;
+        }
+        .var-onboard a.btn-ac:active { cursor: grabbing; }
+        .var-onboard a.btn-ac img {
+          width: 18px; height: 18px; border-radius: 50%; object-fit: contain;
+          flex-shrink: 0; background: #000;
+        }
+        .var-onboard button.btn-ac {
+          display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .var-onboard button.btn-ac img {
+          width: 18px; height: 18px; border-radius: 50%; object-fit: contain;
+          flex-shrink: 0; background: #000;
+        }
+        .var-onboard button.btn-ac:disabled { opacity: .65; cursor: wait; }
+        .var-onboard-advanced {
+          font-size: .75rem; color: var(--muted);
+        }
+        .var-onboard-advanced summary {
+          cursor: pointer; user-select: none; list-style: none;
+        }
+        .var-onboard-advanced summary::-webkit-details-marker { display: none; }
+        .var-points-kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 14px; }
+        @media (min-width: 700px) { .var-points-kpis { grid-template-columns: repeat(3, 1fr); } }
+        @media (min-width: 1100px) { .var-points-kpis { grid-template-columns: repeat(6, 1fr); } }
+        .var-dash-nav {
+          display: flex; gap: 2px; flex-wrap: wrap;
+          background: var(--surface-2);
+          border: 1px solid var(--border);
+          border-radius: 999px;
+          padding: 4px;
+        }
+        .var-dash-nav .var-sub-tab {
+          padding: 7px 14px; border-radius: 999px; font-size: .82rem; font-weight: 600;
+          cursor: pointer; transition: background .15s, color .15s;
+          background: transparent; color: var(--muted); user-select: none;
+        }
+        .var-dash-nav .var-sub-tab:hover { color: var(--text); }
+        .var-dash-nav .var-sub-tab.active {
+          background: color-mix(in srgb, var(--text) 12%, transparent);
+          color: var(--text);
+        }
+        .var-points-inner { display: none !important; }
+        .var-points-inner-tab {
+          appearance: none; border: 0; background: transparent; cursor: pointer;
+          padding: 7px 16px; border-radius: 999px; font-size: .82rem; font-weight: 600;
+          color: var(--muted); transition: all .15s;
+        }
+        .var-points-inner-tab.is-on {
+          background: color-mix(in srgb, var(--var-accent,#4c9af8) 22%, transparent);
+          color: var(--text);
+        }
+        .var-points-view { display: none; }
+        .var-points-view.is-on { display: block; }
+        .var-points-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+        @media (min-width: 1100px) {
+          .var-points-grid { grid-template-columns: minmax(0, 1.7fr) minmax(280px, 1fr); align-items: start; }
+        }
+        .var-epoch-bar-wrap { display: flex; align-items: center; gap: 8px; min-width: 120px; }
+        .var-epoch-bar { flex: 1; height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; }
+        .var-epoch-bar > span { display: block; height: 100%; background: var(--var-accent,#4c9af8); border-radius: 3px; }
+        .var-epoch-list { display: flex; flex-direction: column; gap: 0; }
+        .var-epoch-head {
+          display: grid;
+          grid-template-columns: minmax(160px, 1.6fr) repeat(3, minmax(72px, 0.7fr)) minmax(72px, 0.7fr) 28px;
+          gap: 8px; padding: 0 12px 8px; font-size: .65rem; font-weight: 700;
+          letter-spacing: .06em; text-transform: uppercase; color: var(--muted);
+        }
+        .var-epoch-row {
+          border-top: 1px solid var(--border);
+        }
+        .var-epoch-row.is-live .var-epoch-summary { background: color-mix(in srgb, var(--var-accent,#4c9af8) 6%, transparent); }
+        .var-epoch-summary {
+          display: grid;
+          grid-template-columns: minmax(160px, 1.6fr) repeat(3, minmax(72px, 0.7fr)) minmax(72px, 0.7fr) 28px;
+          gap: 8px; align-items: center; width: 100%;
+          padding: 12px; border: 0; background: transparent; color: inherit;
+          text-align: left; cursor: pointer; font: inherit;
+        }
+        .var-epoch-summary:hover { background: color-mix(in srgb, var(--muted) 8%, transparent); }
+        .var-epoch-range { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-weight: 600; }
+        .var-epoch-sub { font-size: .72rem; color: var(--muted); margin-top: 2px; }
+        .var-epoch-badge {
+          display: inline-flex; align-items: center; padding: 2px 7px; border-radius: 4px;
+          font-size: .62rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+          color: #1a1208; background: #e8a04a;
+        }
+        .var-epoch-col { text-align: right; }
+        .var-epoch-col-lbl {
+          display: none; font-size: .62rem; font-weight: 700; letter-spacing: .05em;
+          text-transform: uppercase; color: var(--muted); margin-bottom: 2px;
+        }
+        .var-epoch-col-val { font-variant-numeric: tabular-nums; font-weight: 600; }
+        .var-epoch-col-val.is-pos, .var-epoch-mkt-pnl.is-pos, .var-epoch-oi-extra .is-pos { color: #3dba7a; }
+        .var-epoch-col-val.is-neg, .var-epoch-mkt-pnl.is-neg, .var-epoch-oi-extra .is-neg { color: #e06b6b; }
+        .var-epoch-chev {
+          width: 18px; height: 18px; margin-left: auto;
+          background: currentColor; opacity: .45;
+          -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") center / contain no-repeat;
+          transition: transform .18s ease;
+        }
+        .var-epoch-row.is-open .var-epoch-chev { transform: rotate(180deg); }
+        .var-epoch-detail {
+          display: grid; grid-template-columns: 1fr; gap: 18px;
+          padding: 4px 12px 16px; margin: 0 8px 10px;
+          border-radius: 10px; border: 1px solid var(--border);
+          background: color-mix(in srgb, var(--surface-2) 88%, #000);
+        }
+        @media (min-width: 860px) {
+          .var-epoch-detail { grid-template-columns: minmax(220px, 0.9fr) minmax(0, 1.4fr); }
+        }
+        .var-epoch-detail-h {
+          font-size: .65rem; font-weight: 700; letter-spacing: .07em;
+          text-transform: uppercase; color: var(--muted); margin-bottom: 10px;
+        }
+        .var-epoch-oi-grid {
+          display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+          padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid var(--border);
+        }
+        .var-epoch-oi-grid .lbl {
+          display: block; font-size: .62rem; color: var(--muted); margin-bottom: 4px;
+          text-transform: uppercase; letter-spacing: .04em;
+        }
+        .var-epoch-oi-grid strong { font-size: .95rem; font-variant-numeric: tabular-nums; }
+        .var-epoch-oi-extra {
+          display: flex; flex-direction: column; gap: 6px;
+          font-size: .8rem; color: var(--muted);
+        }
+        .var-epoch-markets { display: flex; flex-direction: column; gap: 7px; }
+        .var-epoch-markets-empty { font-size: .78rem; color: var(--muted); }
+        .var-epoch-mkt {
+          display: grid; grid-template-columns: minmax(88px, 0.9fr) minmax(0, 1fr) 64px;
+          gap: 10px; align-items: center;
+        }
+        .var-epoch-mkt-asset {
+          display: inline-flex; align-items: center; gap: 8px; min-width: 0;
+        }
+        .var-epoch-mkt-logo {
+          position: relative; width: 22px; height: 22px; flex: 0 0 22px;
+          border-radius: 50%;
+          overflow: hidden;
+          background: transparent;
+          /* Smooth circular mask — avoid 1px border rings that alias on dark UI */
+          -webkit-mask-image: -webkit-radial-gradient(white, black);
+          mask-image: radial-gradient(white, black);
+        }
+        .var-epoch-mkt-logo img {
+          width: 100%; height: 100%; object-fit: contain; display: block;
+          background: transparent;
+          border: 0; outline: 0;
+        }
+        .var-epoch-mkt-fb {
+          display: none; width: 100%; height: 100%;
+          align-items: center; justify-content: center;
+          font-size: .55rem; font-weight: 700; letter-spacing: .02em; color: #fff;
+          border-radius: 50%;
+        }
+        .var-epoch-mkt-logo.is-fallback {
+          background: var(--border);
+        }
+        .var-epoch-mkt-logo.is-fallback .var-epoch-mkt-fb { display: inline-flex; }
+        .var-epoch-mkt-logo.is-fallback img { display: none; }
+        .var-epoch-mkt-name { font-size: .78rem; font-weight: 600; }
+        .var-epoch-mkt-bar {
+          height: 6px; border-radius: 3px; background: var(--border); overflow: hidden;
+        }
+        .var-epoch-mkt-bar > span {
+          display: block; height: 100%; border-radius: 3px;
+          background: color-mix(in srgb, var(--var-accent,#4c9af8) 85%, #fff);
+        }
+        .var-epoch-mkt-pnl { text-align: right; font-size: .78rem; font-variant-numeric: tabular-nums; }
+        .var-epoch-markets-toggle {
+          align-self: flex-start; margin-top: 4px; border: 0; background: transparent;
+          color: var(--muted); font: inherit; font-size: .72rem; cursor: pointer; padding: 0;
+        }
+        .var-epoch-markets-toggle:hover { color: var(--text); }
+        @media (max-width: 720px) {
+          .var-epoch-head { display: none; }
+          .var-epoch-summary {
+            grid-template-columns: 1fr 1fr; gap: 10px 12px;
+          }
+          .var-epoch-col-lbl { display: block; }
+          .var-epoch-col, .var-epoch-col-epoch { text-align: left; }
+          .var-epoch-chev { grid-column: 2; justify-self: end; }
+        }
+        .var-comp-wrap { border: 1px solid var(--border); border-radius: 14px; background: var(--surface-2); overflow: hidden; }
+        .var-comp-wrap .hs-trades-table { margin: 0; }
+        .var-comp-wrap .hs-trades-table th,
+        .var-comp-wrap .hs-trades-table td { padding: 10px 12px; }
+        .var-comp-wrap tr.is-self td {
+          background: color-mix(in srgb, var(--var-accent,#4c9af8) 12%, transparent);
+        }
+        .var-comp-meta { font-size: .72rem; color: var(--muted); margin-top: 8px; }
+        .var-comp-stand-head, .var-comp-field-head, .var-comp-bands-head {
+          display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px;
+          margin: 18px 0 10px;
+        }
+        .var-comp-stand-head h3, .var-comp-field-head h3, .var-comp-bands-head h3 {
+          margin: 0; font-size: .95rem; font-weight: 700;
+        }
+        .var-comp-stand-head span, .var-comp-field-head span, .var-comp-bands-head span {
+          font-size: .72rem; color: var(--muted);
+        }
+        .var-comp-stand-grid {
+          display: grid; grid-template-columns: 1fr; gap: 10px; margin-bottom: 8px;
+        }
+        @media (min-width: 720px) { .var-comp-stand-grid { grid-template-columns: repeat(3, 1fr); } }
+        .var-comp-stand-card {
+          padding: 14px 16px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-2);
+        }
+        .var-comp-stand-card .lbl { font-size: .65rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+        .var-comp-stand-card .val { font-size: 1.35rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.15; }
+        .var-comp-stand-card .sub { font-size: .72rem; color: var(--muted); margin-top: 6px; line-height: 1.35; }
+        .var-comp-stand-bar {
+          margin-top: 10px; height: 6px; border-radius: 3px; background: var(--border); overflow: hidden;
+        }
+        .var-comp-stand-bar > span {
+          display: block; height: 100%; border-radius: 3px;
+          background: var(--var-accent,#4c9af8);
+        }
+        .var-comp-meta-row {
+          display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center;
+          margin: 10px 0 0; font-size: .78rem; color: var(--muted);
+        }
+        .var-comp-meta-pill {
+          display: inline-flex; align-items: center; gap: 6px;
+          padding: 4px 10px; border-radius: 999px;
+          border: 1px solid var(--border); background: var(--surface-2);
+          font-size: .72rem; color: var(--text);
+        }
+        .var-comp-wallet {
+          margin: 14px 0 8px; padding: 16px 18px; border-radius: 14px;
+          border: 1px solid color-mix(in srgb, var(--var-accent,#4c9af8) 35%, var(--border));
+          background: linear-gradient(135deg, color-mix(in srgb, var(--var-accent,#4c9af8) 12%, transparent), var(--surface-2));
+        }
+        .var-comp-wallet-kicker {
+          font-size: .65rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+          color: var(--muted); margin-bottom: 8px;
+        }
+        .var-comp-wallet-main {
+          display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 10px 16px;
+        }
+        .var-comp-wallet-name { font-size: 1.15rem; font-weight: 700; }
+        .var-comp-wallet-addr { font-size: .78rem; color: var(--muted); margin-left: 8px; font-weight: 500; }
+        .var-comp-wallet-place { font-size: 1.05rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+        .var-comp-wallet-stats {
+          display: flex; flex-wrap: wrap; gap: 14px 20px; margin-top: 12px; font-size: .82rem; color: var(--muted);
+        }
+        .var-comp-wallet-stats strong { color: var(--text); font-variant-numeric: tabular-nums; }
+        .var-comp-score-hint {
+          margin: 12px 0 4px; padding: 12px 14px; border-radius: 12px;
+          border: 1px solid var(--border); background: var(--surface-2);
+          font-size: .8rem; color: var(--muted); line-height: 1.5;
+        }
+        .var-comp-score-hint strong { color: var(--text); }
+        .var-comp-score-hint code {
+          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+          font-size: .78rem; color: var(--var-accent,#4c9af8);
+        }
+        .var-comp-field-grid {
+          display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 8px;
+        }
+        @media (min-width: 900px) { .var-comp-field-grid { grid-template-columns: repeat(3, 1fr); } }
+        @media (min-width: 1200px) { .var-comp-field-grid { grid-template-columns: repeat(6, 1fr); } }
+        .var-comp-field-card {
+          padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-2);
+        }
+        .var-comp-field-card .lbl { font-size: .62rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+        .var-comp-field-card .val { font-size: 1.05rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+        .var-comp-field-card .sub { font-size: .68rem; color: var(--muted); margin-top: 4px; line-height: 1.35; }
+        .var-comp-bands {
+          padding: 14px 16px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface-2); margin-bottom: 16px;
+        }
+        .var-comp-band-row {
+          display: grid; grid-template-columns: 88px 1fr 72px 72px; gap: 10px; align-items: center;
+          padding: 7px 0; border-bottom: 1px solid var(--border); font-size: .78rem;
+        }
+        .var-comp-band-row:last-child { border-bottom: 0; }
+        .var-comp-band-label { color: var(--muted); font-variant-numeric: tabular-nums; }
+        .var-comp-band-track { height: 8px; border-radius: 4px; background: var(--border); overflow: hidden; }
+        .var-comp-band-track > span { display: block; height: 100%; background: var(--var-accent,#4c9af8); border-radius: 4px; }
+        .var-comp-band-n, .var-comp-band-vol { text-align: right; font-variant-numeric: tabular-nums; }
+        .var-lab-models { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
+        .var-lab-model {
+          appearance: none; border: 1px solid var(--border); background: var(--surface-2); color: var(--muted);
+          border-radius: 999px; padding: 7px 14px; font-size: .78rem; font-weight: 600; cursor: pointer;
+        }
+        .var-lab-model.is-on {
+          background: color-mix(in srgb, var(--var-accent,#4c9af8) 22%, transparent);
+          border-color: color-mix(in srgb, var(--var-accent,#4c9af8) 45%, var(--border));
+          color: var(--text);
+        }
+        .var-lab-claim {
+          font-size: .85rem; color: var(--text); line-height: 1.45; margin: 0 0 6px; max-width: 70ch;
+        }
+        .var-lab-provenance { font-size: .72rem; color: var(--muted); line-height: 1.4; margin: 0 0 16px; max-width: 70ch; }
+        .var-lab-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+        @media (min-width: 960px) { .var-lab-grid { grid-template-columns: minmax(260px, 340px) 1fr; } }
+        .var-lab-result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+        @media (min-width: 640px) { .var-lab-result-grid { grid-template-columns: repeat(4, 1fr); } }
+        .var-lab-pool-hint { font-size: .72rem; color: var(--muted); line-height: 1.45; margin: 10px 0 0; max-width: 72ch; }
+        #varLabPoolTable .is-pos { color: #3dba7a; }
+        #varLabPoolTable .is-neg { color: #e06b6b; }
+        .var-points-hero { margin-bottom: 14px; }
+        .var-points-hero h2 {
+          margin: 0 0 6px; font-size: 1.35rem; font-weight: 700; letter-spacing: -.02em;
+        }
+        .var-points-hero p { margin: 0; font-size: .85rem; color: var(--muted); line-height: 1.45; max-width: 62ch; }
+        .var-self-card .row { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: .82rem; }
+        .var-self-card .row:last-child { border-bottom: 0; }
+        .var-self-card .row strong { font-variant-numeric: tabular-nums; }
+        .var-airdrop-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+        @media (min-width: 960px) { .var-airdrop-grid { grid-template-columns: minmax(280px, 360px) 1fr; } }
+        .var-airdrop-assumptions label { display: block; margin-bottom: 14px; }
+        .var-airdrop-assumptions .lab { font-size: .72rem; color: var(--muted); margin-bottom: 6px; display: flex; justify-content: space-between; gap: 8px; }
+        .var-airdrop-assumptions .lab strong { color: var(--text); font-variant-numeric: tabular-nums; }
+        .var-airdrop-assumptions input[type="range"] { width: 100%; accent-color: var(--var-accent,#4c9af8); }
+        .var-airdrop-consensus { font-size: .65rem; color: var(--muted); margin-top: 4px; }
+        .var-airdrop-result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+        @media (min-width: 640px) { .var-airdrop-result-grid { grid-template-columns: repeat(4, 1fr); } }
+        .var-airdrop-cost-row { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: .82rem; }
+        .var-airdrop-cost-row:last-child { border-bottom: none; }
+        .var-airdrop-share { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+        .var-airdrop-share canvas { width: 100%; max-width: 420px; height: auto; border-radius: 12px; border: 1px solid var(--border); display: block; margin-bottom: 10px; background: #0b0d14; }
+        .var-airdrop-disclaimer { font-size: .72rem; color: var(--muted); line-height: 1.45; margin: 12px 0 0; }
+        .var-dash { margin: 8px 0 18px; }
+        .var-dash-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+        .var-dash-title { font-size: 1.15rem; font-weight: 700; margin: 0; letter-spacing: -.02em; }
+        .var-dash-meta { font-size: .76rem; color: var(--muted); margin-top: 4px; }
+        .var-dash-periods { display: flex; flex-wrap: wrap; gap: 6px; }
+        .var-dash-period {
+          font-size: .72rem; font-weight: 600; padding: 6px 11px; border-radius: 999px; cursor: pointer;
+          border: 1px solid var(--border); background: var(--surface-2); color: var(--muted); transition: all .15s;
+        }
+        .var-dash-period.active { background: var(--var-accent,#4c9af8); color: #0b0d14; border-color: transparent; }
+        .var-dash-kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 14px; }
+        @media (min-width: 720px) { .var-dash-kpis { grid-template-columns: repeat(3, 1fr); } }
+        @media (min-width: 1100px) { .var-dash-kpis { grid-template-columns: repeat(6, 1fr); } }
+        .var-dash-kpi { padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-2); }
+        .var-dash-kpi-label { font-size: .65rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+        .var-dash-kpi-val { font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; }
+        .var-dash-kpi-sub { font-size: .7rem; color: var(--muted); margin-top: 4px; line-height: 1.35; }
+        .var-dash-kpi-val.pos { color: var(--success); }
+        .var-dash-kpi-val.neg { color: var(--danger); }
+        .var-overview-panel { border-bottom: 1px solid var(--border); }
+        .var-overview-head { margin-bottom: 16px; }
+        .var-overview-title {
+          font-size: 1.35rem; font-weight: 750; margin: 0;
+          letter-spacing: -.02em; color: var(--text);
+        }
+        .var-overview-lead {
+          font-size: .85rem; color: var(--muted); margin: 6px 0 0; line-height: 1.45; max-width: 42rem;
+        }
+        .var-overview-meta {
+          font-size: .75rem; color: var(--muted); margin-top: 8px;
+        }
+        .var-overview-kpis .kpi { min-height: 108px; }
+        .var-overview-kpis .kpi-val { font-size: 1.45rem; }
+        .var-dash-chart {
+          border: 1px solid var(--border); border-radius: 14px; background: var(--surface-2);
+          padding: 14px 16px 10px; margin-bottom: 12px; position: relative;
+        }
+        .var-dash-chart-h { font-size: .92rem; font-weight: 650; margin: 0 0 2px; }
+        .var-dash-chart-sub { font-size: .72rem; color: var(--muted); margin: 0 0 10px; line-height: 1.4; }
+        .var-dash-chart canvas { width: 100%; height: 200px; display: block; cursor: crosshair; }
+        .var-chart-tip {
+          display: none; position: absolute; z-index: 5; pointer-events: none;
+          min-width: 140px; max-width: 220px; padding: 8px 10px; border-radius: 8px;
+          background: rgba(12, 14, 20, .94); border: 1px solid var(--border);
+          color: var(--text); font-size: .72rem; line-height: 1.4;
+          box-shadow: 0 8px 24px rgba(0,0,0,.35);
+        }
+        .var-chart-tip strong { display: block; font-size: .78rem; margin-bottom: 4px; }
+        .var-chart-tip .muted { color: var(--muted); }
+        .var-dash-split { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 12px; }
+        @media (min-width: 960px) { .var-dash-split { grid-template-columns: 1.2fr .8fr; } }
+        .var-dash-panel { border: 1px solid var(--border); border-radius: 14px; background: var(--surface-2); padding: 14px 16px; min-height: 160px; }
+        .var-dash-panel-h { font-size: .92rem; font-weight: 650; margin: 0 0 2px; }
+        .var-dash-panel-sub { font-size: .72rem; color: var(--muted); margin: 0 0 12px; }
+        .var-pair-share { display: flex; align-items: center; gap: 8px; min-width: 110px; }
+        .var-pair-bar { flex: 1; height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; }
+        .var-pair-bar > span { display: block; height: 100%; background: var(--var-accent,#4c9af8); border-radius: 3px; }
+        .var-pos-empty { text-align: center; padding: 28px 12px; color: var(--muted); font-size: .82rem; }
         .var-radar-spark { display: block; margin: 0 auto; vertical-align: middle; }
         .var-radar-spark-empty { color: var(--muted); font-size: .75rem; }
         .var-radar-spark-progress { display: block; font-size: .62rem; color: var(--muted); line-height: 1.25; margin-top: 2px; white-space: nowrap; }
@@ -4354,7 +5105,7 @@ const HS_CONFIG = {
     .welcome-platforms {
       display: grid;
       gap: 14px;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       align-items: stretch;
       margin-bottom: 14px;
     }
@@ -4455,6 +5206,7 @@ const HS_CONFIG = {
     .welcome-platforms .welcome-card:nth-child(1) { --hs-neon-a: #97FCE4; --hs-neon-b: #6ee7ff; --hs-neon-sweep-delay: 0s; }
     .welcome-platforms .welcome-card:nth-child(2) { --hs-neon-a: #FBBF24; --hs-neon-b: #fcd34d; --hs-neon-sweep-delay: .8s; }
     .welcome-platforms .welcome-card:nth-child(3) { --hs-neon-a: #00B4FF; --hs-neon-b: #38bdf8; --hs-neon-sweep-delay: 1.6s; }
+    .welcome-platforms .welcome-card:nth-child(4) { --hs-neon-a: #4c9af8; --hs-neon-b: #93c5fd; --hs-neon-sweep-delay: 2.4s; }
     /* Signal + Farming — même néon (#6ee7ff) */
     .welcome-features-scroll .welcome-card[data-welcome-feat="1"],
     .welcome-features-scroll .welcome-card[data-welcome-feat="3"] {
@@ -4511,6 +5263,9 @@ const HS_CONFIG = {
       -webkit-line-clamp: 4;
       line-clamp: 4;
       overflow: hidden;
+    }
+    @media (max-width: 980px) {
+      .welcome-platforms { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
     @media (max-width: 720px) {
       .welcome-platforms { grid-template-columns: 1fr; }
@@ -4669,6 +5424,7 @@ const HS_CONFIG = {
     [data-theme="light"] .welcome-platforms .welcome-card:nth-child(1) { --hs-neon-a: #0d9488; --hs-neon-b: #0891b2; }
     [data-theme="light"] .welcome-platforms .welcome-card:nth-child(2) { --hs-neon-a: #d97706; --hs-neon-b: #f59e0b; }
     [data-theme="light"] .welcome-platforms .welcome-card:nth-child(3) { --hs-neon-a: #0284c7; --hs-neon-b: #0ea5e9; }
+    [data-theme="light"] .welcome-platforms .welcome-card:nth-child(4) { --hs-neon-a: #2563eb; --hs-neon-b: #60a5fa; }
     [data-theme="light"] .welcome-features-scroll .welcome-card[data-welcome-feat] {
       --hs-neon-a: #0891b2;
       --hs-neon-b: #38bdf8;
@@ -5113,13 +5869,17 @@ const HS_CONFIG = {
     .share-action.primary:hover { transform: translateY(-1px); }
     .share-toast {
       position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
-      background: rgba(34,197,94,.95); color: var(--on-accent); font-weight: 700;
+      background: rgba(34,197,94,.95); color: #0b0d14; font-weight: 700;
       padding: 10px 18px; border-radius: 8px; font-size: .82rem;
-      z-index: 9999; opacity: 0; pointer-events: none;
-      transition: opacity .25s ease, transform .25s ease;
+      z-index: 9999; opacity: 0; visibility: hidden; pointer-events: none;
+      transition: opacity .25s ease, transform .25s ease, visibility .25s ease;
+      cursor: pointer; max-width: min(92vw, 420px); text-align: center;
     }
-    .share-toast.show { opacity: 1; transform: translate(-50%, -6px); }
-    .share-toast.error { background: rgba(239,68,68,.95); }
+    .share-toast.show {
+      opacity: 1; visibility: visible; pointer-events: auto;
+      transform: translate(-50%, -6px);
+    }
+    .share-toast.error { background: rgba(239,68,68,.95); color: #fff; }
   
     /* ─── SIDEBAR LAYOUT ─────────────────────────────────────────────── */
     :root {
@@ -8571,6 +9331,101 @@ const HS_CONFIG = {
       .sig-toolbar-main .sig-select-wrap { flex: 1 1 100px; max-width: none; }
     }
 
+    /* ── Embed mode (widget iframe: ?page=wallet|leaderboard&embed=1) ── */
+    body.hs-embed-mode #sigWatchBanner,
+    body.hs-embed-mode #sidebar,
+    body.hs-embed-mode #mobileNav,
+    body.hs-embed-mode #supportTopBanner,
+    body.hs-embed-mode #referralBanner,
+    body.hs-embed-mode #hsFooterBar,
+    body.hs-embed-mode #welcomeScreen,
+    body.hs-embed-mode #hsLaunchOverlay,
+    body.hs-embed-mode #navTabs,
+    body.hs-embed-mode #navTabsSig,
+    body.hs-embed-mode .page-data-credit,
+    body.hs-embed-mode a[href*="0xDOCTEUR"][style*="position:fixed"],
+    body.hs-embed-mode #lbMaintWrap,
+    body.hs-embed-mode .info-bubble-launcher,
+    body.hs-embed-mode .info-bubble-dock,
+    body.hs-embed-mode #infoBubbleDock,
+    body.hs-embed-mode #hs-dn-widget-root,
+    body.hs-embed-mode [data-hs-widget="1"] {
+      display: none !important;
+    }
+    /* Extension in-page FAB must never cover Hypersheets itself (side panel is enough). */
+    #hs-dn-widget-root,
+    [data-hs-widget="1"] {
+      display: none !important;
+      visibility: hidden !important;
+      pointer-events: none !important;
+    }
+    body.hs-embed-mode #appShell {
+      display: block !important;
+      min-height: 100vh;
+    }
+    body.hs-embed-mode #mainContent {
+      margin: 0 !important;
+      padding: 10px 12px 16px !important;
+      width: 100% !important;
+      max-width: none !important;
+      min-height: 100vh;
+      overflow: auto !important;
+    }
+    /* Keep wallets + refresh chrome (same as site), hide only shell chrome above */
+    body.hs-embed-mode #mainContent > header.hs-page-header {
+      display: flex !important;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 10px;
+      padding: 0;
+    }
+    body.hs-embed-mode #headerToolbar {
+      display: flex !important;
+      flex-wrap: wrap;
+      gap: 6px;
+      width: 100%;
+    }
+    body.hs-embed-mode #filterRow {
+      display: flex !important;
+      margin-bottom: 12px !important;
+      padding: 0 !important;
+      position: static !important;
+      left: auto !important;
+      width: 100% !important;
+      box-shadow: none !important;
+      border: none !important;
+      background: transparent !important;
+    }
+    body.hs-embed-mode #filterPeriodPills {
+      display: none !important;
+    }
+    body.hs-embed-mode #walletsRow:not(.hidden) {
+      display: flex !important;
+      margin-bottom: 10px !important;
+    }
+    body.hs-embed-mode .page { display: none !important; }
+    body.hs-embed-mode #page-wallet.page.active,
+    body.hs-embed-mode #page-leaderboard.page.active {
+      display: block !important;
+    }
+    body.hs-embed-mode #page-wallet .wallet-kpi-row {
+      grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+      gap: 8px;
+    }
+    body.hs-embed-mode #hip3LeaderboardSection {
+      margin-bottom: 0 !important;
+      padding: 14px !important;
+    }
+    body.hs-embed-mode .lb-hero-rank-row {
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+    @media (min-width: 520px) {
+      body.hs-embed-mode .lb-hero-rank-row {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
     </style>
 </head>
 <body data-page="dashboard" data-sig-universe="perp" class="min-h-screen hs-welcome-mode">
@@ -8585,6 +9440,21 @@ const HS_CONFIG = {
     }
     if (sessionStorage.getItem('hs-dash-session-launched') === '1') {
       document.body.classList.remove('hs-welcome-mode');
+    }
+    var q = new URLSearchParams(location.search || '');
+    var embedRaw = String(q.get('embed') || '').toLowerCase();
+    var page = String(q.get('page') || '').toLowerCase();
+    var embedOn = embedRaw === '1' || embedRaw === 'wallet' || embedRaw === 'leaderboard'
+      || page === 'wallet' || page === 'leaderboard';
+    var embedPage = page === 'leaderboard' || embedRaw === 'leaderboard'
+      ? 'leaderboard'
+      : (page === 'wallet' || embedRaw === 'wallet' || embedRaw === '1' ? 'wallet' : '');
+    if (embedOn) {
+      document.body.classList.remove('hs-welcome-mode');
+      document.body.classList.add('hs-embed-mode');
+      try { sessionStorage.setItem('hs-dash-session-launched', '1'); } catch (_) {}
+      try { localStorage.setItem('hs-dashboard-unlocked', '1'); } catch (_) {}
+      if (embedPage) document.body.dataset.page = embedPage;
     }
   } catch (_) {}
 })();
@@ -8772,6 +9642,14 @@ const HS_CONFIG = {
         </div>
         <div class="welcome-card-title" data-i18n="tab.hyperunit">HyperUnit</div>
         <div class="welcome-card-desc" data-i18n="welcome.card.unit">Cross-chain bridge deposits & withdrawals (BTC, SOL, ETH, MON…).</div>
+      </div>
+      <!-- Variational -->
+      <div class="welcome-card hs-neon-tile">
+        <div class="welcome-card-icon" style="padding:0;overflow:hidden;background:none;border:none">
+          <img src="img/variational-logo.png" alt="" width="36" height="36" style="width:36px;height:36px;border-radius:10px;object-fit:cover;display:block" decoding="async" />
+        </div>
+        <div class="welcome-card-title" data-i18n="tab.variational">Variational</div>
+        <div class="welcome-card-desc" data-i18n="welcome.card.var">Omni markets, points, activity and airdrop scenarios — synced locally.</div>
       </div>
       </div>
       <div class="welcome-features-carousel">
@@ -9254,23 +10132,101 @@ const HS_CONFIG = {
         <span class="hs-dapp-title-ext" aria-hidden="true">↗</span>
       </a>
     </div>
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-      <div class="kpi kpi-accent"><div class="kpi-label" data-i18n="var.kpiVol">Omni volume</div><div class="kpi-val" id="varKpiVol">—</div><div class="kpi-sub" id="varKpiVolSub">24h</div></div>
-      <div class="kpi"><div class="kpi-label" data-i18n="var.kpiTvl">TVL</div><div class="kpi-val" id="varKpiTvl">—</div><div class="kpi-sub" id="varKpiTvlSub"></div></div>
-      <div class="kpi"><div class="kpi-label" data-i18n="var.kpiOi">Open interest</div><div class="kpi-val" id="varKpiOi">—</div><div class="kpi-sub" id="varKpiOiSub"></div></div>
-      <div class="kpi"><div class="kpi-label" data-i18n="var.kpiMkts">Markets</div><div class="kpi-val" id="varKpiMkts">—</div><div class="kpi-sub" id="varKpiMktsSub"></div></div>
-    </div>
 
-    <div class="surface overflow-hidden mb-6">
-      <div class="px-5 py-3 border-b flex items-center justify-between flex-wrap gap-3" style="border-color:var(--border)">
-        <div style="display:flex;gap:4px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:4px">
-          <span class="var-sub-tab active" data-varsub="radar" onclick="varSetSub('radar',this)" style="padding:6px 18px;border-radius:7px;font-size:.82rem;font-weight:600;cursor:pointer;transition:all .18s;background:var(--var-accent,#4c9af8);color:#0b0d14" data-i18n="var.subRadar">Market radar</span>
-          <span class="var-sub-tab" data-varsub="hedge" onclick="varSetSub('hedge',this)" style="padding:6px 18px;border-radius:7px;font-size:.82rem;font-weight:600;cursor:pointer;transition:all .18s;background:transparent;color:var(--muted)" data-i18n="var.subHedge">Delta-neutral</span>
-          <span class="var-sub-tab" data-varsub="activity" onclick="varSetSub('activity',this)" style="padding:6px 18px;border-radius:7px;font-size:.82rem;font-weight:600;cursor:pointer;transition:all .18s;background:transparent;color:var(--muted)" data-i18n="var.subActivity">Activity</span>
+    <div class="surface overflow-hidden mb-6" id="varDashboard">
+      <div class="px-5 py-3 border-b flex items-center justify-between flex-wrap gap-3 var-dash-sticky-nav" style="border-color:var(--border);position:sticky;top:0;z-index:20;background:var(--surface, #0b0d14)">
+        <div class="var-dash-nav" role="navigation" aria-label="Variational">
+          <span class="var-sub-tab active" data-varsub="live" onclick="varSetSub('live',this)" data-i18n="var.subLive">Omni Live</span>
+          <span class="var-sub-tab" data-varsub="dashboard" onclick="varSetSub('dashboard',this)" data-i18n="var.subDashboard">Dashboard</span>
+          <span class="var-sub-tab" data-varsub="points" onclick="varSetSub('points',this)" data-i18n="var.subPoints">Points</span>
+          <span class="var-sub-tab" data-varsub="lab" onclick="varSetSub('lab',this)" data-i18n="var.subLab">Lab</span>
+          <span class="var-sub-tab" data-varsub="competition" onclick="varSetSub('competition',this)" data-i18n="var.subCompetition">Competition</span>
+          <span class="var-sub-tab" data-varsub="airdrop" onclick="varSetSub('airdrop',this)" data-i18n="var.subAirdrop">Airdrop</span>
         </div>
       </div>
 
-      <div class="var-sub-panel" data-varpanel="radar">
+      <div class="var-dashboard-stack" id="varDashboardStack" style="display:flex;flex-direction:column">
+      <div class="var-sub-panel var-overview-panel" data-varpanel="overview" id="varSecOverviewPanel" style="order:0;display:none">
+        <div class="px-5 py-5" id="varSecOverview">
+          <div class="var-overview-head">
+            <div>
+              <h2 class="var-overview-title" data-i18n="var.overviewTitle">Overview</h2>
+              <p class="var-overview-lead" data-i18n="var.overviewLead">Tes stats Omni après sync — volume, PnL, points et rang compétition.</p>
+              <div class="var-overview-meta" id="varOverviewMeta"></div>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 var-overview-kpis" id="varUserHeroKpis">
+            <div class="kpi kpi-accent">
+              <div class="kpi-label" data-i18n="var.kpiVol">Ton volume</div>
+              <div class="kpi-val" id="varKpiVol">—</div>
+              <div class="kpi-sub" id="varKpiVolSub" data-i18n="var.kpiVolSubEmpty">Collecte Omni d’abord</div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-label" data-i18n="var.kpiTvl">PnL réalisé</div>
+              <div class="kpi-val" id="varKpiTvl">—</div>
+              <div class="kpi-sub" id="varKpiTvlSub"></div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-label" data-i18n="var.kpiOi">Tes points</div>
+              <div class="kpi-val" id="varKpiOi">—</div>
+              <div class="kpi-sub" id="varKpiOiSub"></div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-label" data-i18n="var.kpiMkts">Rang compétition</div>
+              <div class="kpi-val" id="varKpiMkts">—</div>
+              <div class="kpi-sub" id="varKpiMktsSub"></div>
+            </div>
+          </div>
+
+          <div class="var-dash" id="varDash" style="margin-top:22px">
+            <div class="var-dash-head" id="varSecTrading">
+              <div>
+                <h3 class="var-dash-title" data-i18n="var.dashTradingTitle">Trading détail</h3>
+                <div class="var-dash-meta" id="varDashMeta"></div>
+              </div>
+              <div class="var-dash-periods" id="varDashPeriods" role="group" aria-label="Period">
+                <button type="button" class="var-dash-period" data-period="today" onclick="varSetDashPeriod('today')" data-i18n="var.dashToday">Today</button>
+                <button type="button" class="var-dash-period active" data-period="this_epoch" onclick="varSetDashPeriod('this_epoch')" data-i18n="var.dashThisEpoch">This epoch</button>
+                <button type="button" class="var-dash-period" data-period="last_epoch" onclick="varSetDashPeriod('last_epoch')" data-i18n="var.dashLastEpoch">Last epoch</button>
+                <button type="button" class="var-dash-period" data-period="month" onclick="varSetDashPeriod('month')" data-i18n="var.dashMonth">This month</button>
+                <button type="button" class="var-dash-period" data-period="year" onclick="varSetDashPeriod('year')" data-i18n="var.dashYear">This year</button>
+                <button type="button" class="var-dash-period" data-period="all" onclick="varSetDashPeriod('all')" data-i18n="var.dashAll">All time</button>
+              </div>
+            </div>
+            <div class="var-dash-kpis" id="varDashKpis">
+              <div class="var-dash-kpi"><div class="var-dash-kpi-label" data-i18n="var.dashVol">Volume</div><div class="var-dash-kpi-val" id="varDashVol">—</div><div class="var-dash-kpi-sub" id="varDashVolSub"></div></div>
+              <div class="var-dash-kpi"><div class="var-dash-kpi-label" data-i18n="var.dashPnl">Realized PnL</div><div class="var-dash-kpi-val" id="varDashPnl">—</div><div class="var-dash-kpi-sub" id="varDashPnlSub"></div></div>
+              <div class="var-dash-kpi"><div class="var-dash-kpi-label" data-i18n="var.dashAvgOi">Avg open interest</div><div class="var-dash-kpi-val" id="varDashAvgOi">—</div><div class="var-dash-kpi-sub" id="varDashAvgOiSub"></div></div>
+              <div class="var-dash-kpi"><div class="var-dash-kpi-label" data-i18n="var.dashPeakOi">Peak open interest</div><div class="var-dash-kpi-val" id="varDashPeakOi">—</div><div class="var-dash-kpi-sub" id="varDashPeakOiSub"></div></div>
+              <div class="var-dash-kpi"><div class="var-dash-kpi-label" data-i18n="var.dashAvgTrade">Avg trade size</div><div class="var-dash-kpi-val" id="varDashAvgTrade">—</div><div class="var-dash-kpi-sub" id="varDashAvgTradeSub"></div></div>
+              <div class="var-dash-kpi"><div class="var-dash-kpi-label" data-i18n="var.dashFunding">Funding</div><div class="var-dash-kpi-val" id="varDashFunding">—</div><div class="var-dash-kpi-sub" id="varDashFundingSub"></div></div>
+            </div>
+            <div class="var-dash-chart">
+              <p class="var-dash-chart-h" data-i18n="var.dashVolChart">Volume</p>
+              <p class="var-dash-chart-sub" id="varDashVolChartSub"></p>
+              <canvas id="varDashVolCanvas" width="920" height="200" aria-label="Volume chart"></canvas>
+            </div>
+            <div class="var-dash-chart">
+              <p class="var-dash-chart-h" data-i18n="var.dashOiChart">Open interest</p>
+              <p class="var-dash-chart-sub" id="varDashOiChartSub" data-i18n="var.dashOiChartSub">Average held each hour; band is the peak inside that hour. Dashed line is the average across the window (including empty hours).</p>
+              <canvas id="varDashOiCanvas" width="920" height="200" aria-label="Open interest chart"></canvas>
+            </div>
+            <div class="var-dash-split">
+              <div class="var-dash-panel">
+                <p class="var-dash-panel-h" data-i18n="var.dashPairs">Pairs traded</p>
+                <p class="var-dash-panel-sub" id="varDashPairsSub"></p>
+                <div class="overflow-x-auto" id="varDashPairsTable"></div>
+              </div>
+              <div class="var-dash-panel">
+                <p class="var-dash-panel-h" data-i18n="var.dashPositions">Open positions</p>
+                <p class="var-dash-panel-sub" data-i18n="var.dashPositionsSub">Rebuilt from fills</p>
+                <div class="overflow-x-auto" id="varDashPositions"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="var-sub-panel" data-varpanel="radar" id="varSecRadar" style="order:3;display:none;border-top:1px solid var(--border)">
         <div class="px-5 py-3 border-b flex flex-wrap items-center gap-3" style="border-color:var(--border)">
           <label class="text-sm" style="color:var(--muted)" data-i18n="var.sortLabel">Sort</label>
           <select id="varRadarSort" onchange="renderVarRadar()" class="hs-select" style="font-size:.82rem;min-width:160px">
@@ -9312,15 +10268,17 @@ const HS_CONFIG = {
         <div class="overflow-x-auto max-h-[min(62vh,680px)] overflow-y-auto hs-table-wrap px-5 py-2" id="varRadarTable"></div>
       </div>
 
-            <div class="var-sub-panel" data-varpanel="hedge" style="display:none">
+            <div class="var-sub-panel" data-varpanel="hedge" id="varSecHedge" hidden aria-hidden="true" style="display:none !important">
         <div class="var-hedge-wrap px-5 py-4">
-          <div class="section-h mb-2"><span class="bar" style="background:var(--var-accent,#4c9af8)"></span><span data-i18n="var.hedgeTitle">Suivi delta-neutre Omni ↔ Hyperliquid</span></div>
-          <p class="var-hedge-lead" data-i18n="var.hedgeDesc">Indique ta position sur Variational Omni : Hypersheets compare en direct avec ta jambe Hyperliquid (wallet chargé) et calcule l'écart de delta et de funding.</p>
+          <div class="section-h mb-2"><span class="bar" style="background:var(--var-accent,#4c9af8)"></span><span data-i18n="var.hedgeTitle">Delta-neutral tracker (Omni ↔ HL)</span></div>
+          <p class="var-hedge-lead" data-i18n="var.hedgeDesc">Omni legs come from your Activity import (JSON/CSV). HL positions come from your wallet. Click a pair to prefill the hedge and track delta + funding.</p>
+          <p class="var-guide-inline" data-i18n-html="var.hedgeGuideHint">No Omni positions yet? Open <strong>Activity</strong> → download the helper → export Trades CSV from Omni → import into a leg.</p>
           <div class="var-hedge-steps">
-            <span class="var-hedge-step" data-i18n="var.hedgeStep1">Saisis ta jambe Omni</span>
-            <span class="var-hedge-step" data-i18n="var.hedgeStep2">Vérifie la jambe HL</span>
-            <span class="var-hedge-step" data-i18n="var.hedgeStep3">Farme le funding</span>
+            <span class="var-hedge-step" data-i18n="var.hedgeStep1">Import Omni on Activity</span>
+            <span class="var-hedge-step" data-i18n="var.hedgeStep2">Match the HL hedge leg</span>
+            <span class="var-hedge-step" data-i18n="var.hedgeStep3">Farm funding</span>
           </div>
+          <div id="varHedgeLiveBooks" class="var-hedge-books"></div>
           <div id="varHedgeStatus" class="var-hedge-status"></div>
           <div class="var-hedge-grid">
             <div class="var-hedge-col-form">
@@ -9352,7 +10310,7 @@ const HS_CONFIG = {
                 </div>
                 <div style="display:flex;gap:8px;flex-wrap:wrap">
                   <button type="button" class="btn btn-ac" onclick="varSaveLegFromForm()" data-i18n="var.saveLeg">Enregistrer</button>
-                  <button type="button" class="btn btn-ghost" onclick="varRefreshHlLeg()" data-i18n="var.refreshHl">Rafraîchir jambe HL</button>
+                  <button type="button" class="btn btn-ghost" onclick="varRefreshHlLeg()" data-i18n="var.refreshHl">Rafraîchir HL / XYZ</button>
                   <button type="button" class="btn btn-ghost" onclick="varLegClear()" data-i18n="var.clearLeg">Effacer</button>
                 </div>
               </div>
@@ -9365,64 +10323,114 @@ const HS_CONFIG = {
         </div>
       </div>
 
-<div class="var-sub-panel" data-varpanel="activity" style="display:none">
+<div class="var-sub-panel" data-varpanel="activity" id="varSecLive" style="order:1;display:none;border-top:1px solid var(--border)">
         <div class="px-5 py-4 border-b" style="border-color:var(--border)">
-          <div class="section-h mb-3"><span class="bar" style="background:var(--var-accent,#4c9af8)"></span><span data-i18n="var.activityTitle">Portfolio activity (CSV)</span></div>
-          <p style="font-size:.8rem;color:var(--muted);margin:0 0 12px" data-i18n="var.csvHint">Import each Omni export separately (trades, funding, realized PnL, transfers) — stored locally in your browser.</p>
-          <div class="var-csv-imports" id="varCsvImports">
-            <div class="var-csv-slot" data-csv-kind="trades">
-              <div class="var-csv-slot-title" data-i18n="var.csvKindTrades">Trades</div>
-              <div class="var-csv-slot-meta" id="varCsvMetaTrades" data-i18n="var.csvNotImported">Not imported yet</div>
-              <div class="var-csv-slot-actions">
-                <label class="btn btn-ac" style="cursor:pointer;margin:0">
-                  <span data-i18n="var.importCsv">Import</span>
-                  <input type="file" accept=".csv,text/csv" style="display:none" onchange="varImportCsvFiles(this,'trades')"/>
-                </label>
-                <button type="button" class="btn btn-ghost" onclick="varClearCsvKind('trades')" data-i18n="var.csvClearKind">Clear</button>
+          <div class="section-h mb-3"><span class="bar" style="background:var(--var-accent,#4c9af8)"></span><span data-i18n="var.liveTitle">Omni Live</span></div>
+          <div class="var-onboard" id="varActivityOnboard">
+            <strong class="var-guide-title" data-i18n="var.onboardTitle">Omni Live requires the Chrome extension</strong>
+            <p class="var-guide-lead" data-i18n="var.onboardBody">Install Hypersheets Omni Live, collect your data on Omni, then sync to this dashboard.</p>
+            <ol class="var-guide-steps">
+              <li class="var-guide-step">
+                <div class="var-guide-step-h"><span class="var-guide-num" aria-hidden="true">1</span><span data-i18n="var.guideStep1Title">Télécharger &amp; installer l’extension</span></div>
+                <p data-i18n-html="var.guideStep1Body">Télécharge le zip, <strong>dézippe-le</strong>, ouvre <strong>chrome://extensions/</strong>, active le <strong>Mode développeur</strong>, clique <strong>Charger non empaquetée</strong>, puis sélectionne le <strong>dossier dézippé</strong> (omni-sync). Épingle <strong>Hypersheets Omni Live</strong>.</p>
+                <div class="var-guide-actions">
+                  <a class="btn btn-ac" href="downloads/hypersheets-omni-helper.zip" download data-i18n="var.extDownload">Télécharger l'extension</a>
+                </div>
+                <p class="var-guide-note" data-i18n-html="var.guideStep1Install">Obligatoire — Omni Live ne fonctionne pas sans l’extension.</p>
+              </li>
+              <li class="var-guide-step">
+                <div class="var-guide-step-h"><span class="var-guide-num" aria-hidden="true">2</span><span data-i18n="var.guideStep2Title">Suivre les étapes dans l’extension</span></div>
+                <p data-i18n-html="var.guideStep2Body">Ouvre le panneau <strong>Hypersheets Omni Live</strong> : ajoute ton wallet HL si besoin, connecte-toi sur Omni, puis clique <strong>Collecter Omni</strong>.</p>
+                <div class="var-guide-actions">
+                  <a class="btn btn-ghost" href="https://omni.variational.io/?ref=OMNILGUPC6GM" target="_blank" rel="noopener noreferrer" data-i18n="var.onboardLink">Ouvrir Omni ↗</a>
+                </div>
+              </li>
+              <li class="var-guide-step">
+                <div class="var-guide-step-h"><span class="var-guide-num" aria-hidden="true">3</span><span data-i18n="var.guideStep3Title">Synchroniser vers Hypersheets</span></div>
+                <p data-i18n-html="var.guideStep3Body">Dans l’extension, section <strong>3 · Envoyer vers Hypersheets</strong>, clique <strong>Synchroniser</strong> : l’extension pousse tes trades, points et positions vers ce dashboard.</p>
+                <div class="var-guide-actions">
+                  <button type="button" class="btn btn-ghost" id="varOmniPosBtnGuide" onclick="varRefreshOmniFromLocal()" data-i18n="var.extSyncPositions">Rafraîchir fills + marks</button>
+                </div>
+                <p id="varOmniSyncStatusGuide" class="var-guide-note" data-i18n="var.extCguHint">Garde cet onglet Hypersheets ouvert pendant la sync. Les données restent dans ton navigateur.</p>
+              </li>
+            </ol>
+            <p class="var-guide-credit" data-i18n="var.onboardCredit">Not affiliated with Variational Protocol. Live marks use the public /metadata/stats API only.</p>
+          </div>
+
+          <div id="varLiveReady" class="var-live-ready" style="display:none" hidden>
+            <div class="var-live-ready-head">
+              <div>
+                <strong class="var-live-ready-title" data-i18n="var.liveReadyTitle">Positions &amp; volume</strong>
+                <p id="varOmniSyncStatus" class="var-guide-note" style="margin:4px 0 0"></p>
+              </div>
+              <div class="var-live-ready-actions">
+                <a class="btn btn-ghost text-xs" href="https://omni.variational.io/?ref=OMNILGUPC6GM" target="_blank" rel="noopener noreferrer" data-i18n="var.onboardLink">Ouvrir Omni ↗</a>
+                <button type="button" class="btn btn-ac text-xs" id="varOmniPosBtn" onclick="varRefreshOmniFromLocal()" data-i18n="var.extSyncPositions">Rafraîchir fills + marks</button>
               </div>
             </div>
-            <div class="var-csv-slot" data-csv-kind="funding">
-              <div class="var-csv-slot-title" data-i18n="var.csvKindFunding">Funding</div>
-              <div class="var-csv-slot-meta" id="varCsvMetaFunding" data-i18n="var.csvNotImported">Not imported yet</div>
-              <div class="var-csv-slot-actions">
-                <label class="btn btn-ac" style="cursor:pointer;margin:0">
-                  <span data-i18n="var.importCsv">Import</span>
-                  <input type="file" accept=".csv,text/csv" style="display:none" onchange="varImportCsvFiles(this,'funding')"/>
-                </label>
-                <button type="button" class="btn btn-ghost" onclick="varClearCsvKind('funding')" data-i18n="var.csvClearKind">Clear</button>
+            <div class="var-live-period-row">
+              <span class="kpi-label" style="margin:0" data-i18n="var.livePeriodLabel">Période</span>
+              <div class="var-dash-periods" id="varLiveVolPeriods" role="tablist">
+                <button type="button" class="var-dash-period" data-live-period="today" onclick="varSetLiveVolPeriod('today')" data-i18n="var.dashToday">Today</button>
+                <button type="button" class="var-dash-period active" data-live-period="this_epoch" onclick="varSetLiveVolPeriod('this_epoch')" data-i18n="var.dashThisEpoch">This epoch</button>
+                <button type="button" class="var-dash-period" data-live-period="all" onclick="varSetLiveVolPeriod('all')" data-i18n="var.dashAll">All</button>
               </div>
             </div>
-            <div class="var-csv-slot" data-csv-kind="realizedPnl">
-              <div class="var-csv-slot-title" data-i18n="var.csvKindPnl">Realized PnL</div>
-              <div class="var-csv-slot-meta" id="varCsvMetaPnl" data-i18n="var.csvNotImported">Not imported yet</div>
-              <div class="var-csv-slot-actions">
-                <label class="btn btn-ac" style="cursor:pointer;margin:0">
-                  <span data-i18n="var.importCsv">Import</span>
-                  <input type="file" accept=".csv,text/csv" style="display:none" onchange="varImportCsvFiles(this,'realizedPnl')"/>
-                </label>
-                <button type="button" class="btn btn-ghost" onclick="varClearCsvKind('realizedPnl')" data-i18n="var.csvClearKind">Clear</button>
+            <div class="var-live-kpis" id="varLiveKpis">
+              <div class="var-live-kpi">
+                <div class="var-live-kpi-label" data-i18n="var.liveVolTitle">Volume</div>
+                <div class="var-live-kpi-val mono" id="varLiveVolValue">—</div>
+                <div class="var-live-kpi-sub" id="varLiveVolMeta"></div>
+              </div>
+              <div class="var-live-kpi">
+                <div class="var-live-kpi-label" data-i18n="var.livePnlTitle">Realized PnL</div>
+                <div class="var-live-kpi-val mono" id="varLivePnlValue">—</div>
+                <div class="var-live-kpi-sub" id="varLivePnlMeta"></div>
+              </div>
+              <div class="var-live-kpi">
+                <div class="var-live-kpi-label" data-i18n="var.liveFundingTitle">Funding</div>
+                <div class="var-live-kpi-val mono" id="varLiveFundingValue">—</div>
+                <div class="var-live-kpi-sub" id="varLiveFundingMeta" data-i18n="var.liveFundingSub">Period window</div>
+              </div>
+              <div class="var-live-kpi">
+                <div class="var-live-kpi-label" data-i18n="var.liveOpenSizeTitle">Open size</div>
+                <div class="var-live-kpi-val mono" id="varLiveOpenSizeValue">—</div>
+                <div class="var-live-kpi-sub" id="varLiveOpenSizeMeta"></div>
+              </div>
+              <div class="var-live-kpi">
+                <div class="var-live-kpi-label" data-i18n="var.liveUpnlTitle">Unrealized PnL</div>
+                <div class="var-live-kpi-val mono" id="varLiveUpnlValue">—</div>
+                <div class="var-live-kpi-sub" id="varLiveUpnlMeta" data-i18n="var.liveUpnlSub">Marks × entry</div>
+              </div>
+              <div class="var-live-kpi">
+                <div class="var-live-kpi-label" data-i18n="var.liveTradesTitle">Trades</div>
+                <div class="var-live-kpi-val mono" id="varLiveTradesValue">—</div>
+                <div class="var-live-kpi-sub" id="varLiveTradesMeta"></div>
               </div>
             </div>
-            <div class="var-csv-slot" data-csv-kind="transfers">
-              <div class="var-csv-slot-title" data-i18n="var.csvKindTransfers">Transfers &amp; fees</div>
-              <div class="var-csv-slot-meta" id="varCsvMetaTransfers" data-i18n="var.csvNotImported">Not imported yet</div>
-              <div class="var-csv-slot-actions">
-                <label class="btn btn-ac" style="cursor:pointer;margin:0">
-                  <span data-i18n="var.importCsv">Import</span>
-                  <input type="file" accept=".csv,text/csv" style="display:none" onchange="varImportCsvFiles(this,'transfers')"/>
-                </label>
-                <button type="button" class="btn btn-ghost" onclick="varClearCsvKind('transfers')" data-i18n="var.csvClearKind">Clear</button>
-              </div>
+            <div class="var-live-panel var-live-pos">
+              <p class="var-live-panel-h" data-i18n="var.livePosTitle">Open positions</p>
+              <p class="var-live-panel-sub" id="varLivePosSub" data-i18n="var.livePosSub">Une carte par marché · Omni vs HL / XYZ</p>
+              <div class="overflow-x-auto" id="varLivePositions"></div>
+            </div>
+            <div class="var-live-panel var-live-markets">
+              <p class="var-live-panel-h" data-i18n="var.liveMarketsTitle">Markets this period</p>
+              <p class="var-live-panel-sub" id="varLiveMarketsSub" data-i18n="var.liveMarketsSub">Every traded market in the selected window</p>
+              <div class="overflow-x-auto" id="varLiveMarkets"></div>
             </div>
           </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
-            <label class="btn btn-ghost" style="cursor:pointer;margin:0">
-              <span data-i18n="var.importCsvMulti">Import multiple (auto-detect)</span>
-              <input type="file" accept=".csv,text/csv" multiple style="display:none" onchange="varImportCsvFiles(this)"/>
+
+          <div class="var-json-drop" id="varJsonDrop" hidden aria-hidden="true" style="display:none">
+            <p class="var-json-drop-title" data-i18n="var.jsonDropTitle">Drop Omni export (.json)</p>
+            <label class="btn btn-ac" style="cursor:pointer;margin:0;display:inline-flex">
+              <span data-i18n="var.importJson">Import JSON</span>
+              <input id="varJsonFileInput" type="file" accept=".json,application/json" style="display:none" onchange="varImportJsonFiles(this)"/>
             </label>
-            <button type="button" class="btn btn-ghost" onclick="varClearCsv()" data-i18n="var.clearCsv">Clear all</button>
+            <button type="button" class="btn btn-ghost" style="margin-left:8px" onclick="varClearCsv()" data-i18n="var.clearCsv">Clear all</button>
+            <div class="var-json-drop-meta" id="varJsonMeta" data-i18n="var.jsonNotImported">No JSON import yet</div>
           </div>
-          <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
+
+          <div class="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-4" style="display:none">
             <div class="card2 p3"><div class="kpi-label" data-i18n="var.actVol">Trade volume</div><div class="kpi-val" id="varActVol" style="font-size:1rem">—</div></div>
             <div class="card2 p3"><div class="kpi-label" data-i18n="var.actTrades">Trades</div><div class="kpi-val" id="varActTrades" style="font-size:1rem">—</div></div>
             <div class="card2 p3"><div class="kpi-label" data-i18n="var.actFunding">Funding</div><div class="kpi-val" id="varActFunding" style="font-size:1rem">—</div></div>
@@ -9430,9 +10438,167 @@ const HS_CONFIG = {
             <div class="card2 p3"><div class="kpi-label" data-i18n="var.actFees">Fees</div><div class="kpi-val" id="varActFees" style="font-size:1rem">—</div></div>
           </div>
         </div>
-        <div class="overflow-x-auto max-h-[min(50vh,520px)] overflow-y-auto hs-table-wrap px-5 py-2" id="varActivityTable"></div>
+        <div class="overflow-x-auto max-h-[min(50vh,520px)] overflow-y-auto hs-table-wrap px-5 py-2" id="varActivityTable" style="display:none"></div>
       </div>
-    </div>
+
+      <div class="var-sub-panel" data-varpanel="points" id="varSecPoints" style="order:2;display:none;border-top:1px solid var(--border)">
+        <div class="px-5 py-4">
+          <div class="var-points-inner" role="tablist" aria-label="Points views" hidden>
+            <button type="button" class="var-points-inner-tab" data-ptsview="points" onclick="varSetSub('points',this)"><span data-i18n="var.subPoints">Points</span></button>
+            <button type="button" class="var-points-inner-tab" data-ptsview="competition" onclick="varSetSub('competition',this)"><span data-i18n="var.subCompetition">Competition</span></button>
+            <button type="button" class="var-points-inner-tab" data-ptsview="lab" onclick="varSetSub('lab',this)"><span data-i18n="var.subLab">Lab</span></button>
+            <button type="button" class="var-points-inner-tab" data-ptsview="airdrop" onclick="varSetSub('airdrop',this)"><span data-i18n="var.subAirdrop">Airdrop</span></button>
+          </div>
+
+          <div class="var-points-view is-on" data-ptsview-panel="points" id="varPointsOverviewView">
+            <div class="var-points-hero">
+              <h2 data-i18n="var.pointsTitle">Variational Points</h2>
+              <p data-i18n="var.pointsDesc">Totals and epoch history from your Omni collect.</p>
+            </div>
+            <div class="var-points-kpis" id="varPointsKpis">
+              <div class="card2 p3"><div class="kpi-label" data-i18n="var.actPoints">Total points</div><div class="kpi-val" id="varActPoints" style="font-size:1rem">—</div><div class="kpi-sub" id="varActPointsSub" style="font-size:.68rem;color:var(--muted)"></div></div>
+              <div class="card2 p3"><div class="kpi-label" data-i18n="var.actRank">Points rank</div><div class="kpi-val" id="varActRank" style="font-size:1rem">—</div><div class="kpi-sub" id="varActRankSub" style="font-size:.68rem;color:var(--muted)"></div></div>
+              <div class="card2 p3"><div class="kpi-label" data-i18n="var.actSelfPts">Self points</div><div class="kpi-val" id="varActSelfPts" style="font-size:1rem">—</div></div>
+              <div class="card2 p3"><div class="kpi-label" data-i18n="var.actRefPts">Referral points</div><div class="kpi-val" id="varActRefPts" style="font-size:1rem">—</div></div>
+              <div class="card2 p3"><div class="kpi-label" data-i18n="var.compPlace">Comp. place</div><div class="kpi-val" id="varCompPlace" style="font-size:1rem">—</div><div class="kpi-sub" id="varCompPlaceSub" style="font-size:.68rem;color:var(--muted)"></div></div>
+              <div class="card2 p3"><div class="kpi-label" data-i18n="var.compScore">Comp. score</div><div class="kpi-val" id="varCompScore" style="font-size:1rem">—</div><div class="kpi-sub" id="varCompScoreSub" style="font-size:.68rem;color:var(--muted)"></div></div>
+            </div>
+            <div class="card2 p3">
+              <div class="section-h mb-2" id="varEpochHeading" style="display:none;margin:0 0 8px"><span class="bar" style="background:var(--var-accent,#4c9af8)"></span><span data-i18n="var.epochTitle">Points by epoch</span></div>
+              <div class="overflow-x-auto" id="varEpochTable" style="display:none"></div>
+              <div id="varEpochEmpty" style="display:none;font-size:.82rem;color:var(--muted)" data-i18n="var.epochEmpty">No epoch history yet.</div>
+              <div id="varPointsEmpty" class="mt-2" style="display:none;color:var(--muted);font-size:.85rem" data-i18n="var.pointsEmpty">No points imported yet.</div>
+            </div>
+          </div>
+
+          <div class="var-points-view" data-ptsview-panel="competition" id="varPointsCompetitionView">
+            <div class="var-points-hero">
+              <h2 data-i18n="var.competitionTitle">Competition</h2>
+              <p id="varCompHeroDesc" data-i18n="var.competitionDesc">Where you stand among qualified wallets (≥ $250k volume), field stats, volume bands, then the leaderboard from your Omni collect.</p>
+              <div class="var-comp-meta-row" id="varCompDayMeta"></div>
+            </div>
+            <div id="varCompWalletBlock"></div>
+            <div id="varCompStandingBlock"></div>
+            <div id="varCompScoreHint"></div>
+            <div id="varCompFieldBlock"></div>
+            <div id="varCompBandsBlock"></div>
+            <div class="var-points-grid">
+              <div class="var-points-main">
+                <div class="var-comp-wrap" id="varCompetitionBlock">
+                  <div class="overflow-x-auto max-h-[min(62vh,720px)] overflow-y-auto" id="varCompetitionBody"></div>
+                </div>
+                <div class="var-comp-meta" id="varCompetitionMeta"></div>
+              </div>
+              <div class="var-points-side">
+                <div class="card2 p3 mb-3 var-self-card" id="varCompSelfCard">
+                  <div class="kpi-label mb-2" data-i18n="var.compYourStanding">Your standing</div>
+                  <div id="varCompSelfBody" style="color:var(--muted);font-size:.82rem" data-i18n="var.competitionEmpty">No competition board in this export.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="var-points-view" data-ptsview-panel="lab" id="varPointsLabView">
+            <div class="var-points-hero" id="varSecLab">
+              <h2 data-i18n="var.labTitle">Points Lab</h2>
+              <p data-i18n="var.labDesc">Heuristic models of how Omni may weight RWA vs crypto volume (community fit — not official). Calibrated on your epoch history when available.</p>
+            </div>
+            <div class="var-lab-models" id="varLabModels" role="tablist" aria-label="Points Lab models"></div>
+            <p class="var-lab-claim" id="varLabClaim"></p>
+            <p class="var-lab-provenance" id="varLabProvenance"></p>
+            <div class="var-lab-grid">
+              <div class="card2 p3 var-airdrop-assumptions">
+                <div class="var-hedge-form-title" style="margin:0 0 12px" data-i18n="var.labSimulate">Simulate a week</div>
+                <label>
+                  <div class="lab"><span data-i18n="var.labWeeklyVol">Weekly volume</span><strong id="varLabVolLabel">—</strong></div>
+                  <input id="varLabVol" type="range" min="50" max="20000" step="50" value="700" oninput="renderVarPointsLab()"/>
+                </label>
+                <label>
+                  <div class="lab"><span data-i18n="var.labRwaShare">Share traded in RWA</span><strong id="varLabRwaLabel">—</strong></div>
+                  <input id="varLabRwa" type="range" min="0" max="100" step="1" value="40" oninput="renderVarPointsLab()"/>
+                </label>
+                <p class="var-airdrop-disclaimer" style="margin-top:8px" data-i18n="var.labDisclaimer">Models are community heuristics fitted on public epoch ratios — not Variational’s formula.</p>
+              </div>
+              <div>
+                <div class="var-lab-result-grid">
+                  <div class="card2 p3"><div class="kpi-label" data-i18n="var.labEstPoints">Est. points / week</div><div class="kpi-val" id="varLabEstPts" style="font-size:1.05rem">—</div><div class="kpi-sub" id="varLabEstPtsSub" style="font-size:.68rem;color:var(--muted)"></div></div>
+                  <div class="card2 p3"><div class="kpi-label" data-i18n="var.labEffVol">Effective volume</div><div class="kpi-val" id="varLabEffVol" style="font-size:1.05rem">—</div></div>
+                  <div class="card2 p3"><div class="kpi-label" data-i18n="var.labPool">Pool index</div><div class="kpi-val" id="varLabPool" style="font-size:1.05rem">—</div><div class="kpi-sub" id="varLabPoolSub" style="font-size:.68rem;color:var(--muted)"></div></div>
+                  <div class="card2 p3"><div class="kpi-label" data-i18n="var.labRate">Pts / $1M raw</div><div class="kpi-val" id="varLabRate" style="font-size:1.05rem">—</div></div>
+                </div>
+                <div class="card2 p3 overflow-x-auto">
+                  <div class="kpi-label mb-2" data-i18n="var.labPoolHistory">Your pool week-by-week</div>
+                  <div id="varLabPoolTable"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="var-points-view" data-ptsview-panel="airdrop" id="varPointsAirdropView">
+            <div class="var-points-hero">
+              <h2 data-i18n="var.airdropTitle">Airdrop simulator</h2>
+              <p data-i18n="var.airdropDesc">Nothing about a Variational airdrop has been announced. These are community estimates you can move to see what your points would be worth under each scenario.</p>
+            </div>
+            <p class="var-guide-inline" data-i18n-html="var.airdropGuideHint">Points auto-fill after Omni collect, or type them manually below.</p>
+            <div class="var-airdrop-grid">
+              <div class="card2 p3 var-airdrop-assumptions">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                  <div class="var-hedge-form-title" style="margin:0" data-i18n="var.airdropAssumptions">Assumptions</div>
+                  <button type="button" class="btn btn-ghost" style="font-size:.72rem;padding:4px 10px" onclick="varAirdropReset()" data-i18n="var.airdropReset">Reset</button>
+                </div>
+                <label>
+                  <div class="lab"><span data-i18n="var.airdropYourPoints">Your points</span><strong id="varAirPointsLabel">—</strong></div>
+                  <input id="varAirPoints" type="number" min="0" step="any" class="hs-input w-full" oninput="renderVarAirdrop()"/>
+                  <div class="var-airdrop-consensus" id="varAirPointsHint" data-i18n="var.airdropPointsHint">Filled from your JSON import, or type manually.</div>
+                </label>
+                <label>
+                  <div class="lab"><span data-i18n="var.airdropFdv">FDV at TGE</span><strong id="varAirFdvLabel">$1.00B</strong></div>
+                  <input id="varAirFdv" type="range" min="100" max="5000" step="50" value="1000" oninput="renderVarAirdrop()"/>
+                  <div class="var-airdrop-consensus" data-i18n="var.airdropFdvConsensus">Consensus band ~$500M–$2B</div>
+                </label>
+                <label>
+                  <div class="lab"><span data-i18n="var.airdropShare">Share of supply (round 1)</span><strong id="varAirShareLabel">27.5%</strong></div>
+                  <input id="varAirShare" type="range" min="1" max="60" step="0.5" value="27.5" oninput="renderVarAirdrop()"/>
+                  <div class="var-airdrop-consensus" data-i18n="var.airdropShareConsensus">Consensus band ~25–30%</div>
+                </label>
+                <label>
+                  <div class="lab"><span data-i18n="var.airdropTotalPts">Total points at TGE</span><strong id="varAirTotalPtsLabel">9.3M</strong></div>
+                  <input id="varAirTotalPts" type="range" min="1" max="30" step="0.1" value="9.3" oninput="renderVarAirdrop()"/>
+                  <div class="var-airdrop-consensus" data-i18n="var.airdropTotalPtsConsensus">Consensus band ~9.0–9.4M</div>
+                </label>
+              </div>
+              <div>
+                <div class="var-airdrop-result-grid">
+                  <div class="card2 p3"><div class="kpi-label" data-i18n="var.airdropValuePerPoint">Value / point</div><div class="kpi-val" id="varAirValPerPt" style="font-size:1.05rem">—</div><div class="kpi-sub" id="varAirValPerPtSub" style="font-size:.68rem;color:var(--muted)"></div></div>
+                  <div class="card2 p3"><div class="kpi-label" data-i18n="var.airdropPayout">Your payout</div><div class="kpi-val" id="varAirPayout" style="font-size:1.05rem">—</div><div class="kpi-sub" id="varAirPayoutSub" style="font-size:.68rem;color:var(--muted)"></div></div>
+                  <div class="card2 p3"><div class="kpi-label" data-i18n="var.airdropYourShare">Your share</div><div class="kpi-val" id="varAirYourShare" style="font-size:1.05rem">—</div></div>
+                  <div class="card2 p3"><div class="kpi-label" data-i18n="var.airdropPool">Airdrop pool</div><div class="kpi-val" id="varAirPool" style="font-size:1.05rem">—</div></div>
+                </div>
+                <div class="card2 p3 mb-3">
+                  <div class="kpi-label mb-2" data-i18n="var.airdropCostTitle">What each payout costs</div>
+                  <div id="varAirCostRows"></div>
+                </div>
+                <div class="card2 p3 mb-3 overflow-x-auto">
+                  <div class="kpi-label mb-2" data-i18n="var.airdropGridTitle">FDV scenarios (fixed supply share)</div>
+                  <div id="varAirScenarioTable"></div>
+                </div>
+                <div class="var-airdrop-share">
+                  <div class="kpi-label mb-2" data-i18n="var.airdropShareTitle">Share this scenario</div>
+                  <canvas id="varAirShareCanvas" width="840" height="480" aria-label="Variational airdrop share card"></canvas>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap">
+                    <button type="button" class="btn btn-ac" onclick="varAirdropDownloadPng()" data-i18n="var.airdropDownload">Download PNG</button>
+                    <button type="button" class="btn btn-ghost" onclick="varAirdropCopyImage()" data-i18n="var.airdropCopyImg">Copy image</button>
+                    <button type="button" class="btn btn-ghost" onclick="varAirdropShareX()" data-i18n="var.airdropShareX">Post on X</button>
+                  </div>
+                </div>
+                <p class="var-airdrop-disclaimer" data-i18n="var.airdropDisclaimer">Variational has not announced a token, an airdrop, a supply or a date. Every figure here is a community assumption you can change — not advice.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      </div><!-- /varDashboardStack -->
+    </div><!-- /varDashboard -->
   </section>
 
   <!-- ═══════════════════════════════════════════════════════════════ -->
@@ -9998,6 +11164,7 @@ const I18N = {
     'welcome.card.hl': 'Perpetual & spot trading volumes, PnL, fees and win rate.',
     'welcome.card.xyz': 'Exotic markets, equities & memes traded via Trade XYZ DEX.',
     'welcome.card.unit': 'Cross-chain bridge deposits & withdrawals (BTC, SOL, ETH, MON…).',
+    'welcome.card.var': 'Omni markets, points, activity and airdrop scenarios — synced locally.',
     'welcome.card.signals': 'Real-time signal scanner and trade setups on Perps & HIP-3 assets.',
     'welcome.card.analysis.t': 'Market Scanner',
     'welcome.card.analysis': 'Advanced analysis tools are integrated directly in Signals.',
@@ -10090,14 +11257,33 @@ const I18N = {
     'tab.variationalBeta': 'beta',
     'tab.variationalBetaHint': 'Beta — indicative data only, not guaranteed. Verify before acting.',
     'loading': 'Loading…',
-    'var.kpiVol': 'Omni volume',
-    'var.kpiTvl': 'TVL',
-    'var.kpiOi': 'Open interest',
-    'var.kpiMkts': 'Markets',
+    'var.kpiVol': 'Your volume',
+    'var.kpiTvl': 'Realized PnL',
+    'var.kpiOi': 'Your points',
+    'var.kpiMkts': 'Competition rank',
+    'var.kpiVolSubEmpty': 'Sync from the extension first',
+    'var.kpiTradesSub': '{n} trades',
+    'var.kpiWinRateSub': '{pct}% win rate',
+    'var.kpiPointsSub': '{self} self · {ref} referral',
+    'var.kpiCompSub': 'score {score}',
+    'var.overviewTitle': 'Overview',
+    'var.overviewLead': 'Your Omni stats after sync — volume, PnL, points and competition rank.',
+    'var.overviewEmpty': 'No data yet — open Omni Live, install the extension, Collect then Sync.',
+    'var.overviewImported': 'imported {ago} ago',
+    'var.dashTradingTitle': 'Trading detail',
+    'var.dashTitle': 'Dashboard',
     'var.hint': 'Public Omni stats + manual hedge leg vs Hyperliquid · import portfolio CSV from',
-    'var.subRadar': 'Market radar',
+    'var.subRadar': 'Radar',
     'var.subHedge': 'Delta-neutral',
-    'var.subActivity': 'Activity',
+    'var.subActivity': 'Omni Live',
+    'var.subLive': 'Omni Live',
+    'var.subDashboard': 'Dashboard',
+    'var.subOverview': 'Overview',
+    'var.subPoints': 'Points',
+    'var.subLab': 'Lab',
+    'var.subCompetition': 'Competition',
+    'var.subAirdrop': 'Airdrop',
+    'var.liveTitle': 'Omni Live',
     'var.sortLabel': 'Sort',
     'var.sortFunding': 'Funding (with setup)',
     'var.sortSpread': 'Spread (bps)',
@@ -10111,13 +11297,43 @@ const I18N = {
     'var.cat.indices': 'Indices',
     'var.cat.forex': 'Forex',
     'var.updated': 'Updated',
-    'var.hedgeTitle': 'Delta-neutral tracker (Omni ↔ Hyperliquid)',
-    'var.hedgeDesc': 'Enter your Variational Omni position — Hypersheets compares it live with your Hyperliquid wallet and shows delta + funding gap.',
-    'var.hedgeStep1': 'Enter your Omni leg',
-    'var.hedgeStep2': 'Check the HL leg',
+    'var.hedgeTitle': 'Delta-neutral tracker (Omni ↔ HL)',
+    'var.hedgeDesc': 'Omni legs come from your Activity import (JSON/CSV). HL positions come from your wallet. Click a pair to prefill the hedge and track delta + funding.',
+    'var.hedgeGuideHint': 'No Omni positions yet? Open <strong>Activity</strong> → download the helper → export Trades CSV from Omni → import into a leg.',
+    'var.hedgeStep1': 'Import Omni on Activity',
+    'var.hedgeStep2': 'Match the HL hedge leg',
     'var.hedgeStep3': 'Farm funding',
     'var.hedgeFormTitle': 'Your Omni position',
     'var.hedgeResultTitle': 'Live comparison',
+    'var.hedgeBooksTitle': 'Live books',
+    'var.hedgeBooksOmni': 'Variational Omni',
+    'var.hedgeBooksTrade': 'HL / Trade XYZ',
+    'var.hedgeBooksPairs': 'Matched pairs',
+    'var.hedgeBooksEmptyOmni': 'No Omni positions — import your Omni JSON/CSV on Activity, or refresh from local fills + public marks.',
+    'var.hedgeBooksEmptyTrade': 'No open HL / XYZ positions — add a wallet and refresh.',
+    'var.hedgeBooksAge': 'Omni synced {when}',
+    'var.hedgeBooksStale': 'No Omni positions from import/fills yet',
+    'var.hedgeBooksFromFills': 'Omni from fills (local import)',
+    'var.hedgeBooksFillsTag': 'FILLS',
+    'var.hedgeBooksRefreshOmni': 'Refresh Omni',
+    'var.hedgeBooksRefreshTrade': 'Refresh HL / XYZ',
+    'var.hedgeSz': 'Size',
+    'var.hedgeMark': 'Mark',
+    'var.hedgeEntry': 'Entry',
+    'var.hedgeUpnl': 'uPnL',
+    'var.hedgeNetPnl': 'Net unrealized PnL',
+    'var.hedgeNetPnlSub': 'Omni + HL/XYZ at live marks',
+    'var.hedgeLiveTick': 'Live refresh · 5s',
+    'var.hedgeLastTick': 'Updated {when}',
+    'var.hedgeMarkMissing': 'Mark Omni unavailable',
+    'var.hedgeNeedsEntry': 'Set entry price for live uPnL',
+    'var.hedgeBooksUse': 'Use',
+    'var.hedgeBooksPaired': 'Paired',
+    'var.hedgeBooksUnpaired': 'No hedge',
+    'var.hedgeBooksApplied': 'Omni leg loaded from live position',
+    'var.hedgeBooksDelta': 'Δ {usd}',
+    'var.venueHl': 'HL',
+    'var.venueXyz': 'XYZ',
     'var.legTicker': 'Ticker',
     'var.legTickerEmpty': 'No matching asset',
     'var.legSide': 'Side',
@@ -10127,8 +11343,251 @@ const I18N = {
     'var.sideLong': 'Long',
     'var.saveLeg': 'Save leg',
     'var.clearLeg': 'Clear',
-    'var.activityTitle': 'Portfolio activity (CSV)',
-    'var.csvHint': 'Import each Omni export separately (trades, funding, realized PnL, transfers) — stored locally in your browser.',
+    'var.activityTitle': 'Omni activity',
+    'var.pointsTitle': 'Variational Points',
+    'var.pointsDesc': 'Totals and epoch history from your Omni collect. Sync via Hypersheets Omni Live.',
+    'var.pointsGuideHint': 'No points yet? Open the helper → <strong>Collecter Omni</strong> → <strong>Synchroniser</strong>, or import JSON on <strong>Activity</strong>.',
+    'var.pointsEmpty': 'No points imported yet.',
+    'var.pointsTabCompetition': 'Competition',
+    'var.pointsTabLab': 'Labs',
+    'var.pointsTabAirdrop': 'Airdrop',
+    'var.competitionEmpty': 'No competition board in this export. Collect Omni again while logged in.',
+    'var.competitionSelf': 'You',
+    'var.competitionMore': 'Showing {n} · {total} on board',
+    'var.competitionDesc': 'Where you stand among qualified wallets (≥ $250k volume), field stats, volume bands, then the leaderboard from your Omni collect.',
+    'var.compPlace': 'Place',
+    'var.compScore': 'Score',
+    'var.compVolume': 'Volume',
+    'var.compPnl': 'PnL',
+    'var.compName': 'Trader',
+    'var.compYourStanding': 'Your standing',
+    'var.compVolShort': 'Vol {n}',
+    'var.compWhereStand': 'Where you stand',
+    'var.compWhereStandSub': 'percentiles across the whole qualified field',
+    'var.compScorePct': 'Score',
+    'var.compPnlPct': 'PnL',
+    'var.compVolPct': 'Volume',
+    'var.compAheadOf': 'ahead of {pct} of the field',
+    'var.compOfficialPlace': 'official place #{n}',
+    'var.compPnlRank': '{pnl} · #{n} by PnL',
+    'var.compVolRank': '{vol} · #{n} by volume',
+    'var.compWalletKicker': 'Your wallet',
+    'var.compWalletPlace': 'place #{n}',
+    'var.compDay': 'Day {d} of {total}',
+    'var.compEnds': 'ends {date}',
+    'var.compPulled': 'Board collected {when}',
+    'var.compHeroCount': '{n} qualified wallets (≥ $250k volume). Below that, Variational filters the field out.',
+    'var.compScoreFormula': 'Volume alone does not place you — it multiplies an existing PnL. Climbing requires more PnL (or the same PnL on more volume).',
+    'var.compScoreClimb': 'To reach place #{target}: about {pnl} PnL at your current volume (score formula above).',
+    'var.compFieldTitle': 'The field',
+    'var.compFieldSub': 'every wallet above $250k of volume',
+    'var.compFieldWallets': 'Qualified wallets',
+    'var.compFieldAbove': 'above $250k of volume',
+    'var.compFieldVol': 'Field volume',
+    'var.compFieldMedian': 'median {n}',
+    'var.compFieldMedianP25': 'median {med} · p25 {p25}',
+    'var.compInProfit': 'In profit',
+    'var.compInProfitSub': '{n} of {total} wallets',
+    'var.compFieldPnl': 'Field PnL',
+    'var.compTop10Share': 'Top 10 share',
+    'var.compTop10ShareSub': 'of all volume traded',
+    'var.compTop10Pnl': 'Top 10 PnL',
+    'var.compBandsTitle': 'Volume spread',
+    'var.compBandsSub': 'wallets per volume band, and what each band trades',
+    'var.compBandWallets': 'Wallets',
+    'var.compBandVol': 'Volume',
+    'var.labTitle': 'Points Lab',
+    'var.labDesc': 'Heuristic models of how Omni may weight RWA vs crypto volume (community fit — not official). Calibrated on your epoch history when available.',
+    'var.labSimulate': 'Simulate a week',
+    'var.labWeeklyVol': 'Weekly volume',
+    'var.labRwaShare': 'Share traded in RWA',
+    'var.labAvgOi': 'Avg open interest',
+    'var.labEstPoints': 'Est. points / week',
+    'var.labEstPtsSub': 'median pool × model exposure',
+    'var.labEffVol': 'Effective volume',
+    'var.labPool': 'Pool index',
+    'var.labPoolSub': 'median of last {n} earning weeks (= 1.00x)',
+    'var.labRate': 'Pts / $1M raw',
+    'var.labPoolHistory': 'Your pool week-by-week',
+    'var.labPoolEmpty': 'Need epoch points + trades in the same windows to calibrate a pool index.',
+    'var.labPoolHint': 'Pool index = that week pool / median of your recent weeks (after the model removes asset mix). Above 1.00x the venue paid better than usual for the same work; below, worse.',
+    'var.labColWeek': 'Week',
+    'var.labColPts': 'Self pts',
+    'var.labColVol': 'Volume',
+    'var.labColRwa': 'RWA %',
+    'var.labColPool': 'Pool index',
+    'var.labDisclaimer': 'Models are community heuristics fitted on public epoch ratios — not Variational’s formula.',
+    'var.labModel.rwa-9': 'RWA 9x, sublinear',
+    'var.labModel.rwa-5': 'RWA 5x, sublinear',
+    'var.labModel.rwa-2': 'RWA 2x, linear',
+    'var.labModel.volume': 'Volume only',
+    'var.labModel.oi': 'Open interest',
+    'var.labClaim.rwa-9': 'A dollar of RWA is worth about nine of crypto, and big weeks are diluted.',
+    'var.labClaim.rwa-5': 'The same shape, weaker RWA premium and slightly less dilution.',
+    'var.labClaim.rwa-2': 'RWA pays double, and points scale straight with size.',
+    'var.labClaim.volume': 'Every dollar counts the same, whatever it was traded in.',
+    'var.labClaim.oi': 'What pays is size held over time, not size traded.',
+    'var.epochEmpty': 'No epoch history yet.',
+    'var.csvHint': 'You can also import each Omni CSV export separately (trades, funding, realized PnL, transfers) — stored locally.',
+    'var.onboardTitle': 'Omni Live requires the Chrome extension',
+    'var.onboardBody': 'Install Hypersheets Omni Live, collect your data on Omni, then sync to this dashboard.',
+    'var.onboardCredit': 'Not affiliated with Variational Protocol. Live marks use the public /metadata/stats API only.',
+    'var.onboardLink': 'Open Omni ↗',
+    'var.onboardAdvanced': 'Advanced / fallback',
+    'var.guideStep1Title': 'Download & install the extension',
+    'var.guideStep1Body': 'Download the zip, <strong>unzip it</strong>, open <strong>chrome://extensions/</strong>, enable <strong>Developer mode</strong>, click <strong>Load unpacked</strong>, then select the <strong>unzipped folder</strong> (omni-sync). Pin <strong>Hypersheets Omni Live</strong>.',
+    'var.guideDownloadExt': 'Download extension (.zip)',
+    'var.extDownload': 'Download extension',
+    'var.guideStep1Install': 'Required — Omni Live does not work without the extension.',
+    'var.guideStep2Title': 'Follow the steps in the extension',
+    'var.guideStep2Body': 'Open the <strong>Hypersheets Omni Live</strong> panel: add your HL wallet if needed, sign in on Omni, then click <strong>Collect Omni</strong>.',
+    'var.guideStep3Title': 'Sync to Hypersheets',
+    'var.guideStep3Body': 'In the extension, section <strong>3 · Send to Hypersheets</strong>, click <strong>Sync</strong>: the extension pushes your trades, points and positions into this dashboard.',
+    'var.extCguHint': 'Keep this Hypersheets tab open while syncing. Data stays in your browser.',
+    'var.extCguBlocked': 'Use Collecter Omni then Synchroniser in the extension.',
+    'var.extMissingToast': 'Install Hypersheets Omni Live',
+    'var.extMissing': 'Install the extension then sync from the panel',
+    'var.extSyncPositions': 'Refresh fills + marks',
+    'var.extReady': 'Hypersheets Omni Live detected — Collect Omni in the panel',
+    'var.extReadyCgu': 'Hypersheets Omni Live installed — Collect Omni in the panel (Omni session)',
+    'var.extPositionsSyncing': 'Refreshing local marks & fills…',
+    'var.extPositionsSynced': 'Omni book updated ({n})',
+    'var.liveReadyTitle': 'Positions & volume',
+    'var.livePeriodLabel': 'Period',
+    'var.liveVolTitle': 'Volume',
+    'var.livePnlTitle': 'Realized PnL',
+    'var.liveFundingTitle': 'Funding',
+    'var.liveFundingSub': 'Selected period',
+    'var.liveOpenSizeTitle': 'Open size',
+    'var.liveUpnlTitle': 'Unrealized PnL',
+    'var.liveUpnlSub': 'Marks × entry',
+    'var.liveTradesTitle': 'Trades',
+    'var.livePosTitle': 'Open positions',
+    'var.livePosSub': 'One card per market · Omni vs HL / XYZ',
+    'var.livePosCount': '{n} open · {usd} notional',
+    'var.livePosHedgeCount': '{n} hedges · net {pnl}',
+    'var.liveHedgeNet': 'Net uPnL',
+    'var.liveHedgeMissingWallet': 'Add a Hyperliquid wallet (header) and refresh to show the HL / XYZ hedge leg.',
+    'var.liveHedgeNoMatch': 'No matching HL / XYZ leg yet',
+    'var.liveHedgeVol': 'Omni vol {vol} · realized {pnl}',
+    'var.liveColVenue': 'Venue',
+    'var.liveColSide': 'Side',
+    'var.liveColQty': 'Qty',
+    'var.liveColSize': 'Size',
+    'var.liveColEntry': 'Entry',
+    'var.liveColMark': 'Mark',
+    'var.liveColUpnl': 'uPnL',
+    'var.liveMarketsTitle': 'Markets this period',
+    'var.liveMarketsSub': 'Every traded market in the selected window',
+    'var.liveMarketsCount': '{n} markets',
+    'var.liveVolMeta': '{n} trades',
+    'var.livePnlMeta': 'Win rate {pct}%',
+    'var.livePosEmpty': 'No open positions yet. Collect Omni in the extension, then Sync.',
+    'var.liveMarketsEmpty': 'No trades in this period yet.',
+    'var.dashColQty': 'Qty',
+    'var.dashColEntry': 'Entry',
+    'var.dashColMark': 'Mark',
+    'var.hedgeGuideHint': 'No Omni positions yet? Install the extension → <strong>Collecter Omni</strong> → <strong>Synchroniser</strong>.',
+    'var.airdropGuideHint': 'Points auto-fill after Omni collect + Sync (see also the <strong>Points</strong> tab), or type them manually below.',
+    'var.collectorBookmark': 'Bookmark setup (fallback)',
+    'var.collectorBookmarkHint': 'Fallback if the extension is not installed — drag bookmark or import JSON/CSV.',
+    'var.collectorInstall': 'Hypersheets Omni (drag me)',
+    'var.collectorBookmarkDownloaded': 'Bookmark file downloaded — Chrome: ⋮ → Bookmarks → Import bookmarks and settings → Bookmarks HTML file',
+    'var.collectorCopy': 'Copy collector code',
+    'var.collectorCopied': 'Copied — Name: Hypersheets Omni · URL must start with javascript:',
+    'var.collectorCopyFail': 'Could not copy URL',
+    'var.collectorCopyPrompt': 'Copy this full URL (keep javascript:):',
+    'var.collectorClickHint': 'Retired — use JSON/CSV import.',
+    'var.collectorAutoImported': 'Omni export imported automatically',
+    'var.collectorAutoImportFail': 'Could not import Omni export automatically',
+    'var.jsonDropTitle': 'Drop Omni export (.json)',
+    'var.jsonDropSub': 'Import into an Omni leg below — all legs show in Delta-neutral. Data stays in this browser.',
+    'var.slotReady': '{n} trades imported',
+    'var.slotEmpty': 'Empty',
+    'var.slotClear': 'Clear',
+    'var.slotCleared': '{label} cleared',
+    'var.slotAdd': '+ Omni leg',
+    'var.slotAddHint': 'Up to {max} legs — select a leg then import',
+    'var.slotRemove': 'Remove leg',
+    'var.slotRemoved': '{label} removed',
+    'var.slotAdded': '{label} added — select it then import',
+    'var.slotMax': 'Maximum {n} Omni legs',
+    'var.slotMin': 'Keep at least {n} legs',
+    'var.slotRemoveConfirm': 'Remove {label} and its imported data?',
+    'var.importJson': 'Import JSON',
+    'var.jsonNotImported': 'No JSON import yet',
+    'var.jsonMeta': '{file} · {points} pts · rank #{rank} · exported {when}',
+    'var.jsonImported': 'Variational export imported',
+    'var.jsonUnknown': 'Unrecognized JSON — expected a Variational Omni export.',
+    'var.actPoints': 'Total points',
+    'var.actRank': 'Rank',
+    'var.actSelfPts': 'Self points',
+    'var.actRefPts': 'Referral points',
+    'var.epochTitle': 'Points by epoch',
+    'var.epochWeek': 'Epoch',
+    'var.epochSelf': 'Self',
+    'var.epochReferral': 'Referral',
+    'var.epochTotal': 'Total',
+    'var.epochTo': 'to',
+    'var.epochPoints': 'Points',
+    'var.epochVolume': 'Volume',
+    'var.epochNet': 'Net',
+    'var.epochPtsPer': 'Pts / $1M',
+    'var.epochInProgress': 'In progress',
+    'var.epochTrades': '{n} trades',
+    'var.epochOiTitle': 'Open interest',
+    'var.epochOiAvg': 'Average',
+    'var.epochOiPeak': 'Peak',
+    'var.epochOiHeld': 'Held',
+    'var.epochWinRate': 'Win rate: {pct}%',
+    'var.epochFunding': 'Funding',
+    'var.epochMarketsTitle': 'Markets this week',
+    'var.epochNoMarkets': 'No markets in this window.',
+    'var.epochShowMore': 'Show {n} more',
+    'var.epochShowFewer': 'Show fewer',
+    'var.competitionTitle': 'Competition',
+    'var.competitionPresent': 'Competition data present in export ({n} entries).',
+    'var.dashTitle': 'Dashboard',
+    'var.dashToday': 'Today',
+    'var.dashThisEpoch': 'This epoch',
+    'var.dashLastEpoch': 'Last epoch',
+    'var.dashMonth': 'This month',
+    'var.dashYear': 'This year',
+    'var.dashAll': 'All time',
+    'var.dashMeta': '{trades} trades · {from} → {to} · imported {ago}',
+    'var.dashVol': 'Volume',
+    'var.dashPnl': 'Realized PnL',
+    'var.dashAvgOi': 'Avg open interest',
+    'var.dashPeakOi': 'Peak open interest',
+    'var.dashAvgTrade': 'Avg trade size',
+    'var.dashFunding': 'Funding',
+    'var.dashVolSub': '{n} trades',
+    'var.dashWinRate': '{pct}% win rate',
+    'var.dashHeldPct': '{pct}% of the window held',
+    'var.dashPeakSub': 'Highest exposure',
+    'var.dashLargest': 'Largest {usd}',
+    'var.dashNoFees': 'No trading fees on Variational',
+    'var.dashVolChart': 'Volume',
+    'var.dashVolChartSub': 'Hourly · {usd} total',
+    'var.dashOiChart': 'Open interest',
+    'var.dashOiChartSub': 'Average held each hour; band is the peak inside that hour. Dashed line is the average across the window (including empty hours).',
+    'var.dashOiAvg': 'Avg OI',
+    'var.dashOiPeak': 'Peak OI',
+    'var.dashOiWindowAvg': 'Window avg',
+    'var.dashPairs': 'Pairs traded',
+    'var.dashPairsSub': '{n} markets · funding and PnL are separate',
+    'var.dashPositions': 'Open positions',
+    'var.dashPositionsSub': 'Rebuilt from fills',
+    'var.dashPositionsLiveSub': 'Live from Omni · {when}',
+    'var.dashPosEmpty': 'Nothing open right now.',
+    'var.dashColMarket': 'Market',
+    'var.dashColShare': 'Share of volume',
+    'var.dashColPct': '%',
+    'var.dashColVol': 'Volume',
+    'var.dashColPnl': 'PnL',
+    'var.dashColSide': 'Side',
+    'var.dashColSize': 'Size',
+    'var.dashColUpnl': 'uPnL',
     'var.importCsv': 'Import',
     'var.importCsvMulti': 'Import multiple (auto-detect)',
     'var.clearCsv': 'Clear all',
@@ -10157,9 +11616,42 @@ const I18N = {
     'var.legInvalid': 'Invalid leg — ticker and notional required.',
     'var.legSaved': 'Omni leg saved',
     'var.legCleared': 'Omni leg cleared',
-    'var.csvEmpty': 'Import Omni CSV exports (trades, funding, realized PnL…) for a full activity view.',
+    'var.csvEmpty': 'Import a Variational JSON export or Omni CSV files (trades, funding, realized PnL…) for a full activity view.',
     'var.csvImported': 'CSV imported',
-    'var.csvCleared': 'CSV data cleared',
+    'var.csvCleared': 'Activity & points data cleared',
+    'var.airdropTitle': 'Airdrop simulator',
+    'var.airdropDesc': 'Nothing about a Variational airdrop has been announced. These are community estimates you can move to see what your points would be worth under each scenario.',
+    'var.airdropAssumptions': 'Assumptions',
+    'var.airdropReset': 'Reset',
+    'var.airdropYourPoints': 'Your points',
+    'var.airdropPointsHint': 'Filled from your Activity JSON/CSV import, or type manually.',
+    'var.airdropFdv': 'FDV at TGE',
+    'var.airdropFdvConsensus': 'Consensus band ~$500M–$2B',
+    'var.airdropShare': 'Share of supply (round 1)',
+    'var.airdropShareConsensus': 'Consensus band ~25–30%',
+    'var.airdropTotalPts': 'Total points at TGE',
+    'var.airdropTotalPtsConsensus': 'Consensus band ~9.0–9.4M',
+    'var.airdropValuePerPoint': 'Value / point',
+    'var.airdropPayout': 'Your payout',
+    'var.airdropYourShare': 'Your share',
+    'var.airdropPool': 'Airdrop pool',
+    'var.airdropCostTitle': 'What each payout costs',
+    'var.airdropCostPts': '{n} points',
+    'var.airdropGridTitle': 'FDV scenarios (fixed supply share)',
+    'var.airdropColFdv': 'FDV',
+    'var.airdropColPool': 'Pool',
+    'var.airdropColPt': 'Point value',
+    'var.airdropColYou': 'Your airdrop',
+    'var.airdropShareTitle': 'Share this scenario',
+    'var.airdropDownload': 'Download PNG',
+    'var.airdropCopyImg': 'Copy image',
+    'var.airdropShareX': 'Post on X',
+    'var.airdropCopied': 'Image copied',
+    'var.airdropCopyFail': 'Could not copy image',
+    'var.airdropTweet': 'My Variational points scenario on Hypersheets: {points} pts → ~{payout} at {fdv} FDV / {share}% supply / {total} pts at TGE. Community estimates only — not official.',
+    'var.airdropDisclaimer': 'Variational has not announced a token, an airdrop, a supply or a date. Every figure here is a community assumption you can change — not advice.',
+    'var.airdropValPerSub': '{pool} split across {total} points.',
+    'var.airdropEnterPoints': 'Enter your points to see this.',
     'var.perDay': '%/day',
     'var.perApr': '% APR',
     'var.daysShort': 'd',
@@ -10245,13 +11737,13 @@ const I18N = {
     'var.hlNa': '— (not on HL)',
     'var.radarHint': 'Funding = estimated daily rate. Radar filters out markets under $25k 24h volume.',
     'var.compareHint': 'Min. $50k Omni volume — sorted by net APR. Use Signal column before acting.',
-    'var.noWallet': 'Add a Hyperliquid wallet to read your HL leg.',
-    'var.hlLoadHint': 'Load your wallet data to detect Hyperliquid positions.',
-    'var.hlReady': 'HL positions loaded.',
-    'var.refreshHl': 'Refresh HL leg',
-    'var.hlRefreshing': 'Refreshing Hyperliquid positions…',
+    'var.noWallet': 'Add a Hyperliquid wallet to read your HL / Trade XYZ leg.',
+    'var.hlLoadHint': 'Load your wallet data to detect Hyperliquid & Trade XYZ positions.',
+    'var.hlReady': 'HL / Trade XYZ positions loaded.',
+    'var.refreshHl': 'Refresh HL / XYZ',
+    'var.hlRefreshing': 'Refreshing Hyperliquid / Trade XYZ positions…',
     'var.cardOmni': 'Omni leg',
-    'var.cardHl': 'Hyperliquid leg',
+    'var.cardHl': 'HL / XYZ leg',
     'var.cardNetDelta': 'Net delta (USD)',
     'var.cardFundingGap': 'Funding gap (24h)',
     'var.cardFundingEarn': 'Est. funding / day',
@@ -10267,7 +11759,7 @@ const I18N = {
     'var.earnOmniLeg': 'Omni leg (your side): {pct} / day on notional',
     'var.earnHlLeg': 'HL leg (your side): {pct} / day on notional',
     'var.earnNet': 'Net funding estimate: {pct} → about {usd} / day',
-    'var.hlMissing': 'No HL position',
+    'var.hlMissing': 'No HL / XYZ position',
     'var.actionTitle': 'What to do on Hyperliquid',
     'var.actionBody': 'Open a {hlSide} on {hlTicker} to offset your Omni position and farm the funding spread.',
     'var.recCompactKicker': 'Reco',
@@ -10771,6 +12263,7 @@ const I18N = {
     'welcome.card.hl': 'Volumes perp & spot, PnL, frais et taux de réussite.',
     'welcome.card.xyz': 'Marchés exotiques, actions & memes via le DEX Trade XYZ.',
     'welcome.card.unit': 'Deposits & retraits cross-chain (BTC, SOL, ETH, MON…).',
+    'welcome.card.var': 'Marchés Omni, points, activité et scénarios airdrop — sync locale.',
     'welcome.card.signals': 'Scanner de signaux en temps réel et setups de trade sur Perps & actifs HIP-3.',
     'welcome.card.analysis.t': 'Scanner marché',
     'welcome.card.analysis': 'Les outils d’analyse avancée sont intégrés directement dans Signaux.',
@@ -10864,14 +12357,33 @@ const I18N = {
     'tab.variationalBeta': 'bêta',
     'tab.variationalBetaHint': 'Bêta — données indicatives, non garanties. Vérifie avant d\'agir.',
     'loading': 'Chargement…',
-    'var.kpiVol': 'Volume Omni',
-    'var.kpiTvl': 'TVL',
-    'var.kpiOi': 'Intérêt ouvert (OI)',
-    'var.kpiMkts': 'Marchés',
+    'var.kpiVol': 'Ton volume',
+    'var.kpiTvl': 'PnL réalisé',
+    'var.kpiOi': 'Tes points',
+    'var.kpiMkts': 'Rang compétition',
+    'var.kpiVolSubEmpty': 'Synchronise depuis l’extension d’abord',
+    'var.kpiTradesSub': '{n} trades',
+    'var.kpiWinRateSub': '{pct}% win rate',
+    'var.kpiPointsSub': '{self} self · {ref} referral',
+    'var.kpiCompSub': 'score {score}',
+    'var.overviewTitle': 'Overview',
+    'var.overviewLead': 'Tes stats Omni après sync — volume, PnL, points et rang compétition.',
+    'var.overviewEmpty': 'Pas encore de données — ouvre Omni Live, installe l’extension, Collecte puis Synchronise.',
+    'var.overviewImported': 'importé il y a {ago}',
+    'var.dashTradingTitle': 'Trading détail',
+    'var.dashTitle': 'Dashboard',
     'var.hint': 'Stats publiques Omni + jambe manuelle vs Hyperliquid · import CSV portfolio depuis',
-    'var.subRadar': 'Radar marché',
+    'var.subRadar': 'Radar',
     'var.subHedge': 'Delta-neutral',
-    'var.subActivity': 'Activité',
+    'var.subActivity': 'Omni Live',
+    'var.subLive': 'Omni Live',
+    'var.subDashboard': 'Dashboard',
+    'var.subOverview': 'Overview',
+    'var.subPoints': 'Points',
+    'var.subLab': 'Lab',
+    'var.subCompetition': 'Compétition',
+    'var.subAirdrop': 'Airdrop',
+    'var.liveTitle': 'Omni Live',
     'var.sortLabel': 'Tri',
     'var.sortFunding': 'Funding (avec stratégie)',
     'var.sortSpread': 'Spread (bps)',
@@ -10885,13 +12397,43 @@ const I18N = {
     'var.cat.indices': 'Indices',
     'var.cat.forex': 'Forex',
     'var.updated': 'Màj',
-    'var.hedgeTitle': 'Suivi delta-neutre Omni ↔ Hyperliquid',
-    'var.hedgeDesc': 'Indique ta position sur Variational Omni : Hypersheets compare en direct avec ta jambe Hyperliquid (wallet chargé) et calcule l’écart de delta et de funding.',
-    'var.hedgeStep1': 'Saisis ta jambe Omni',
-    'var.hedgeStep2': 'Vérifie la jambe HL',
+    'var.hedgeTitle': 'Suivi delta-neutre Omni ↔ HL',
+    'var.hedgeDesc': 'Les jambes Omni viennent de ton import Activity (JSON/CSV). Les positions HL viennent de ton wallet. Clique une paire pour préremplir le hedge et suivre delta + funding.',
+    'var.hedgeGuideHint': 'Pas encore de positions Omni ? Ouvre <strong>Activity</strong> → télécharge le helper → exporte le CSV Trades sur Omni → importe dans une jambe.',
+    'var.hedgeStep1': 'Importe Omni dans Activity',
+    'var.hedgeStep2': 'Apparie la jambe HL',
     'var.hedgeStep3': 'Farme le funding',
     'var.hedgeFormTitle': 'Ta position Omni',
     'var.hedgeResultTitle': 'Comparaison en direct',
+    'var.hedgeBooksTitle': 'Books live',
+    'var.hedgeBooksOmni': 'Variational Omni',
+    'var.hedgeBooksTrade': 'HL / Trade XYZ',
+    'var.hedgeBooksPairs': 'Paires appariées',
+    'var.hedgeBooksEmptyOmni': 'Pas de positions Omni — importe ton JSON/CSV Omni dans Activity, ou rafraîchis depuis les fills locaux + marks publics.',
+    'var.hedgeBooksEmptyTrade': 'Pas de positions HL / XYZ ouvertes — ajoute un wallet et rafraîchis.',
+    'var.hedgeBooksAge': 'Omni sync {when}',
+    'var.hedgeBooksStale': 'Pas encore de positions Omni (import/fills)',
+    'var.hedgeBooksFromFills': 'Omni depuis les fills (import local)',
+    'var.hedgeBooksFillsTag': 'FILLS',
+    'var.hedgeBooksRefreshOmni': 'Rafraîchir Omni',
+    'var.hedgeBooksRefreshTrade': 'Rafraîchir HL / XYZ',
+    'var.hedgeSz': 'Taille',
+    'var.hedgeMark': 'Mark',
+    'var.hedgeEntry': 'Entrée',
+    'var.hedgeUpnl': 'uPnL',
+    'var.hedgeNetPnl': 'PnL latent net',
+    'var.hedgeNetPnlSub': 'Omni + HL/XYZ aux marks live',
+    'var.hedgeLiveTick': 'Refresh live · 5s',
+    'var.hedgeLastTick': 'Màj {when}',
+    'var.hedgeMarkMissing': 'Mark Omni indisponible',
+    'var.hedgeNeedsEntry': 'Renseigne le prix d’entrée pour le uPnL live',
+    'var.hedgeBooksUse': 'Utiliser',
+    'var.hedgeBooksPaired': 'Apparié',
+    'var.hedgeBooksUnpaired': 'Sans hedge',
+    'var.hedgeBooksApplied': 'Jambe Omni chargée depuis la position live',
+    'var.hedgeBooksDelta': 'Δ {usd}',
+    'var.venueHl': 'HL',
+    'var.venueXyz': 'XYZ',
     'var.legTicker': 'Actif',
     'var.legTickerEmpty': 'Aucun actif correspondant',
     'var.legSide': 'Sens Omni',
@@ -10901,8 +12443,257 @@ const I18N = {
     'var.sideLong': 'Achat (long)',
     'var.saveLeg': 'Enregistrer',
     'var.clearLeg': 'Effacer',
-    'var.activityTitle': 'Activité portfolio (CSV)',
-    'var.csvHint': 'Importe chaque export Omni séparément (trades, funding, PnL réalisé, transfers) — stocké localement dans le navigateur.',
+    'var.activityTitle': 'Activité Omni',
+    'var.pointsTitle': 'Points Variational',
+    'var.pointsDesc': 'Totaux et historique d’epochs issus de ta collecte Omni. Sync via Hypersheets Omni Live.',
+    'var.pointsGuideHint': 'Pas encore de points ? Helper → <strong>Collecter Omni</strong> → <strong>Synchroniser</strong>, ou importe un JSON dans <strong>Activité</strong>.',
+    'var.pointsEmpty': 'Aucun point importé pour l’instant.',
+    'var.pointsTabCompetition': 'Compétition',
+    'var.pointsTabLab': 'Labs',
+    'var.pointsTabAirdrop': 'Airdrop',
+    'var.competitionEmpty': 'Pas de board compétition dans cet export. Relance Collecter Omni connecté.',
+    'var.competitionSelf': 'Toi',
+    'var.competitionMore': 'Affiche {n} · {total} sur le board',
+    'var.competitionDesc': 'Ta place parmi les wallets qualifiés (≥ 250 k$ de volume), stats du field, bandes de volume, puis le classement issu de ta collecte Omni.',
+    'var.compPlace': 'Place',
+    'var.compScore': 'Score',
+    'var.compVolume': 'Volume',
+    'var.compPnl': 'PnL',
+    'var.compName': 'Trader',
+    'var.compYourStanding': 'Ta position',
+    'var.compVolShort': 'Vol {n}',
+    'var.compWhereStand': 'Où tu te situes',
+    'var.compWhereStandSub': 'percentiles sur tout le field qualifié',
+    'var.compScorePct': 'Score',
+    'var.compPnlPct': 'PnL',
+    'var.compVolPct': 'Volume',
+    'var.compAheadOf': 'devant {pct} du field',
+    'var.compOfficialPlace': 'place officielle n° {n}',
+    'var.compPnlRank': '{pnl} · n° {n} au PnL',
+    'var.compVolRank': '{vol} · n° {n} au volume',
+    'var.compWalletKicker': 'Ton portefeuille',
+    'var.compWalletPlace': 'place n° {n}',
+    'var.compDay': 'Jour {d} sur {total}',
+    'var.compEnds': 'finit le {date}',
+    'var.compPulled': 'Board collecté {when}',
+    'var.compHeroCount': '{n} portefeuilles qualifiés (≥ 250 k$ de volume). En dessous, Variational filtre le field.',
+    'var.compScoreFormula': 'Le volume seul ne te classe pas — il multiplie un PnL existant. Pour monter, il faut plus de PnL (ou le même PnL sur plus de volume).',
+    'var.compScoreClimb': 'Pour atteindre la place n° {target} : environ {pnl} de PnL à ton volume actuel (formule ci-dessus).',
+    'var.compFieldTitle': 'Le field',
+    'var.compFieldSub': 'chaque wallet au-dessus de 250 k$ de volume',
+    'var.compFieldWallets': 'Wallets qualifiés',
+    'var.compFieldAbove': 'au-dessus de 250 k$ de volume',
+    'var.compFieldVol': 'Volume du field',
+    'var.compFieldMedian': 'médiane {n}',
+    'var.compFieldMedianP25': 'médiane {med} · p25 {p25}',
+    'var.compInProfit': 'En profit',
+    'var.compInProfitSub': '{n} sur {total} wallets',
+    'var.compFieldPnl': 'PnL du field',
+    'var.compTop10Share': 'Part top 10',
+    'var.compTop10ShareSub': 'du volume total',
+    'var.compTop10Pnl': 'PnL top 10',
+    'var.compBandsTitle': 'Répartition du volume',
+    'var.compBandsSub': 'wallets par bande de volume, et ce que chaque bande trade',
+    'var.compBandWallets': 'Wallets',
+    'var.compBandVol': 'Volume',
+    'var.labTitle': 'Points Lab',
+    'var.labDesc': 'Modèles heuristiques du poids RWA vs crypto sur Omni (fit communautaire — pas officiel). Calibrés sur ton historique d’epochs quand dispo.',
+    'var.labSimulate': 'Simuler une semaine',
+    'var.labWeeklyVol': 'Volume hebdo',
+    'var.labRwaShare': 'Part tradée en RWA',
+    'var.labAvgOi': 'OI moyen',
+    'var.labEstPoints': 'Pts estimés / semaine',
+    'var.labEstPtsSub': 'pool médian × exposition modèle',
+    'var.labEffVol': 'Volume effectif',
+    'var.labPool': 'Index de pool',
+    'var.labPoolSub': 'mediane des {n} dernieres semaines gagnantes (= 1.00x)',
+    'var.labRate': 'Pts / 1 M$ brut',
+    'var.labPoolHistory': 'Ton pool semaine par semaine',
+    'var.labPoolEmpty': 'Il faut des points d’epoch + des trades sur les mêmes fenêtres pour calibrer un index de pool.',
+    'var.labPoolHint': 'Index de pool = pool de la semaine / mediane de tes semaines recentes (apres retrait du mix d actifs par le modele). Au-dessus de 1.00x, la venue a mieux paye le meme travail ; en dessous, moins bien.',
+    'var.labColWeek': 'Semaine',
+    'var.labColPts': 'Pts self',
+    'var.labColVol': 'Volume',
+    'var.labColRwa': '% RWA',
+    'var.labColPool': 'Index de pool',
+    'var.labDisclaimer': 'Modèles heuristiques communautaires sur des ratios d’epochs publics — pas la formule Variational.',
+    'var.labModel.rwa-9': 'RWA 9x, sublinéaire',
+    'var.labModel.rwa-5': 'RWA 5x, sublinéaire',
+    'var.labModel.rwa-2': 'RWA 2x, linéaire',
+    'var.labModel.volume': 'Volume seul',
+    'var.labModel.oi': 'Open interest',
+    'var.labClaim.rwa-9': 'Un dollar de RWA vaut environ neuf de crypto, et les grosses semaines sont diluées.',
+    'var.labClaim.rwa-5': 'Même forme, prime RWA plus faible et un peu moins de dilution.',
+    'var.labClaim.rwa-2': 'Le RWA paie double, et les points scalent linéairement avec la taille.',
+    'var.labClaim.volume': 'Chaque dollar compte pareil, quel que soit l’actif tradé.',
+    'var.labClaim.oi': 'Ce qui paie, c’est la taille tenue dans le temps, pas le volume tradé.',
+    'var.epochEmpty': 'Pas encore d’historique d’epochs.',
+    'var.csvHint': 'Tu peux aussi importer chaque export CSV Omni séparément (trades, funding, PnL réalisé, transfers) — stocké localement.',
+    'var.onboardTitle': 'Omni Live nécessite l’extension Chrome',
+    'var.onboardBody': 'Installe Hypersheets Omni Live, collecte tes données sur Omni, puis synchronise vers ce dashboard.',
+    'var.onboardCredit': 'Non affilié à Variational Protocol. Les marks live utilisent uniquement l’API publique /metadata/stats.',
+    'var.onboardLink': 'Ouvrir Omni ↗',
+    'var.onboardAdvanced': 'Avancé / secours',
+    'var.guideStep1Title': 'Télécharger & installer l’extension',
+    'var.guideStep1Body': 'Télécharge le zip, <strong>dézippe-le</strong>, ouvre <strong>chrome://extensions/</strong>, active le <strong>Mode développeur</strong>, clique <strong>Charger non empaquetée</strong>, puis sélectionne le <strong>dossier dézippé</strong> (omni-sync). Épingle <strong>Hypersheets Omni Live</strong>.',
+    'var.guideDownloadExt': 'Télécharger l’extension (.zip)',
+    'var.extDownload': 'Télécharger l\'extension',
+    'var.guideOpenChromeExt': 'Colle chrome://extensions dans la barre d’adresse',
+    'var.guideStep1Install': 'Obligatoire — Omni Live ne fonctionne pas sans l’extension.',
+    'var.guideStep2Title': 'Suivre les étapes dans l’extension',
+    'var.guideStep2Body': 'Ouvre le panneau <strong>Hypersheets Omni Live</strong> : ajoute ton wallet HL si besoin, connecte-toi sur Omni, puis clique <strong>Collecter Omni</strong>.',
+    'var.guideStep3Title': 'Synchroniser vers Hypersheets',
+    'var.guideStep3Body': 'Dans l’extension, section <strong>3 · Envoyer vers Hypersheets</strong>, clique <strong>Synchroniser</strong> : l’extension pousse tes trades, points et positions vers ce dashboard.',
+    'var.extCguHint': 'Garde cet onglet Hypersheets ouvert pendant la sync. Les données restent dans ton navigateur.',
+    'var.extReadyCgu': 'Hypersheets Omni Live installé — Collecter Omni dans le panneau (session Omni)',
+    'var.extMissing': 'Installe l’extension puis synchronise depuis le panneau',
+    'var.extCguBlocked': 'Utilise Collecter Omni puis Synchroniser dans l’extension.',
+    'var.extMissingToast': 'Installe Hypersheets Omni Live',
+    'var.extInstallSteps': 'Hypersheets Omni Live : Collecter Omni en 1 clic. Télécharge le zip → chrome://extensions → Mode développeur → Charger non empaquetée → dossier dézippé.',
+    'var.extSync': 'Synchroniser',
+    'var.extSyncing': 'Sync…',
+    'var.extSynced': 'Export Omni synchronisé',
+    'var.extSyncFail': 'Échec de la sync Omni',
+    'var.extSyncPositions': 'Rafraîchir fills + marks',
+    'var.extPositionsSyncing': 'Refresh marks & fills locaux…',
+    'var.extPositionsSynced': 'Book Omni mis à jour ({n})',
+    'var.extReady': 'Hypersheets Omni Live détecté — utilise Collecter Omni dans le panneau',
+    'var.liveReadyTitle': 'Positions & volume',
+    'var.livePeriodLabel': 'Période',
+    'var.liveVolTitle': 'Volume',
+    'var.livePnlTitle': 'PnL réalisé',
+    'var.liveFundingTitle': 'Funding',
+    'var.liveFundingSub': 'Période sélectionnée',
+    'var.liveOpenSizeTitle': 'Taille ouverte',
+    'var.liveUpnlTitle': 'PnL latent',
+    'var.liveUpnlSub': 'Marks × entrée',
+    'var.liveTradesTitle': 'Trades',
+    'var.livePosTitle': 'Positions ouvertes',
+    'var.livePosSub': 'Une carte par marché · Omni vs HL / XYZ',
+    'var.livePosCount': '{n} ouvertes · {usd} notional',
+    'var.livePosHedgeCount': '{n} hedges · net {pnl}',
+    'var.liveHedgeNet': 'uPnL net',
+    'var.liveHedgeMissingWallet': 'Ajoute un wallet Hyperliquid (en-tête) et rafraîchis pour afficher la jambe HL / XYZ.',
+    'var.liveHedgeNoMatch': 'Pas encore de jambe HL / XYZ',
+    'var.liveHedgeVol': 'Vol Omni {vol} · réalisé {pnl}',
+    'var.liveColVenue': 'Venue',
+    'var.liveColSide': 'Sens',
+    'var.liveColQty': 'Qté',
+    'var.liveColSize': 'Taille',
+    'var.liveColEntry': 'Entrée',
+    'var.liveColMark': 'Mark',
+    'var.liveColUpnl': 'uPnL',
+    'var.liveMarketsTitle': 'Marchés sur la période',
+    'var.liveMarketsSub': 'Tous les marchés tradés dans la fenêtre sélectionnée',
+    'var.liveMarketsCount': '{n} marchés',
+    'var.liveVolMeta': '{n} trades',
+    'var.livePnlMeta': 'Win rate {pct}%',
+    'var.livePosEmpty': 'Pas encore de positions ouvertes. Collecter Omni dans l’extension, puis Synchroniser.',
+    'var.liveMarketsEmpty': 'Pas encore de trades sur cette période.',
+    'var.dashColQty': 'Qté',
+    'var.dashColEntry': 'Entrée',
+    'var.dashColMark': 'Mark',
+    'var.collectorBookmark': 'Setup favori (secours)',
+    'var.collectorBookmarkHint': 'Secours réservé — préfère l’extension.',
+    'var.collectorInstall': 'Hypersheets Omni (glisser)',
+    'var.collectorBookmarkDownloaded': 'Fichier favori téléchargé — Chrome : ⋮ → Favoris → Importer des favoris et des paramètres → Fichier HTML de favoris',
+    'var.collectorCopy': 'Copier le code collecteur',
+    'var.collectorCopied': 'Copié — Nom : Hypersheets Omni · l’URL doit commencer par javascript:',
+    'var.collectorCopyFail': 'Impossible de copier l’URL',
+    'var.collectorCopyPrompt': 'Copie cette URL complète (garde javascript:) :',
+    'var.collectorClickHint': 'Préfère Collecter Omni dans l’extension.',
+    'var.collectorAutoImported': 'Export Omni importé automatiquement',
+    'var.collectorAutoImportFail': 'Impossible d’importer automatiquement l’export Omni',
+    'var.jsonDropTitle': 'Dépose un export Omni (.json)',
+    'var.jsonDropSub': 'Réservé — utilise Synchroniser depuis l’extension.',
+    'var.airdropGuideHint': 'Les points se remplissent après Collecter Omni + Synchroniser, ou saisis-les manuellement.',
+    'var.hedgeGuideHint': 'Pas encore de positions Omni ? Installe l’extension → <strong>Collecter Omni</strong> → <strong>Synchroniser</strong>.',
+    'var.slotReady': '{n} trades importés',
+    'var.slotEmpty': 'Vide',
+    'var.slotClear': 'Vider',
+    'var.slotCleared': '{label} vidé',
+    'var.slotAdd': '+ jambe Omni',
+    'var.slotAddHint': 'Jusqu’à {max} jambes — sélectionne une jambe puis importe',
+    'var.slotRemove': 'Retirer la jambe',
+    'var.slotRemoved': '{label} retirée',
+    'var.slotAdded': '{label} ajoutée — sélectionne-la puis importe',
+    'var.slotMax': 'Maximum {n} jambes Omni',
+    'var.slotMin': 'Garde au moins {n} jambes',
+    'var.slotRemoveConfirm': 'Retirer {label} et ses données importées ?',
+    'var.importJson': 'Importer JSON',
+    'var.jsonNotImported': 'Pas encore d’import JSON',
+    'var.jsonMeta': '{file} · {points} pts · rang #{rank} · exporté {when}',
+    'var.jsonImported': 'Export Variational importé',
+    'var.jsonUnknown': 'JSON non reconnu — export Variational Omni attendu.',
+    'var.actPoints': 'Points totaux',
+    'var.actRank': 'Rang',
+    'var.actSelfPts': 'Points self',
+    'var.actRefPts': 'Points parrainage',
+    'var.epochTitle': 'Points par epoch',
+    'var.epochWeek': 'Epoch',
+    'var.epochSelf': 'Self',
+    'var.epochReferral': 'Parrainage',
+    'var.epochTotal': 'Total',
+    'var.epochTo': '–',
+    'var.epochPoints': 'Points',
+    'var.epochVolume': 'Volume',
+    'var.epochNet': 'Net',
+    'var.epochPtsPer': 'Pts / $1M',
+    'var.epochInProgress': 'En cours',
+    'var.epochTrades': '{n} trades',
+    'var.epochOiTitle': 'Open interest',
+    'var.epochOiAvg': 'Moyenne',
+    'var.epochOiPeak': 'Pic',
+    'var.epochOiHeld': 'En position',
+    'var.epochWinRate': 'Win rate : {pct}%',
+    'var.epochFunding': 'Funding',
+    'var.epochMarketsTitle': 'Marchés cette semaine',
+    'var.epochNoMarkets': 'Aucun marché sur cette fenêtre.',
+    'var.epochShowMore': 'Voir {n} de plus',
+    'var.epochShowFewer': 'Voir moins',
+    'var.competitionTitle': 'Compétition',
+    'var.competitionPresent': 'Données compétition présentes dans l’export ({n} entrées).',
+    'var.dashTitle': 'Dashboard',
+    'var.dashToday': 'Aujourd’hui',
+    'var.dashThisEpoch': 'Cet epoch',
+    'var.dashLastEpoch': 'Epoch précédent',
+    'var.dashMonth': 'Ce mois',
+    'var.dashYear': 'Cette année',
+    'var.dashAll': 'Tout',
+    'var.dashMeta': '{trades} trades · {from} → {to} · importé {ago}',
+    'var.dashVol': 'Volume',
+    'var.dashPnl': 'PnL réalisé',
+    'var.dashAvgOi': 'OI moyen',
+    'var.dashPeakOi': 'OI max',
+    'var.dashAvgTrade': 'Taille moy. trade',
+    'var.dashFunding': 'Funding',
+    'var.dashVolSub': '{n} trades',
+    'var.dashWinRate': '{pct}% win rate',
+    'var.dashHeldPct': '{pct}% de la fenêtre en position',
+    'var.dashPeakSub': 'Exposition max',
+    'var.dashLargest': 'Plus gros {usd}',
+    'var.dashNoFees': 'Pas de frais de trading sur Variational',
+    'var.dashVolChart': 'Volume',
+    'var.dashVolChartSub': 'Horaire · {usd} au total',
+    'var.dashOiChart': 'Open interest',
+    'var.dashOiChartSub': 'Moyenne détenue chaque heure ; la bande est le pic dans l’heure. La ligne pointillée est la moyenne sur la fenêtre (heures vides incluses).',
+    'var.dashOiAvg': 'OI moyen',
+    'var.dashOiPeak': 'OI max',
+    'var.dashOiWindowAvg': 'Moy. fenêtre',
+    'var.dashPairs': 'Paires tradées',
+    'var.dashPairsSub': '{n} marchés · funding et PnL séparés',
+    'var.dashPositions': 'Positions ouvertes',
+    'var.dashPositionsSub': 'Reconstruites depuis les fills',
+    'var.dashPositionsLiveSub': 'Live depuis Omni · {when}',
+    'var.dashPosEmpty': 'Rien d’ouvert pour le moment.',
+    'var.dashColMarket': 'Marché',
+    'var.dashColShare': 'Part du volume',
+    'var.dashColPct': '%',
+    'var.dashColVol': 'Volume',
+    'var.dashColPnl': 'PnL',
+    'var.dashColSide': 'Sens',
+    'var.dashColSize': 'Taille',
+    'var.dashColUpnl': 'uPnL',
     'var.importCsv': 'Importer',
     'var.importCsvMulti': 'Importer plusieurs (auto-détection)',
     'var.clearCsv': 'Tout effacer',
@@ -10931,9 +12722,42 @@ const I18N = {
     'var.legInvalid': 'Jambe invalide — ticker et notionnel requis.',
     'var.legSaved': 'Jambe Omni enregistrée',
     'var.legCleared': 'Jambe Omni effacée',
-    'var.csvEmpty': 'Importe les exports CSV Omni (trades, funding, PnL réalisé…) pour une vue complète.',
+    'var.csvEmpty': 'Importe un export JSON Variational ou des CSV Omni (trades, funding, PnL réalisé…) pour une vue complète.',
     'var.csvImported': 'CSV importé',
-    'var.csvCleared': 'Données CSV effacées',
+    'var.csvCleared': 'Données activité & points effacées',
+    'var.airdropTitle': 'Simulateur d’airdrop',
+    'var.airdropDesc': 'Rien n’a été annoncé sur un airdrop Variational. Ce sont des estimations communautaires que tu peux faire bouger pour voir ce que vaudraient tes points.',
+    'var.airdropAssumptions': 'Hypothèses',
+    'var.airdropReset': 'Reset',
+    'var.airdropYourPoints': 'Tes points',
+    'var.airdropPointsHint': 'Rempli depuis ton import JSON/CSV Activity, ou saisis à la main.',
+    'var.airdropFdv': 'FDV au TGE',
+    'var.airdropFdvConsensus': 'Bande consensus ~500 M$–2 Md$',
+    'var.airdropShare': 'Part de supply (round 1)',
+    'var.airdropShareConsensus': 'Bande consensus ~25–30 %',
+    'var.airdropTotalPts': 'Points totaux au TGE',
+    'var.airdropTotalPtsConsensus': 'Bande consensus ~9,0–9,4 M',
+    'var.airdropValuePerPoint': 'Valeur / point',
+    'var.airdropPayout': 'Ton payout',
+    'var.airdropYourShare': 'Ta part',
+    'var.airdropPool': 'Pool airdrop',
+    'var.airdropCostTitle': 'Ce que coûte chaque payout',
+    'var.airdropCostPts': '{n} points',
+    'var.airdropGridTitle': 'Scénarios FDV (part de supply fixe)',
+    'var.airdropColFdv': 'FDV',
+    'var.airdropColPool': 'Pool',
+    'var.airdropColPt': 'Valeur point',
+    'var.airdropColYou': 'Ton airdrop',
+    'var.airdropShareTitle': 'Partager ce scénario',
+    'var.airdropDownload': 'Télécharger PNG',
+    'var.airdropCopyImg': 'Copier l’image',
+    'var.airdropShareX': 'Poster sur X',
+    'var.airdropCopied': 'Image copiée',
+    'var.airdropCopyFail': 'Impossible de copier l’image',
+    'var.airdropTweet': 'Mon scénario points Variational sur Hypersheets : {points} pts → ~{payout} à {fdv} FDV / {share}% supply / {total} pts au TGE. Estimations communautaires uniquement — pas officiel.',
+    'var.airdropDisclaimer': 'Variational n’a annoncé ni token, ni airdrop, ni supply, ni date. Chaque chiffre ici est une hypothèse communautaire modifiable — pas un conseil.',
+    'var.airdropValPerSub': '{pool} répartis sur {total} points.',
+    'var.airdropEnterPoints': 'Saisis tes points pour voir ça.',
     'var.perDay': '%/j',
     'var.perApr': '% APR',
     'var.daysShort': 'j',
@@ -11019,13 +12843,13 @@ const I18N = {
     'var.hlNa': '— (pas sur HL)',
     'var.radarHint': 'Funding = taux journalier estimé. Le radar masque les marchés sous 25 k$ de volume 24 h.',
     'var.compareHint': 'Vol. Omni min. 50 k$ — tri par APR net. Regarde la colonne Signal avant d\'agir.',
-    'var.noWallet': 'Ajoute un wallet Hyperliquid pour lire ta jambe HL.',
-    'var.hlLoadHint': 'Charge les données wallet pour détecter tes positions Hyperliquid.',
-    'var.hlReady': 'Positions HL chargées.',
-    'var.refreshHl': 'Rafraîchir jambe HL',
-    'var.hlRefreshing': 'Rafraîchissement des positions Hyperliquid…',
+    'var.noWallet': 'Ajoute un wallet Hyperliquid pour lire ta jambe HL / Trade XYZ.',
+    'var.hlLoadHint': 'Charge les données wallet pour détecter tes positions Hyperliquid & Trade XYZ.',
+    'var.hlReady': 'Positions HL / Trade XYZ chargées.',
+    'var.refreshHl': 'Rafraîchir HL / XYZ',
+    'var.hlRefreshing': 'Rafraîchissement des positions HL / Trade XYZ…',
     'var.cardOmni': 'Jambe Omni',
-    'var.cardHl': 'Jambe Hyperliquid',
+    'var.cardHl': 'Jambe HL / XYZ',
     'var.cardNetDelta': 'Delta net (USD)',
     'var.cardFundingGap': 'Écart funding (24 h)',
     'var.cardFundingEarn': 'Funding estimé / j',
@@ -11041,7 +12865,7 @@ const I18N = {
     'var.earnOmniLeg': 'Jambe Omni (ton sens) : {pct} / j sur le notionnel',
     'var.earnHlLeg': 'Jambe HL (ton sens) : {pct} / j sur le notionnel',
     'var.earnNet': 'Funding net estimé : {pct} → environ {usd} / jour',
-    'var.hlMissing': 'Pas de position HL',
+    'var.hlMissing': 'Pas de position HL / XYZ',
     'var.actionTitle': 'À faire sur Hyperliquid',
     'var.actionBody': 'Ouvre un {hlSide} sur {hlTicker} pour compenser ta position Omni et farmer l’écart de funding.',
     'var.recCompactKicker': 'Reco',
@@ -11552,6 +13376,7 @@ function syncMarketRadarLang(){
   try{
     const url = new URL(frame.getAttribute('src') || 'market-radar.html', location.href);
     url.searchParams.set('lang', currentLang === 'fr' ? 'fr' : 'en');
+    url.searchParams.set('v', '20260708-radar-i18n-2');
     const next = url.pathname.split('/').pop() + url.search;
     if(frame.getAttribute('src') !== next) frame.setAttribute('src', next);
   }catch(e){}
@@ -14081,15 +15906,28 @@ function closeWalletsModal() {
 // ║  LOAD                                                                     ║
 // ╚═══════════════════════════════════════════════════════════════════════════╝
 function toast(msg, isErr=false) {
-  // Use existing Hypersheets toast if available, otherwise fallback
-  const el = document.getElementById('shareToast')
-  if (el) {
-    el.textContent = msg
-    el.className = 'share-toast' + (isErr ? ' error' : '')
-    el.classList.add('show')
-    clearTimeout(toast._t)
-    toast._t = setTimeout(() => el.classList.remove('show'), 3500)
-  }
+  const el = document.getElementById('shareToast');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'share-toast' + (isErr ? ' error' : '');
+  el.setAttribute('role', 'status');
+  el.style.opacity = '';
+  el.style.visibility = '';
+  el.classList.add('show');
+  clearTimeout(toast._t);
+  clearTimeout(toast._tHard);
+  const hide = () => {
+    el.classList.remove('show');
+    el.style.visibility = 'hidden';
+    el.style.opacity = '0';
+  };
+  toast._t = setTimeout(hide, 3200);
+  toast._tHard = setTimeout(hide, 6000);
+  el.onclick = () => {
+    clearTimeout(toast._t);
+    clearTimeout(toast._tHard);
+    hide();
+  };
 }
 
 function demoSpotTokenIdx(name) {
@@ -14558,8 +16396,13 @@ async function loadData(opts = {}) {
     if (!allFills.length && !xyzFills.length && !bridgeOps.length) {
       _pendingDashboardReveal = false;
       hsLaunchHide();
-      showError(t('noActivity'));
-      toast(t('noActivity'), true);
+      // Portefeuille HL peut être non vide même sans fills — toujours peindre la page wallet.
+      if (typeof isWalletPageActive === 'function' && isWalletPageActive() && typeof renderWalletPage === 'function') {
+        renderWalletPage();
+      } else {
+        showError(t('noActivity'));
+        toast(t('noActivity'), true);
+      }
       return;
     }
 
@@ -14844,6 +16687,7 @@ function syncSupportBannerVisibility() {
   const hide = document.body.classList.contains('hs-welcome-mode')
     || document.body.classList.contains('hs-welcome-loading')
     || document.body.classList.contains('hs-launch-overlay-on')
+    || document.body.classList.contains('hs-embed-mode')
     || _hsLaunchActive
   el.style.display = hide ? 'none' : ''
 }
@@ -15796,6 +17640,19 @@ function renderWalletPage() {
   const showWalletColPerp = addrs.length > 1;
   const showWalletColSpot = addrs.length > 1 && !mergeSpotByPair;
   renderWalletViewBar();
+  // Pendant loadData (walletPortfolio vidé) ou avant le 1er fetch : ne pas peindre $0
+  // (évite le saut / flash à 0 au refresh, surtout en embed widget).
+  const hasPortfolio = Object.keys(walletPortfolio).length > 0;
+  if (wallets.length && !hasPortfolio) {
+    const totalEl = document.getElementById('walletKpiTotal');
+    if (totalEl && !totalEl.dataset.hsPainted) {
+      ['walletKpiPerpHl', 'walletKpiPerpXyz', 'walletKpiSpot', 'walletKpiPositions', 'walletKpiTotal', 'walletSpotTotalBar'].forEach((id) => {
+        const n = document.getElementById(id);
+        if (n) n.textContent = '…';
+      });
+    }
+    return;
+  }
   const hideDust = walletHideDustEnabled();
   const dustMin = walletDustThresholdUsd();
   let perpHl = 0, perpXyz = 0, spotUsd = 0, spotVisibleUsd = 0, posCount = 0;
@@ -15848,6 +17705,8 @@ function renderWalletPage() {
   setText('walletKpiPositions', String(posCount));
   setText('walletKpiTotal', fmtUsd(totalUsd));
   setText('walletSpotTotalBar', fmtUsd(spotUsd));
+  const paintedTotal = document.getElementById('walletKpiTotal');
+  if (paintedTotal) paintedTotal.dataset.hsPainted = '1';
   renderWalletSpotSparkline(spotUsd);
   if (spotRowsAll.length) ensureWalletIconDelegation();
   const totalHint = document.getElementById('walletTotalHint');
@@ -18020,10 +19879,15 @@ const CARD_BACKGROUNDS = {
 const HS_BRAND_ICON_URL = 'data:image/png;base64,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'
 
 function hsBindBrandIcons() {
-  if (typeof HS_BRAND_ICON_URL !== 'string' || !HS_BRAND_ICON_URL) return
-  document.querySelectorAll('[data-hs-brand-icon]').forEach((el) => { el.src = HS_BRAND_ICON_URL })
-  const fav = document.querySelector('link[rel="icon"]')
-  if (fav) fav.href = HS_BRAND_ICON_URL
+  if (typeof HS_BRAND_ICON_URL === 'string' && HS_BRAND_ICON_URL) {
+    document.querySelectorAll('[data-hs-brand-icon]').forEach((el) => { el.src = HS_BRAND_ICON_URL })
+  }
+  // Prefer file favicon (not data:) so Chromium can attach it when bookmarking.
+  const favHref = 'img/hypersheets-logo.png'
+  document.querySelectorAll('link[rel="icon"]').forEach((fav) => {
+    fav.type = 'image/png'
+    fav.href = favHref
+  })
 }
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', hsBindBrandIcons)
@@ -18391,13 +20255,23 @@ function roundRect(ctx, x, y, w, h, r) {
 
 // ── Toast helper ────────────────────────────────────────────────────────────
 function showShareToast(msg, isError) {
+  if (typeof toast === 'function') {
+    toast(msg, !!isError);
+    return;
+  }
   const el = document.getElementById('shareToast');
   if (!el) return;
   el.textContent = msg;
   el.classList.toggle('error', !!isError);
   el.classList.add('show');
+  el.style.visibility = 'visible';
+  el.style.opacity = '1';
   clearTimeout(showShareToast._t);
-  showShareToast._t = setTimeout(() => el.classList.remove('show'), 2200);
+  showShareToast._t = setTimeout(() => {
+    el.classList.remove('show');
+    el.style.visibility = 'hidden';
+    el.style.opacity = '0';
+  }, 3200);
 }
 
 // ── Actions ─────────────────────────────────────────────────────────────────
@@ -22972,12 +24846,33 @@ window.addEventListener('DOMContentLoaded', () => {
   }
   loadWalletsFromStorage();
 
-  // Default dashboard unless ?lbAddr= share link (handled after tab setup)
+  // Default dashboard unless share link or embed page (wallet / leaderboard)
   let lbShareOnLoad = false;
+  let embedPageOnLoad = null;
   try {
-    lbShareOnLoad = !!normalizeLbLookupAddr(new URLSearchParams(location.search || '').get('lbAddr') || '');
+    const bootQ = new URLSearchParams(location.search || '');
+    lbShareOnLoad = !!normalizeLbLookupAddr(bootQ.get('lbAddr') || '');
+    const pageParam = String(bootQ.get('page') || '').toLowerCase();
+    const embedParam = String(bootQ.get('embed') || '').toLowerCase();
+    if (pageParam === 'leaderboard' || embedParam === 'leaderboard') embedPageOnLoad = 'leaderboard';
+    else if (pageParam === 'wallet' || embedParam === '1' || embedParam === 'wallet') embedPageOnLoad = 'wallet';
   } catch (_) {}
-  if (!lbShareOnLoad) {
+  let embedScheduledLoad = false;
+  if (embedPageOnLoad) {
+    document.body.classList.remove('hs-welcome-mode');
+    document.body.classList.add('hs-embed-mode');
+    if (typeof switchPageById === 'function') switchPageById(embedPageOnLoad);
+    else {
+      document.body.dataset.page = embedPageOnLoad;
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      const embedPage = document.getElementById('page-' + embedPageOnLoad);
+      if (embedPage) embedPage.classList.add('active');
+    }
+    if (embedPageOnLoad === 'wallet' && wallets.length && typeof loadData === 'function') {
+      embedScheduledLoad = true;
+      setTimeout(() => loadData(), 200);
+    }
+  } else if (!lbShareOnLoad) {
     document.body.dataset.page = 'dashboard';
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     const dashPage = document.getElementById('page-dashboard');
@@ -22997,7 +24892,7 @@ window.addEventListener('DOMContentLoaded', () => {
     renderWallets();
     _pendingDashboardReveal = isWelcomeMode();
     setTimeout(() => loadData(), 280);
-  } else if (wallets.length && isDashboardUnlocked() && !isWelcomeMode()) {
+  } else if (!embedScheduledLoad && wallets.length && isDashboardUnlocked() && !isWelcomeMode()) {
     setTimeout(() => loadData(), 200);
   }
 });
@@ -30074,7 +31969,8 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
   </div>
 </div>
-<script src="js/variational-omni.js"></script>
+<script src="js/variational-omni-collector.js"></script>
+<script src="js/variational-omni.js?v=20260727l"></script>
 <script>
 (function hsLoadCfWebAnalytics() {
   var token = (typeof HS_CONFIG !== 'undefined' && HS_CONFIG.cfWebAnalyticsToken) || '';

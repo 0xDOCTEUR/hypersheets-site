@@ -446,13 +446,18 @@ const RADAR_TEXT_EN = {
   'indisponible': 'unavailable',
   'source hors ligne': 'source unavailable',
   'variation n/d': 'change n/a',
+  'Tendance 1 mois': '1-month trend',
   'Tendance 1 mois n/d': '1-month trend n/a',
+  'sur': 'over',
+  'sur 1 mois': 'over 1 month',
   'Lecture suspendue': 'Reading suspended',
   'Données insuffisantes': 'Insufficient data',
+  'Attente': 'Waiting',
   'DONNÉES PARTIELLES': 'PARTIAL DATA',
   'NEUTRE': 'NEUTRAL',
   'RISK-ON': 'RISK-ON',
   'RISK-OFF': 'RISK-OFF',
+  'signaux disponibles': 'signals available',
   'Stablecoins (total)': 'Stablecoins (total)',
   'Macro & Taux': 'Macro & Rates',
   'Défensif & Matières Premières': 'Defensive & Commodities',
@@ -462,6 +467,79 @@ const RADAR_TEXT_EN = {
   'Géopolitique': 'Geopolitics',
   'Crypto': 'Crypto',
   'Crédit': 'Credit',
+  'Solide': 'Strong',
+  'Fragile': 'Fragile',
+  'Mixte': 'Mixed',
+  'Lecture indisponible.': 'Reading unavailable.',
+  'L’environnement soutient plutôt les actifs risqués.': 'The backdrop is broadly supportive for risk assets.',
+  'Les signaux sont partagés, sans impulsion nette.': 'Signals are mixed, without a clear impulse.',
+  'Le marché privilégie la prudence et la défense.': 'The market is favoring caution and defense.',
+  'Trop peu de signaux disponibles — verdict directionnel suspendu.': 'Too few signals are available, so the directional verdict is suspended.',
+  'Impossible de produire une lecture fiable tant que plusieurs séries restent indisponibles.': 'A reliable reading cannot be produced while several series remain unavailable.',
+  'Les acheteurs gardent la main': 'Buyers remain in control',
+  'Le marché reste partagé': 'The market remains split',
+  'Le contexte appelle à la prudence': 'The backdrop calls for caution',
+  'Plusieurs séries macro sont indisponibles. Le score affiché ne doit pas être interprété comme un verdict directionnel tant que moins de 6 signaux sur 10 sont exploitables.': 'Several macro series are unavailable. The displayed score should not be read as a directional verdict while fewer than 6 of 10 signals are usable.',
+  'La majorité des indicateurs de volatilité, de tendance et d’appétit pour le risque penchent du bon côté. Le scénario dominant reste constructif, tant que le stress obligataire et le dollar ne se tendent pas.': 'Most volatility, trend, and risk-appetite indicators are leaning the right way. The dominant scenario remains constructive as long as rates stress and the dollar do not tighten further.',
+  'Les actifs risqués tiennent encore, mais le tableau n’est pas assez homogène pour parler d’élan franc. La discipline de gestion du risque compte davantage que la conviction directionnelle.': 'Risk assets are still holding up, but the picture is not uniform enough to call it a clean impulse. Risk management discipline matters more than directional conviction here.',
+  'Le régime général se dégrade: soit la volatilité, soit le dollar, soit les taux freinent la prise de risque. Tant que ces freins restent en place, les rebonds peuvent rester fragiles.': 'The overall regime is deteriorating: either volatility, the dollar, or rates are constraining risk-taking. As long as those brakes remain in place, rebounds may stay fragile.',
+  'Actions / Crypto': 'Equities / Crypto',
+  'S&P ok': 'S&P ok',
+  'S&P fragile': 'S&P fragile',
+  'BTC ok': 'BTC ok',
+  'BTC fragile': 'BTC fragile',
+  'dollar contenu': 'contained dollar',
+  'dollar ferme': 'firm dollar',
+  'stables en hausse': 'stablecoins rising',
+  'stables en baisse': 'stablecoins falling',
+  'volatilité calme': 'calm volatility',
+  'volatilité tendue': 'stretched volatility',
+  'taux contenus': 'contained yields',
+  'taux fermes': 'firm yields',
+  'Stress de marché': 'Market stress',
+  'Calme relatif': 'Relative calm',
+  'Stress à surveiller': 'Stress to watch',
+  'Taux et liquidité': 'Rates and liquidity',
+  'Plutôt favorable': 'Mostly supportive',
+  'Conditions plus dures': 'Tighter conditions',
+  'mixte': 'mixed',
+  'Largeur du risque': 'Risk breadth',
+  'Confirmée': 'Confirmed',
+  'Partielle': 'Partial',
+  'Flux crypto': 'Crypto flows',
+  'Soutien interne': 'Internal support',
+  'Moins porteur': 'Less supportive',
+  'tendance constructive.': 'constructive trend.',
+  'tendance moins propre.': 'weaker trend.',
+  'momentum préservé.': 'momentum preserved.',
+  'momentum plus fragile.': 'more fragile momentum.',
+  'Stablecoins': 'Stablecoins',
+  'la base monétaire crypto se développe.': 'the crypto monetary base is expanding.',
+  'pas de signe clair d’expansion de liquidité.': 'no clear sign of liquidity expansion.',
+  'la peur extrême n’écrase pas le marché.': 'extreme fear is not crushing the market.',
+  'le sentiment reste prudent.': 'sentiment remains cautious.',
+  'Utile pour juger si le marché crypto se concentre sur la qualité.': 'Useful to assess whether crypto is concentrating into higher-quality assets.',
+  'Expansion = liquidité potentielle pour la crypto.': 'Expansion = potential liquidity for crypto.',
+  'Mesure rapide du positionnement émotionnel du marché crypto.': 'Quick read on crypto market emotional positioning.',
+  'Le VIX reste compatible avec un environnement de prise de risque normalisé.': 'The VIX remains consistent with a normalized risk-taking backdrop.',
+  'La volatilité actions ne permet pas de parler de confort complet.': 'Equity volatility does not support a fully comfortable backdrop.',
+  'La dynamique récente des taux longs ne se détend pas contre le marché.': 'Recent long-yield dynamics are not easing against the market.',
+  'La remontée des taux longs peut peser sur les multiples.': 'Higher long yields can weigh on valuation multiples.',
+  'Le dollar ne rajoute pas de pression notable.': 'The dollar is not adding notable pressure.',
+  'Un dollar ferme peut resserrer les conditions financières.': 'A firm dollar can tighten financial conditions.',
+  'Le ton global suggere plutot une detente geopolitique.': 'The overall tone points to easing geopolitical tension.',
+  'Le ton global suggere plutot un environnement risk-off.': 'The overall tone points to a risk-off backdrop.',
+  'Le ton global reste geopolitique mais sans biais net.': 'The overall tone stays geopolitical without a clear bias.',
+  'Le ton global des titres ressort comme plutot bullish.': 'Headline tone looks broadly bullish.',
+  'Le ton global des titres ressort comme plutot bearish.': 'Headline tone looks broadly bearish.',
+  'Le ton global des titres reste plutot neutre ou partage.': 'Headline tone remains mixed to neutral.',
+  'Le thème des flux d’investissement institutionnels reste présent dans les titres.': 'Institutional flow themes remain visible in the headlines.',
+  'L’inflation reste un angle de lecture central.': 'Inflation remains a central reading angle.',
+  'Les anticipations de politique monétaire dominent encore le narratif.': 'Monetary policy expectations still dominate the narrative.',
+  'Les matières premières sont traitées surtout sous l’angle de l’énergie et du refuge.': 'Commodities are mostly framed through energy and safe-haven demand.',
+  'Le flux informationnel reste très orienté crypto et sentiment de marché.': 'The news flow remains heavily oriented toward crypto and market sentiment.',
+  'Le risque géopolitique affleure dans plusieurs titres.': 'Geopolitical risk surfaces across several headlines.',
+  'Les publications d’entreprises influencent directement la tonalité marché.': 'Corporate earnings directly shape market tone.'
 };
 
 function radarLang(){
@@ -478,6 +556,10 @@ function radarIsEn(){
 
 function radarLocale(){
   return radarIsEn() ? 'en-US' : 'fr-FR';
+}
+
+function rt(text){
+  return radarIsEn() ? (RADAR_TEXT_EN[text] || text) : text;
 }
 
 function radarTranslateExactText(root){
@@ -821,7 +903,7 @@ function renderCard(a){
   el.setAttribute('data-help', escapeAttr(getHelpText(a.id, a.label)));
   if(!s || s.error){
     el.classList.add('err');
-    el.innerHTML = cardHtml(a.label, 'indisponible', 'donnée temporairement indisponible', 'flat', '', '', '');
+    el.innerHTML = cardHtml(rt(a.label), rt('indisponible'), rt('donnée temporairement indisponible'), 'flat', '', '', '');
     return;
   }
   el.classList.remove('err');
@@ -835,38 +917,38 @@ function renderCard(a){
     const above = s.last >= s.ma50;
     badge = `<span class="badge ${above?'above':'below'}">${above?'&gt;':'&lt;'} MM50</span>`;
   }
-  let note = s.chg30d==null ? 'Tendance 1 mois n/d' : `Tendance 1 mois ${fmtPct(s.chg30d)}`;
+  let note = s.chg30d==null ? rt('Tendance 1 mois n/d') : `${rt('Tendance 1 mois')} ${fmtPct(s.chg30d)}`;
   if(s.interpretation){
     note = s.interpretation.slice(0, 110) + (s.interpretation.length > 110 ? '…' : '');
   }
   const chgLabel = TIMEFRAME === 'weekly'
-    ? (s.chg7d!=null ? `${fmtPct(s.chg7d)} (7j)` : s.chg30d!=null ? `${fmtPct(s.chg30d)} (30j)` : 'variation n/d')
-    : (s.chg1d!=null ? `${fmtPct(s.chg1d)} (24h)` : s.chg7d!=null ? `${fmtPct(s.chg7d)} (7j)` : 'variation n/d');
-  el.innerHTML = cardHtml(a.label, price, chgLabel, chgCls, badge, sparkline(s.closes, chgCls==='down'?'#ef4444':'#22c55e'), note);
+    ? (s.chg7d!=null ? `${fmtPct(s.chg7d)} (${radarIsEn() ? '7d' : '7j'})` : s.chg30d!=null ? `${fmtPct(s.chg30d)} (30d)` : rt('variation n/d'))
+    : (s.chg1d!=null ? `${fmtPct(s.chg1d)} (24h)` : s.chg7d!=null ? `${fmtPct(s.chg7d)} (${radarIsEn() ? '7d' : '7j'})` : rt('variation n/d'));
+  el.innerHTML = cardHtml(rt(a.label), price, chgLabel, chgCls, badge, sparkline(s.closes, chgCls==='down'?'#ef4444':'#22c55e'), rt(note));
 }
 function renderExtraCards(){
   const d = document.getElementById('card-dom');
   if(state.dom){
     d.setAttribute('data-help', escapeAttr(getHelpText('dom')));
     d.innerHTML = state.dom.error
-      ? cardHtml('Dominance BTC','indisponible','source hors ligne','flat','','','')
-      : cardHtml('Dominance BTC', fmtNum(state.dom.last,1)+' %','poids relatif de BTC','flat','','','Utile pour juger si le marché crypto se concentre sur la qualité.');
+      ? cardHtml(rt('Dominance BTC'),rt('indisponible'),rt('source hors ligne'),'flat','','','')
+      : cardHtml(rt('Dominance BTC'), fmtNum(state.dom.last,1)+' %',rt('poids relatif de BTC'),'flat','','',rt('Utile pour juger si le marché crypto se concentre sur la qualité.'));
   }
   const st = document.getElementById('card-stables');
   if(state.stables){
     st.setAttribute('data-help', escapeAttr(getHelpText('stables')));
     st.innerHTML = state.stables.error
-      ? cardHtml('Stablecoins (total)','indisponible','source hors ligne','flat','','','')
-      : cardHtml('Stablecoins (total)', fmtBn(state.stables.last), fmtPct(state.stables.chg30d)+' (30j)', state.stables.chg30d>0?'up':state.stables.chg30d<0?'down':'flat', '', sparkline(state.stables.closes, state.stables.chg30d>=0?'#22c55e':'#ef4444'), 'Expansion = liquidité potentielle pour la crypto.');
+      ? cardHtml(rt('Stablecoins (total)'),rt('indisponible'),rt('source hors ligne'),'flat','','','')
+      : cardHtml(rt('Stablecoins (total)'), fmtBn(state.stables.last), fmtPct(state.stables.chg30d)+' (30d)', state.stables.chg30d>0?'up':state.stables.chg30d<0?'down':'flat', '', sparkline(state.stables.closes, state.stables.chg30d>=0?'#22c55e':'#ef4444'), rt('Expansion = liquidité potentielle pour la crypto.'));
   }
   const f = document.getElementById('card-fng');
   if(state.fng){
     f.setAttribute('data-help', escapeAttr(getHelpText('fng')));
     if(state.fng.error){
-      f.innerHTML = cardHtml('Fear & Greed crypto','indisponible','source hors ligne','flat','','','');
+      f.innerHTML = cardHtml(rt('Fear & Greed crypto'),rt('indisponible'),rt('source hors ligne'),'flat','','','');
     }else{
       const cls = state.fng.last>=55 ? 'up' : state.fng.last<=40 ? 'down' : 'flat';
-      f.innerHTML = cardHtml('Fear & Greed crypto', state.fng.last + '/100', state.fng.label, cls, '', '', 'Mesure rapide du positionnement émotionnel du marché crypto.');
+      f.innerHTML = cardHtml(rt('Fear & Greed crypto'), state.fng.last + '/100', state.fng.label, cls, '', '', rt('Mesure rapide du positionnement émotionnel du marché crypto.'));
     }
   }
   computeScore();
@@ -898,15 +980,15 @@ function chk(s, cond, valFn){
 }
 
 function getRegime(ratio){
-  if(ratio >= 0.72) return {label:'RISK-ON', color:'var(--up)', cls:'up', text:'L’environnement soutient plutôt les actifs risqués.'};
-  if(ratio >= 0.45) return {label:'NEUTRE', color:'var(--warn)', cls:'warn', text:'Les signaux sont partagés, sans impulsion nette.'};
-  return {label:'RISK-OFF', color:'var(--down)', cls:'down', text:'Le marché privilégie la prudence et la défense.'};
+  if(ratio >= 0.72) return {label:'RISK-ON', color:'var(--up)', cls:'up', text:rt('L’environnement soutient plutôt les actifs risqués.')};
+  if(ratio >= 0.45) return {label:radarIsEn() ? 'NEUTRAL' : 'NEUTRE', color:'var(--warn)', cls:'warn', text:rt('Les signaux sont partagés, sans impulsion nette.')};
+  return {label:'RISK-OFF', color:'var(--down)', cls:'down', text:rt('Le marché privilégie la prudence et la défense.')};
 }
 
 function metricState(ok){
-  if(ok === true) return {label:'Solide', cls:'up'};
-  if(ok === false) return {label:'Fragile', cls:'down'};
-  return {label:'Mixte', cls:'warn'};
+  if(ok === true) return {label:rt('Solide'), cls:'up'};
+  if(ok === false) return {label:rt('Fragile'), cls:'down'};
+  return {label:rt('Mixte'), cls:'warn'};
 }
 
 function computeScore(){
@@ -929,20 +1011,20 @@ function computeScore(){
   const MIN_SIGNALS_FOR_VERDICT = 6;
   const regime = max >= MIN_SIGNALS_FOR_VERDICT
     ? getRegime(ratio)
-    : {label:'DONNÉES PARTIELLES', color:'var(--warn)', cls:'warn', text:'Trop peu de signaux disponibles — verdict directionnel suspendu.'};
+    : {label:rt('DONNÉES PARTIELLES'), color:'var(--warn)', cls:'warn', text:rt('Trop peu de signaux disponibles — verdict directionnel suspendu.')};
   const verdictEl = document.getElementById('verdict');
   verdictEl.textContent = regime.label;
   verdictEl.style.color = regime.color;
-  document.getElementById('gauge-sub').textContent = regime.text + (max<10 ? ` (${max}/10 signaux disponibles)` : '');
+  document.getElementById('gauge-sub').textContent = regime.text + (max<10 ? ` (${max}/10 ${rt('signaux disponibles')})` : '');
   renderTopKpis();
 
   renderMacroSummary({results, ratio, score, max, regime});
 }
 
 function describeSignal(ok, positive, negative){
-  if(ok===true) return positive;
-  if(ok===false) return negative;
-  return 'Lecture indisponible.';
+  if(ok===true) return rt(positive);
+  if(ok===false) return rt(negative);
+  return rt('Lecture indisponible.');
 }
 
 function signalOk(label){
@@ -951,10 +1033,10 @@ function signalOk(label){
 
 function renderMacroSummary(ctx){
   if(!ctx.max){
-    document.getElementById('summary-headline').textContent = 'Données insuffisantes';
+    document.getElementById('summary-headline').textContent = rt('Données insuffisantes');
     document.getElementById('summary-pill').className = 'regime-pill warn';
-    document.getElementById('summary-pill').textContent = 'Attente';
-    document.getElementById('summary-text').textContent = 'Impossible de produire une lecture fiable tant que plusieurs séries restent indisponibles.';
+    document.getElementById('summary-pill').textContent = rt('Attente');
+    document.getElementById('summary-text').textContent = rt('Impossible de produire une lecture fiable tant que plusieurs séries restent indisponibles.');
     document.getElementById('summary-bullets').innerHTML = '';
     document.getElementById('drivers').innerHTML = '';
     return;
@@ -968,20 +1050,20 @@ function renderMacroSummary(ctx){
   const liqOk = signalOk('Stablecoins en expansion (30j)');
   const fngOk = signalOk('Fear & Greed >= 40');
 
-  const head = ctx.regime.label==='DONNÉES PARTIELLES'
-    ? 'Lecture suspendue'
+  const head = (ctx.regime.label===rt('DONNÉES PARTIELLES') || ctx.regime.label==='DONNÉES PARTIELLES')
+    ? rt('Lecture suspendue')
     : ctx.regime.label==='RISK-ON'
-    ? 'Les acheteurs gardent la main'
-    : ctx.regime.label==='NEUTRE'
-      ? 'Le marché reste partagé'
-      : 'Le contexte appelle à la prudence';
-  const text = ctx.regime.label==='DONNÉES PARTIELLES'
-    ? 'Plusieurs séries macro sont indisponibles. Le score affiché ne doit pas être interprété comme un verdict directionnel tant que moins de 6 signaux sur 10 sont exploitables.'
+    ? rt('Les acheteurs gardent la main')
+    : (ctx.regime.label==='NEUTRE' || ctx.regime.label==='NEUTRAL')
+      ? rt('Le marché reste partagé')
+      : rt('Le contexte appelle à la prudence');
+  const text = (ctx.regime.label===rt('DONNÉES PARTIELLES') || ctx.regime.label==='DONNÉES PARTIELLES')
+    ? rt('Plusieurs séries macro sont indisponibles. Le score affiché ne doit pas être interprété comme un verdict directionnel tant que moins de 6 signaux sur 10 sont exploitables.')
     : ctx.regime.label==='RISK-ON'
-    ? 'La majorité des indicateurs de volatilité, de tendance et d’appétit pour le risque penchent du bon côté. Le scénario dominant reste constructif, tant que le stress obligataire et le dollar ne se tendent pas.'
-    : ctx.regime.label==='NEUTRE'
-      ? 'Les actifs risqués tiennent encore, mais le tableau n’est pas assez homogène pour parler d’élan franc. La discipline de gestion du risque compte davantage que la conviction directionnelle.'
-      : 'Le régime général se dégrade: soit la volatilité, soit le dollar, soit les taux freinent la prise de risque. Tant que ces freins restent en place, les rebonds peuvent rester fragiles.';
+    ? rt('La majorité des indicateurs de volatilité, de tendance et d’appétit pour le risque penchent du bon côté. Le scénario dominant reste constructif, tant que le stress obligataire et le dollar ne se tendent pas.')
+    : (ctx.regime.label==='NEUTRE' || ctx.regime.label==='NEUTRAL')
+      ? rt('Les actifs risqués tiennent encore, mais le tableau n’est pas assez homogène pour parler d’élan franc. La discipline de gestion du risque compte davantage que la conviction directionnelle.')
+      : rt('Le régime général se dégrade: soit la volatilité, soit le dollar, soit les taux freinent la prise de risque. Tant que ces freins restent en place, les rebonds peuvent rester fragiles.');
 
   const bullets = [
     {cls: spxOk && btcOk ? 'positive' : (!spxOk && !btcOk ? 'negative' : 'neutral'), txt: spxOk && btcOk ? 'Les grands actifs risqués restent au-dessus de leur tendance de moyen terme.' : 'La tendance sur les actifs risqués n’est pas uniformément confirmée.'},
@@ -1000,46 +1082,46 @@ function renderMacroSummary(ctx){
   const defState = metricState(vixOk && tnxOk);
   document.getElementById('summary-strip').innerHTML = `
     <div class="summary-metric" data-help="${escapeAttr("Actions / Crypto\nRésume la qualité de la tendance sur les actifs risqués.\nSolide: actions + crypto confirment.\nMixte: un seul des deux tient.\nFragile: les deux se dégradent.")}">
-      <span class="label">Actions / Crypto</span>
+      <span class="label">${rt('Actions / Crypto')}</span>
       <span class="value" style="color:var(--${eqState.cls === 'up' ? 'up' : eqState.cls === 'down' ? 'down' : 'warn'})">${eqState.label}</span>
-      <span class="hint">${spxOk ? 'S&P ok' : 'S&P fragile'} · ${btcOk ? 'BTC ok' : 'BTC fragile'}</span>
+      <span class="hint">${rt(spxOk ? 'S&P ok' : 'S&P fragile')} · ${rt(btcOk ? 'BTC ok' : 'BTC fragile')}</span>
     </div>
     <div class="summary-metric" data-help="${escapeAttr("Liquidité\nCroise la force du dollar et la liquidité crypto.\nFavorable: dollar contenu + stablecoins en hausse.\nMixte: un seul soutien.\nDéfavorable: dollar ferme et liquidité en baisse.")}">
-      <span class="label">Liquidité</span>
+      <span class="label">${rt('Liquidité')}</span>
       <span class="value" style="color:var(--${liqState.cls === 'up' ? 'up' : liqState.cls === 'down' ? 'down' : 'warn'})">${liqState.label}</span>
-      <span class="hint">${dxyOk ? 'dollar contenu' : 'dollar ferme'} · ${liqOk ? 'stables en hausse' : 'stables en baisse'}</span>
+      <span class="hint">${rt(dxyOk ? 'dollar contenu' : 'dollar ferme')} · ${rt(liqOk ? 'stables en hausse' : 'stables en baisse')}</span>
     </div>
     <div class="summary-metric" data-help="${escapeAttr("Stress / Taux\nCroise volatilité actions et rendements longs.\nFavorable: VIX calme + taux contenus.\nMixte: un seul facteur propre.\nDéfavorable: stress et/ou tension de taux.")}">
-      <span class="label">Stress / Taux</span>
+      <span class="label">${rt('Stress / Taux')}</span>
       <span class="value" style="color:var(--${defState.cls === 'up' ? 'up' : defState.cls === 'down' ? 'down' : 'warn'})">${defState.label}</span>
-      <span class="hint">${vixOk ? 'volatilité calme' : 'volatilité tendue'} · ${tnxOk ? 'taux contenus' : 'taux fermes'}</span>
+      <span class="hint">${rt(vixOk ? 'volatilité calme' : 'volatilité tendue')} · ${rt(tnxOk ? 'taux contenus' : 'taux fermes')}</span>
     </div>`;
   document.getElementById('summary-bullets').innerHTML = bullets.map(b => `<div class="bullet ${b.cls}"><i></i><span>${escapeHtml(b.txt)}</span></div>`).join('');
 
   const drivers = [
     {
-      title:'Stress de marché',
-      state:vixOk ? 'Calme relatif' : vixOk===false ? 'Stress à surveiller' : 'n/d',
+      title:rt('Stress de marché'),
+      state:vixOk ? rt('Calme relatif') : vixOk===false ? rt('Stress à surveiller') : 'n/d',
       level:vixOk ? 'up' : vixOk===false ? 'down' : 'warn',
       text:describeSignal(vixOk, 'Le VIX reste compatible avec un environnement de prise de risque normalisé.', 'La volatilité actions ne permet pas de parler de confort complet.')
     },
     {
-      title:'Taux et liquidité',
-      state:(tnxOk && dxyOk) ? 'Plutôt favorable' : (!tnxOk || !dxyOk) ? 'Conditions plus dures' : 'mixte',
+      title:rt('Taux et liquidité'),
+      state:(tnxOk && dxyOk) ? rt('Plutôt favorable') : (!tnxOk || !dxyOk) ? rt('Conditions plus dures') : rt('mixte'),
       level:(tnxOk && dxyOk) ? 'up' : (!tnxOk || !dxyOk) ? 'down' : 'warn',
       text:`${describeSignal(tnxOk, 'La dynamique récente des taux longs ne se détend pas contre le marché.', 'La remontée des taux longs peut peser sur les multiples.')} ${describeSignal(dxyOk, 'Le dollar ne rajoute pas de pression notable.', 'Un dollar ferme peut resserrer les conditions financières.')}`
     },
     {
-      title:'Largeur du risque',
-      state:(spxOk && btcOk) ? 'Confirmée' : (!spxOk && !btcOk) ? 'Fragile' : 'Partielle',
+      title:rt('Largeur du risque'),
+      state:(spxOk && btcOk) ? rt('Confirmée') : (!spxOk && !btcOk) ? rt('Fragile') : rt('Partielle'),
       level:(spxOk && btcOk) ? 'up' : (!spxOk && !btcOk) ? 'down' : 'warn',
-      text:`Actions: ${describeSignal(spxOk, 'tendance constructive.', 'tendance moins propre.') } Crypto: ${describeSignal(btcOk, 'momentum préservé.', 'momentum plus fragile.')}`
+      text:`${rt('Actions')}: ${describeSignal(spxOk, 'tendance constructive.', 'tendance moins propre.') } ${rt('Crypto')}: ${describeSignal(btcOk, 'momentum préservé.', 'momentum plus fragile.')}`
     },
     {
-      title:'Flux crypto',
-      state:(liqOk && fngOk) ? 'Soutien interne' : (!liqOk || !fngOk) ? 'Moins porteur' : 'mixte',
+      title:rt('Flux crypto'),
+      state:(liqOk && fngOk) ? rt('Soutien interne') : (!liqOk || !fngOk) ? rt('Moins porteur') : rt('mixte'),
       level:(liqOk && fngOk) ? 'up' : (!liqOk || !fngOk) ? 'down' : 'warn',
-      text:`Stablecoins: ${describeSignal(liqOk, 'la base monétaire crypto se développe.', 'pas de signe clair d’expansion de liquidité.')} Sentiment: ${describeSignal(fngOk, 'la peur extrême n’écrase pas le marché.', 'le sentiment reste prudent.')}`
+      text:`${rt('Stablecoins')}: ${describeSignal(liqOk, 'la base monétaire crypto se développe.', 'pas de signe clair d’expansion de liquidité.')} ${rt('Sentiment')}: ${describeSignal(fngOk, 'la peur extrême n’écrase pas le marché.', 'le sentiment reste prudent.')}`
     },
   ];
   document.getElementById('drivers').innerHTML = drivers.map(d => `
@@ -1055,26 +1137,26 @@ function renderTopKpis(){
   const fng = state.fng;
   const kpis = [
     {
-      k:'Volatilité',
+      k:rt('Volatilité'),
       v: vix && !vix.error ? fmtNum(vix.last, 1) : '—',
-      s: vix && !vix.error ? (vix.chg5d != null ? `${fmtPct(vix.chg5d)} sur 5j` : 'VIX') : 'VIX',
+      s: vix && !vix.error ? (vix.chg5d != null ? `${fmtPct(vix.chg5d)} ${rt('sur')} ${radarIsEn() ? '5d' : '5j'}` : 'VIX') : 'VIX',
       level: !vix || vix.error ? 'warn' : vix.last < 20 ? 'up' : vix.last <= 25 ? 'warn' : 'down'
     },
     {
-      k:'Dollar',
+      k:rt('Dollar'),
       v: dxy && !dxy.error ? fmtNum(dxy.last, 2) : '—',
-      s: dxy && !dxy.error ? (dxy.chg30d != null ? `${fmtPct(dxy.chg30d)} sur 1 mois` : 'DXY broad') : 'DXY broad',
+      s: dxy && !dxy.error ? (dxy.chg30d != null ? `${fmtPct(dxy.chg30d)} ${rt('sur 1 mois')}` : 'DXY broad') : 'DXY broad',
       level: !dxy || dxy.error ? 'warn' : (dxy.ma50!=null ? (dxy.last < dxy.ma50 ? 'up' : 'down') : (dxy.chg30d != null ? (dxy.chg30d <= 0 ? 'up' : 'down') : 'warn'))
     },
     {
-      k:'Sentiment',
+      k:rt('Sentiment'),
       v: fng && !fng.error ? `${fng.last}/100` : '—',
       s: fng && !fng.error ? fng.label : 'Fear & Greed',
       level: !fng || fng.error ? 'warn' : fng.last >= 55 ? 'up' : fng.last >= 40 ? 'warn' : 'down'
     }
   ];
   document.getElementById('gauge-kpis').innerHTML = kpis.map(item => `
-    <div class="mini-kpi ${item.level}" data-help="${escapeAttr(getHelpText(item.k.toLowerCase() === 'volatilité' ? 'vix' : item.k.toLowerCase() === 'dollar' ? 'dxy' : 'fng'))}">
+    <div class="mini-kpi ${item.level}" data-help="${escapeAttr(getHelpText(item.k === rt('Volatilité') ? 'vix' : item.k === rt('Dollar') ? 'dxy' : 'fng'))}">
       <span class="k">${escapeHtml(item.k)}</span>
       <span class="v">${escapeHtml(item.v)}</span>
       <span class="s">${escapeHtml(item.s)}</span>
@@ -1272,9 +1354,9 @@ function scoreNewsTone(text, tabId=''){
     let score = 0;
     easing.forEach(word => { if(t.includes(word)) score += 1; });
     escalation.forEach(word => { if(t.includes(word)) score -= 1; });
-    if(score >= 1) return {label:'Detente', cls:'riskon', score};
-    if(score <= -1) return {label:'Risk-off', cls:'riskoff', score};
-    return {label:'Neutre', cls:'neutral', score};
+  if(score >= 1) return {label: radarIsEn() ? 'Easing' : 'Detente', cls:'riskon', score};
+  if(score <= -1) return {label:'Risk-off', cls:'riskoff', score};
+  return {label: radarIsEn() ? 'Neutral' : 'Neutre', cls:'neutral', score};
   }
   const bullish = [
     'surge','rally','gain','gains','rise','rises','up','beat','beats','bullish','record','records','breakout','approval','approved','launch','growth','expansion','strong',
@@ -1289,7 +1371,7 @@ function scoreNewsTone(text, tabId=''){
   bearish.forEach(word => { if(t.includes(word)) score -= 1; });
   if(score >= 1) return {label:'Bullish', cls:'bullish', score};
   if(score <= -1) return {label:'Bearish', cls:'bearish', score};
-  return {label:'Neutre', cls:'neutral', score};
+  return {label: radarIsEn() ? 'Neutral' : 'Neutre', cls:'neutral', score};
 }
 
 async function fetchFeed(f, tab){
@@ -1344,6 +1426,30 @@ function filterNewsByCategory(items, tab){
 }
 
 function summarizeNews(items, tab){
+  if(radarIsEn()){
+    const textEn = items.map(it => normalizeTitle(it.title || it.titleFr)).join(' ');
+    const toneTotalEn = items.reduce((acc, it) => acc + (it.tone?.score || 0), 0);
+    const toneLabelEn = tab.id === 'geopolitics'
+      ? (toneTotalEn >= 2 ? 'The overall tone points to easing geopolitical tension.' : toneTotalEn <= -2 ? 'The overall tone leans toward a risk-off backdrop.' : 'The overall tone stays geopolitical without a clear directional bias.')
+      : (toneTotalEn >= 2 ? 'Headline tone looks broadly bullish.' : toneTotalEn <= -2 ? 'Headline tone looks broadly bearish.' : 'Headline tone remains mixed to neutral.');
+    const checksEn = [
+      {match:/etf|fund|spot/, msg:'Institutional flow themes remain visible in the headlines.'},
+      {match:/inflation|cpi|prices/, msg:'Inflation remains a core reading angle.'},
+      {match:/fed|powell|ecb|lagarde|rate|rates|yield/, msg:'Monetary policy expectations still dominate the narrative.'},
+      {match:/oil|gold|opec|energy|barrel/, msg:'Commodities are mostly framed through energy and safe-haven demand.'},
+      {match:/bitcoin|ethereum|crypto|stablecoin|token/, msg:'The news flow remains heavily driven by crypto and market sentiment.'},
+      {match:/tariff|war|geopolit|middle east|china/, msg:'Geopolitical risk shows up across several headlines.'},
+      {match:/earnings|profit|revenue/, msg:'Corporate earnings are directly shaping market tone.'},
+    ];
+    const bulletsEn = [toneLabelEn];
+    for(const c of checksEn){
+      if(c.match.test(textEn)) bulletsEn.push(c.msg);
+      if(bulletsEn.length === 3) break;
+    }
+    if(!bulletsEn.length && items[0]) bulletsEn.push(`Today's flow is mostly centered on ${tab.label.toLowerCase()} without a single dominant catalyst.`);
+    if(items[0]) bulletsEn.unshift(`Latest headline: ${items[0].title}`);
+    return uniq(bulletsEn).slice(0,4);
+  }
   const text = items.map(it => normalizeTitle(it.titleFr || it.title)).join(' ');
   const toneTotal = items.reduce((acc, it) => acc + (it.tone?.score || 0), 0);
   const toneLabel = tab.id === 'geopolitics'
@@ -1435,18 +1541,18 @@ function upcomingDateForWeekday(targetWeekday){
 function renderCalendar(){
   const calendarEl = document.getElementById('calendar');
   const sections = [
-    {id:'crypto', label:'Crypto'},
-    {id:'macro', label:'Macro & Marchés'},
-    {id:'rates', label:'Banques centrales'},
-    {id:'commodities', label:'Matières premières'},
-    {id:'geopolitics', label:'Géopolitique'},
+    {id:'crypto', label:rt('Crypto')},
+    {id:'macro', label:rt('Macro & Marchés')},
+    {id:'rates', label:rt('Banques centrales')},
+    {id:'commodities', label:rt('Matières premières')},
+    {id:'geopolitics', label:rt('Géopolitique')},
   ];
   calendarEl.innerHTML = sections.map(section => {
     const events = (WEEKLY_CALENDAR[section.id] || []).map(e => {
       const d = upcomingDateForWeekday(e.weekday);
       return {
-        dateLabel: d.toLocaleDateString('fr-FR', {day:'2-digit', month:'short'}),
-        text: e.label,
+        dateLabel: d.toLocaleDateString(radarLocale(), {day:'2-digit', month:'short'}),
+        text: rt(e.label),
         ts: d.getTime(),
       };
     }).sort((a,b)=>a.ts-b.ts).slice(0,3);
