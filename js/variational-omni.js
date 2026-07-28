@@ -2666,7 +2666,7 @@
         radar: '#var-radar',
       };
       const nextHash = hashMap[tab];
-      if (nextHash && location.hash !== nextHash && el) {
+      if (nextHash && location.hash !== nextHash) {
         history.replaceState(null, '', nextHash);
       }
     } catch (_) {}
@@ -5672,6 +5672,16 @@
   window.__hsFlushPendingOmniImportUi = varFlushPendingOmniImportUi;
 
   function varShowImportedOmniUi() {
+    // Exit welcome shell so Variational pages are visible without requiring a HL wallet load.
+    try {
+      if (typeof markDashboardLaunched === 'function') markDashboardLaunched();
+      if (typeof syncWelcomeShell === 'function') syncWelcomeShell();
+    } catch (_) {}
+    try {
+      if (location.hash !== '#var-omni-live') {
+        history.replaceState(null, '', '#var-omni-live');
+      }
+    } catch (_) {}
     try {
       if (typeof switchPage === 'function') {
         const tab = document.querySelector('.nav-tab[data-tab="variational"]');
