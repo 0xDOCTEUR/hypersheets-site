@@ -135,6 +135,10 @@
         return true;
       }
       try {
+        const hash = msg.hash || '#var-omni-live';
+        try {
+          if (location.hash !== hash) history.replaceState(null, '', hash);
+        } catch (_) {}
         window.postMessage(
           {
             source: 'hs-omni-ext',

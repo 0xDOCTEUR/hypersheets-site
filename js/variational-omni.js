@@ -5698,6 +5698,14 @@
   function varImportOmniPayload(payload, fileName) {
     if (!varIsOmniExport(payload)) return false;
     varApplyOmniExport(payload, fileName || 'variational-export-live.json');
+    // Always pin the Live hash immediately (even if heavy UI is deferred).
+    try {
+      if (typeof markDashboardLaunched === 'function') markDashboardLaunched();
+      if (typeof syncWelcomeShell === 'function') syncWelcomeShell();
+      if (location.hash !== '#var-omni-live') {
+        history.replaceState(null, '', '#var-omni-live');
+      }
+    } catch (_) {}
     // Never run heavy Variational renders while Hypersheets is still on the HL launch overlay.
     if (varPageIsBusyLoading()) {
       window.__hsVarPendingOmniImportUi = varShowImportedOmniUi;
@@ -5761,8 +5769,9 @@
       try {
         const pts = varPointsLoad();
         if (pts && (pts.points_summary || pts.competition)) {
-          const tab = document.querySelector('#page-variational .var-sub-tab[data-varsub="dashboard"]');
-          varSetSub('dashboard', tab);
+          // Keep Omni Live after sync/import — do not bounce to #var-dashboard.
+          const tab = document.querySelector('#page-variational .var-sub-tab[data-varsub="live"]');
+          varSetSub('live', tab || null);
         }
       } catch (_) {}
     } else if (typeof toast === 'function') {

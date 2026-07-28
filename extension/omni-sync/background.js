@@ -347,6 +347,7 @@ function sendExportMessage(tabId, payload) {
           type: 'HS_OMNI_EXPORT_APPLY',
           payload,
           fileName: 'variational-export-ext.json',
+          hash: '#var-omni-live',
         },
         (res) => {
           if (chrome.runtime.lastError) return resolve(false);
@@ -359,17 +360,49 @@ function sendExportMessage(tabId, payload) {
   });
 }
 
+function forceOmniLiveHash(tabId) {
+  return new Promise((resolve) => {
+    try {
+      chrome.scripting.executeScript(
+        {
+          target: { tabId },
+          func: () => {
+            try {
+              if (location.hash !== '#var-omni-live') {
+                history.replaceState(null, '', '#var-omni-live');
+              }
+            } catch (_) {}
+          },
+        },
+        () => resolve(!chrome.runtime.lastError)
+      );
+    } catch (_) {
+      resolve(false);
+    }
+  });
+}
+
 async function pushExportToTab(tabId, payload) {
   await waitTabComplete(tabId, 25000);
+  await forceOmniLiveHash(tabId);
+  try { await chrome.tabs.update(tabId, { active: true }); } catch (_) {}
   let ok = await sendExportMessage(tabId, payload);
-  if (ok) return true;
+  if (ok) {
+    await forceOmniLiveHash(tabId);
+    return true;
+  }
   await injectHsBridge(tabId);
   await new Promise((r) => setTimeout(r, 200));
   ok = await sendExportMessage(tabId, payload);
-  if (ok) return true;
+  if (ok) {
+    await forceOmniLiveHash(tabId);
+    return true;
+  }
   // One more delayed retry — page bridge may still be binding.
   await new Promise((r) => setTimeout(r, 800));
-  return sendExportMessage(tabId, payload);
+  ok = await sendExportMessage(tabId, payload);
+  if (ok) await forceOmniLiveHash(tabId);
+  return ok;
 }
 
 async function syncToHypersheets() {
