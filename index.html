@@ -3078,6 +3078,55 @@ const HS_CONFIG = {
       background: transparent; border: 1px solid var(--border); color: var(--muted);
     }
     .btn-ghost:hover { color: var(--text); border-color: var(--accent-border); }
+    /* Accent CTA — used heavily by Variational + JS-rendered actions */
+    .btn-ac {
+      background: var(--accent); color: var(--on-accent); border: none; border-radius: 10px;
+      padding: 10px 18px; font-weight: 700; cursor: pointer; transition: opacity .15s;
+      font-size: .85rem; font-family: 'Inter', sans-serif;
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      text-decoration: none;
+    }
+    .btn-ac:hover { opacity: .85; }
+    .btn-ac:disabled { background: var(--surface-2); color: var(--muted); cursor: not-allowed; opacity: 1; }
+    a.btn-ac { color: var(--on-accent); }
+
+    /* Shared card / form primitives (Variational + elsewhere used these without a base rule) */
+    .card2 {
+      background: var(--surface-gradient);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      position: relative;
+      overflow: hidden;
+    }
+    .card2::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: var(--surface-line);
+      pointer-events: none;
+    }
+    .p3 { padding: 14px 16px; }
+    .hs-input, .hs-select {
+      background: var(--input-bg, var(--surface-2));
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      padding: 8px 12px;
+      outline: none;
+      transition: border-color .15s;
+      font-size: .85rem;
+      font-family: 'Inter', sans-serif;
+    }
+    .hs-input:focus, .hs-select:focus { border-color: var(--accent); }
+    .hs-select {
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237d8590' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      padding-right: 28px;
+    }
 
     /* Wallet chip — tuiles arrondies (actif = bordure + texte accent) */
     .wallet-chip {
