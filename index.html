@@ -615,6 +615,28 @@ const HS_CONFIG = {
           margin-top: 2px;
           cursor: default;
         }
+        .var-omni-scope-chips {
+          grid-column: 1 / -1;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          margin-bottom: 2px;
+        }
+        .var-omni-csv-bar {
+          margin: 0 0 16px;
+          padding: 12px 14px;
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          background: color-mix(in srgb, var(--surface-2) 80%, transparent);
+        }
+        .var-omni-csv-bar-h {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          margin-bottom: 8px;
+        }
+        .var-omni-csv-bar-h strong { font-size: .88rem; }
+        .var-omni-csv-bar-h span { font-size: .75rem; color: var(--muted); line-height: 1.35; }
         .var-onboard {
           display: block;
           padding: 14px 16px;
@@ -889,9 +911,33 @@ const HS_CONFIG = {
           cursor: pointer; user-select: none; list-style: none;
         }
         .var-onboard-advanced summary::-webkit-details-marker { display: none; }
-        .var-points-kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 14px; }
+        .var-points-kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 16px; }
         @media (min-width: 700px) { .var-points-kpis { grid-template-columns: repeat(3, 1fr); } }
         @media (min-width: 1100px) { .var-points-kpis { grid-template-columns: repeat(6, 1fr); } }
+        .var-points-kpis .card2 {
+          margin: 0; padding: 12px 12px 10px;
+          border-radius: 12px;
+          background: color-mix(in srgb, var(--surface-2) 88%, transparent);
+          border: 1px solid var(--border);
+          box-shadow: none;
+        }
+        .var-points-kpis .kpi-label {
+          font-size: .65rem; letter-spacing: .04em; text-transform: uppercase;
+          color: var(--muted); margin-bottom: 4px;
+        }
+        .var-points-kpis .kpi-val {
+          font-size: 1.05rem !important; font-weight: 700; font-variant-numeric: tabular-nums;
+          line-height: 1.15;
+        }
+        .var-points-kpis .kpi-sub {
+          margin-top: 4px; font-size: .68rem !important; color: var(--muted);
+        }
+        .var-points-view .card2.p3 {
+          border-radius: 14px;
+          border: 1px solid var(--border);
+          background: color-mix(in srgb, var(--surface-2) 70%, transparent);
+          box-shadow: none;
+        }
         .var-dash-nav {
           display: flex; gap: 2px; flex-wrap: wrap;
           background: var(--surface-2);
@@ -971,13 +1017,17 @@ const HS_CONFIG = {
         }
         .var-epoch-row.is-open .var-epoch-chev { transform: rotate(180deg); }
         .var-epoch-detail {
-          display: grid; grid-template-columns: 1fr; gap: 18px;
-          padding: 4px 12px 16px; margin: 0 8px 10px;
-          border-radius: 10px; border: 1px solid var(--border);
-          background: color-mix(in srgb, var(--surface-2) 88%, #000);
+          display: grid; grid-template-columns: 1fr; gap: 12px;
+          padding: 10px 12px 14px; margin: 0 8px 10px;
         }
         @media (min-width: 860px) {
-          .var-epoch-detail { grid-template-columns: minmax(220px, 0.9fr) minmax(0, 1.4fr); }
+          .var-epoch-detail { grid-template-columns: minmax(240px, 0.85fr) minmax(0, 1.35fr); }
+        }
+        .var-epoch-oi-card, .var-epoch-markets-card {
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          background: color-mix(in srgb, var(--surface-2) 88%, #000);
+          padding: 12px 14px;
         }
         .var-epoch-detail-h {
           font-size: .65rem; font-weight: 700; letter-spacing: .07em;
@@ -991,12 +1041,13 @@ const HS_CONFIG = {
           display: block; font-size: .62rem; color: var(--muted); margin-bottom: 4px;
           text-transform: uppercase; letter-spacing: .04em;
         }
-        .var-epoch-oi-grid strong { font-size: .95rem; font-variant-numeric: tabular-nums; }
+        .var-epoch-oi-grid strong { font-size: 1rem; font-variant-numeric: tabular-nums; }
         .var-epoch-oi-extra {
           display: flex; flex-direction: column; gap: 6px;
           font-size: .8rem; color: var(--muted);
         }
-        .var-epoch-markets { display: flex; flex-direction: column; gap: 7px; }
+        .var-epoch-markets { display: flex; flex-direction: column; gap: 8px; }
+        .var-epoch-mkt-pnl { font-weight: 600; min-width: 72px; }
         .var-epoch-markets-empty { font-size: .78rem; color: var(--muted); }
         .var-epoch-mkt {
           display: grid; grid-template-columns: minmax(88px, 0.9fr) minmax(0, 1fr) 64px;
@@ -10368,6 +10419,24 @@ const HS_CONFIG = {
                 <button type="button" class="btn btn-ac text-xs" id="varOmniPosBtn" onclick="varRefreshOmniFromLocal()" data-i18n="var.extSyncPositions">Rafraîchir fills + marks</button>
               </div>
             </div>
+
+            <div class="var-omni-csv-bar" id="varOmniCsvBar">
+              <div class="var-omni-csv-bar-h">
+                <strong data-i18n="var.csvSlotsTitle">Sources Omni (CSV / export)</strong>
+                <span data-i18n="var.csvSlotsHint">Comme les wallets HL : choisis une jambe, ou « Tous » pour agréger.</span>
+              </div>
+              <div id="varOmniSlots" class="var-omni-slots" aria-label="Omni CSV slots"></div>
+              <div class="var-json-drop" id="varJsonDrop" tabindex="0" role="button" aria-label="Import Omni JSON or CSV">
+                <p class="var-json-drop-title" data-i18n="var.jsonDropTitle">Drop Omni export (.json / .csv)</p>
+                <label class="btn btn-ac" style="cursor:pointer;margin:0;display:inline-flex">
+                  <span data-i18n="var.importJson">Importer JSON / CSV</span>
+                  <input id="varJsonFileInput" type="file" accept=".json,.csv,application/json,text/csv" multiple style="display:none" onchange="varImportMixedFiles(this)"/>
+                </label>
+                <button type="button" class="btn btn-ghost" style="margin-left:8px" onclick="varClearCsv()" data-i18n="var.clearCsv">Tout vider</button>
+                <div class="var-json-drop-meta" id="varJsonMeta" data-i18n="var.jsonNotImported">Aucun import pour l’instant</div>
+              </div>
+            </div>
+
             <div class="var-live-period-row">
               <span class="kpi-label" style="margin:0" data-i18n="var.livePeriodLabel">Période</span>
               <div class="var-dash-periods" id="varLiveVolPeriods" role="tablist">
@@ -10420,14 +10489,14 @@ const HS_CONFIG = {
             </div>
           </div>
 
-          <div class="var-json-drop" id="varJsonDrop" hidden aria-hidden="true" style="display:none">
+          <div class="var-json-drop" id="varJsonDropLegacy" hidden aria-hidden="true" style="display:none">
             <p class="var-json-drop-title" data-i18n="var.jsonDropTitle">Drop Omni export (.json)</p>
             <label class="btn btn-ac" style="cursor:pointer;margin:0;display:inline-flex">
               <span data-i18n="var.importJson">Import JSON</span>
-              <input id="varJsonFileInput" type="file" accept=".json,application/json" style="display:none" onchange="varImportJsonFiles(this)"/>
+              <input id="varJsonFileInputLegacy" type="file" accept=".json,application/json" style="display:none"/>
             </label>
             <button type="button" class="btn btn-ghost" style="margin-left:8px" onclick="varClearCsv()" data-i18n="var.clearCsv">Clear all</button>
-            <div class="var-json-drop-meta" id="varJsonMeta" data-i18n="var.jsonNotImported">No JSON import yet</div>
+            <div class="var-json-drop-meta" id="varJsonMetaLegacy" data-i18n="var.jsonNotImported">No JSON import yet</div>
           </div>
 
           <div class="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-4" style="display:none">
@@ -11514,7 +11583,10 @@ const I18N = {
     'var.slotMax': 'Maximum {n} Omni legs',
     'var.slotMin': 'Keep at least {n} legs',
     'var.slotRemoveConfirm': 'Remove {label} and its imported data?',
-    'var.importJson': 'Import JSON',
+    'var.csvScopeAll': 'All',
+    'var.csvSlotsTitle': 'Omni sources (CSV / export)',
+    'var.csvSlotsHint': 'Like HL wallets: pick one leg, or All to aggregate volume & analytics.',
+    'var.importJson': 'Import JSON / CSV',
     'var.jsonNotImported': 'No JSON import yet',
     'var.jsonMeta': '{file} · {points} pts · rank #{rank} · exported {when}',
     'var.jsonImported': 'Variational export imported',
@@ -12620,7 +12692,10 @@ const I18N = {
     'var.slotMax': 'Maximum {n} jambes Omni',
     'var.slotMin': 'Garde au moins {n} jambes',
     'var.slotRemoveConfirm': 'Retirer {label} et ses données importées ?',
-    'var.importJson': 'Importer JSON',
+    'var.csvScopeAll': 'Tous',
+    'var.csvSlotsTitle': 'Sources Omni (CSV / export)',
+    'var.csvSlotsHint': 'Comme les wallets HL : choisis une jambe, ou Tous pour agréger volume & analytics.',
+    'var.importJson': 'Importer JSON / CSV',
     'var.jsonNotImported': 'Pas encore d’import JSON',
     'var.jsonMeta': '{file} · {points} pts · rang #{rank} · exporté {when}',
     'var.jsonImported': 'Export Variational importé',
@@ -15928,8 +16003,9 @@ function toast(msg, isErr=false) {
     el.style.visibility = 'hidden';
     el.style.opacity = '0';
   };
-  toast._t = setTimeout(hide, 3200);
-  toast._tHard = setTimeout(hide, 6000);
+  // Short toast — auto-import should not linger over the dashboard.
+  toast._t = setTimeout(hide, 1600);
+  toast._tHard = setTimeout(hide, 2200);
   el.onclick = () => {
     clearTimeout(toast._t);
     clearTimeout(toast._tHard);
@@ -21748,9 +21824,8 @@ function lbMaybeConfettiOnRankShow(estRank, mode) {
   })
 }
 
-function renderLeaderboardVolMismatchWarn(jsonVol, apiVol) {
-  if (!(apiVol > 0 && jsonVol > 0 && apiVol > jsonVol * 1.15)) return ''
-  return `<div class="lb-hero-vol-warn">⚠ ${t('xyz.lbVolMismatch')}</div>`
+function renderLeaderboardVolMismatchWarn(_jsonVol, _apiVol) {
+  return ''
 }
 
 function lbGotoRankKey(ev, target, rankHint) {
@@ -22032,11 +22107,6 @@ function renderLeaderboardVolumeCompare(jsonVol, apiVol, isFr, addrs, options) {
   }
   html += `<div class="card2 p3" title="${t('xyz.lbVolApiTip').replace(/"/g, '&quot;')}"><div style="font-size:.58rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">${t('xyz.lbVolApi')}</div><div style="font-weight:700;font-size:1rem">${fmtLbVol(apiVol)}</div></div>`
   html += `</div>`
-  if (apiVol > 0 && jsonVol > 0 && apiVol > jsonVol * 1.15) {
-    html += embedded
-      ? `<div class="lb-hero-vol-warn">⚠ ${t('xyz.lbVolMismatch')}</div>`
-      : `<div style="padding:10px 12px;margin-bottom:12px;border-radius:8px;border:1px solid rgba(239,68,68,.35);background:rgba(239,68,68,.08);font-size:.7rem;line-height:1.45;color:var(--text)">⚠ ${t('xyz.lbVolMismatch')}</div>`
-  }
   return html
 }
 
