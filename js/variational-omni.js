@@ -1002,19 +1002,26 @@
   }
 
   let _varAccountsMemo = null;
+  let _varAccountsMemoRaw = null;
   let _varCsvViewMemo = null;
   let _varCsvViewMemoKey = '';
 
   function varAccountsInvalidateMemo() {
     _varAccountsMemo = null;
+    _varAccountsMemoRaw = null;
     _varCsvViewMemo = null;
     _varCsvViewMemoKey = '';
   }
 
   function varAccountsLoad() {
-    if (_varAccountsMemo) return _varAccountsMemo;
+    let rawStr = null;
+    try { rawStr = localStorage.getItem(HS_VAR_ACCOUNTS_KEY); } catch (_) {}
+    // Extension writes accounts via content-hs-sync without going through varAccountsSave —
+    // re-parse when the stored blob changed so points/CSV stay fresh.
+    if (_varAccountsMemo && rawStr === _varAccountsMemoRaw) return _varAccountsMemo;
+    _varAccountsMemoRaw = rawStr;
     try {
-      const raw = JSON.parse(localStorage.getItem(HS_VAR_ACCOUNTS_KEY) || 'null');
+      const raw = rawStr ? JSON.parse(rawStr) : null;
       if (raw && raw.slots && typeof raw.slots === 'object') {
         try {
           _varAccountsMemo = varAccountsNormalize(raw);
@@ -1038,7 +1045,9 @@
     try {
       // Only seed storage when empty — never clobber a parse blip.
       if (!localStorage.getItem(HS_VAR_ACCOUNTS_KEY)) {
-        localStorage.setItem(HS_VAR_ACCOUNTS_KEY, JSON.stringify(migrated));
+        const seeded = JSON.stringify(migrated);
+        localStorage.setItem(HS_VAR_ACCOUNTS_KEY, seeded);
+        _varAccountsMemoRaw = seeded;
       }
     } catch (_) {}
     _varAccountsMemo = migrated;
@@ -1051,7 +1060,11 @@
     varAccountsInvalidateMemo();
     const normalized = varAccountsNormalize(acc);
     _varAccountsMemo = normalized;
-    try { localStorage.setItem(HS_VAR_ACCOUNTS_KEY, JSON.stringify(normalized)); } catch (_) {}
+    try {
+      const raw = JSON.stringify(normalized);
+      localStorage.setItem(HS_VAR_ACCOUNTS_KEY, raw);
+      _varAccountsMemoRaw = raw;
+    } catch (_) {}
     const active = normalized.slots[normalized.activeImportSlot] || normalized.slots[normalized.slotOrder[0]];
     try {
       if (active?.csv) localStorage.setItem(HS_VAR_CSV_KEY, JSON.stringify(active.csv));
@@ -1304,18 +1317,33 @@
   function varPointsLoad() {
     try {
       const acc = varAccountsLoad();
-      const raw = acc.slots[varAccountsActiveId()]?.points
-        || JSON.parse(localStorage.getItem(HS_VAR_POINTS_KEY) || 'null');
-      if (!raw) return null;
-      return {
-        v: 1,
-        points_summary: raw.points_summary || null,
-        points_history: Array.isArray(raw.points_history) ? raw.points_history : [],
-        competition: raw.competition || null,
-        exported_at: raw.exported_at || null,
-        sourceFile: raw.sourceFile || null,
-        importedAt: raw.importedAt || null,
+      const normalize = (raw) => {
+        if (!raw) return null;
+        return {
+          v: 1,
+          points_summary: raw.points_summary || null,
+          points_history: Array.isArray(raw.points_history) ? raw.points_history : [],
+          competition: raw.competition || null,
+          exported_at: raw.exported_at || null,
+          sourceFile: raw.sourceFile || null,
+          importedAt: raw.importedAt || null,
+        };
       };
+      const hasPts = (raw) => !!(raw && (
+        raw.points_summary
+        || (Array.isArray(raw.points_history) && raw.points_history.length)
+        || raw.competition
+      ));
+      const active = acc.slots[varAccountsActiveId()]?.points;
+      if (hasPts(active)) return normalize(active);
+      // Other jambes may hold the Omni points export while the active jambe is CSV-only.
+      for (const id of varOmniSlotIds(acc)) {
+        const p = acc.slots[id]?.points;
+        if (hasPts(p)) return normalize(p);
+      }
+      const legacy = JSON.parse(localStorage.getItem(HS_VAR_POINTS_KEY) || 'null');
+      if (hasPts(legacy)) return normalize(legacy);
+      return null;
     } catch {
       return null;
     }
@@ -4517,14 +4545,21 @@
         const self = parseFloat(h.self_points || h.total_points || 0);
         if (!isFinite(start) || !isFinite(end) || !(self > 0)) return null;
         if (isFinite(beforeStart) && !(start < beforeStart)) return null;
-        return { start, end: end > start ? end : start + 7 * 864e5, self };
+        return { start, end: end > start ? end : start + 7 * 864e5, self, row: h };
       })
       .filter(Boolean)
       .sort((a, b) => b.start - a.start);
 
     const rates = [];
     for (const h of hist) {
-      const vol = varEpochWindowSummary(bundle, h.start, h.end).volume;
+      let vol = varEpochWindowSummary(bundle, h.start, h.end).volume;
+      // Prefer CSV volume; fall back to Omni-reported volume on the history row when present.
+      if (!(vol > 0)) {
+        const reported = parseFloat(
+          h.row.volume || h.row.total_volume || h.row.trading_volume || h.row.volume_usd || 0
+        );
+        if (reported > 0) vol = reported;
+      }
       if (!(vol > 0)) continue;
       rates.push((h.self / vol) * 1e6);
       if (rates.length >= n) break;
@@ -6539,6 +6574,18 @@
             try { varRenderLiveDashboard(); } catch (_) {}
           }
         }, 60);
+        return;
+      }
+      if (data.type === 'HS_OMNI_ACCOUNTS_APPLIED') {
+        varAccountsInvalidateMemo();
+        _varOmniBookMemo = null;
+        _varOmniBookMemoTs = 0;
+        _varDashAnalyticsMemo = null;
+        _varEpochSumCache = null;
+        try { varAccountsScheduleActivityRefresh(); } catch (_) {}
+        try {
+          if (varIsPointsTab(_varSub)) renderVarPoints();
+        } catch (_) {}
         return;
       }
       if (data.type === 'HS_OMNI_PAGE_IMPORT' && data.payload) {
