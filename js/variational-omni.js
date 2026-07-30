@@ -1772,7 +1772,30 @@
     const v = parseFloat(n);
     if (!isFinite(v)) return '—';
     if (Math.abs(v) >= 1000) return v.toLocaleString(varLoc(), { maximumFractionDigits: 2 });
+    if (Math.abs(v) >= 10) return v.toLocaleString(varLoc(), { maximumFractionDigits: 2 });
     return v.toLocaleString(varLoc(), { maximumFractionDigits: 4 });
+  }
+
+  function varFmtPtsRate(n, estimated) {
+    const v = parseFloat(n);
+    if (!isFinite(v)) return '—';
+    const body = v.toLocaleString(varLoc(), { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+    return estimated ? `~${body}` : body;
+  }
+
+  /** Competition score is PnL×√vol — not Omni points. Keep it compact. */
+  function varFmtCompScore(n) {
+    const v = parseFloat(n);
+    if (!isFinite(v)) return '—';
+    const abs = Math.abs(v);
+    const sign = v < 0 ? '-' : '';
+    if (abs >= 1e6) {
+      return sign + (abs / 1e6).toLocaleString(varLoc(), { maximumFractionDigits: 2 }) + 'M';
+    }
+    if (abs >= 1000) {
+      return v.toLocaleString(varLoc(), { maximumFractionDigits: 0 });
+    }
+    return v.toLocaleString(varLoc(), { maximumFractionDigits: 2 });
   }
 
   function varFmtPtsMillions(m) {
@@ -4353,7 +4376,13 @@
     if (self) {
       const place = self.place != null ? self.place : self.rank;
       set('varCompPlace', place != null ? '#' + Number(place).toLocaleString(varLoc()) : '—');
-      set('varCompScore', varFmtPoints(self.score));
+      const scoreEl = document.getElementById('varCompScore');
+      const score = parseFloat(self.score);
+      if (scoreEl) {
+        scoreEl.textContent = varFmtCompScore(score);
+        scoreEl.classList.toggle('is-pos', isFinite(score) && score > 0);
+        scoreEl.classList.toggle('is-neg', isFinite(score) && score < 0);
+      }
       const placeSub = document.getElementById('varCompPlaceSub');
       if (placeSub) placeSub.textContent = self.name || '';
       const scoreSub = document.getElementById('varCompScoreSub');
@@ -4365,6 +4394,10 @@
     } else {
       set('varCompPlace', '—');
       set('varCompScore', '—');
+      const scoreEl = document.getElementById('varCompScore');
+      if (scoreEl) {
+        scoreEl.classList.remove('is-pos', 'is-neg');
+      }
       const placeSub = document.getElementById('varCompPlaceSub');
       if (placeSub) placeSub.textContent = '';
       const scoreSub = document.getElementById('varCompScoreSub');
@@ -5044,12 +5077,13 @@
       const ptsLabel = row.estimated
         ? `~${varFmtPoints(pts)}`
         : varFmtPoints(pts);
-      // TimberJ hides pts/$1M until the epoch is published.
-      const rate = (row.estimated && (row.inProgress || row.finalising))
-        ? null
-        : (row.estimated && row.estRate != null
-          ? row.estRate
+      // Show the rate used for ~estimates; published weeks keep the realized rate.
+      const rate = row.estimated && row.estRate != null && isFinite(row.estRate)
+        ? row.estRate
+        : (!row.estimated && stats.volume > 0 && pts > 0
+          ? (pts / stats.volume) * 1e6
           : (stats.volume > 0 && pts > 0 ? (pts / stats.volume) * 1e6 : null));
+      const rateLabel = varFmtPtsRate(rate, !!row.estimated);
       let badge = '';
       if (row.inProgress) {
         badge = `<span class="var-epoch-badge">${varEsc(varT('var.epochInProgress'))}</span>`;
@@ -5083,7 +5117,7 @@
           </div>
           <div class="var-epoch-col var-epoch-col-rate">
             <div class="var-epoch-col-lbl">${varEsc(varT('var.epochPtsPer'))}</div>
-            <div class="var-epoch-col-val mono">${rate != null && isFinite(rate) ? rate.toFixed(1) : '—'}</div>
+            <div class="var-epoch-col-val mono">${rateLabel}</div>
           </div>
           <span class="var-epoch-chev" aria-hidden="true"></span>
         </button>

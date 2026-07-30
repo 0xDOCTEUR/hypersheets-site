@@ -957,8 +957,10 @@ const HS_CONFIG = {
           border: 1px solid var(--border);
           box-shadow: none;
         }
-        #varPointsKpis .kpi { min-height: 0; padding: 14px 16px; }
-        #varPointsKpis .kpi-val { font-size: 1.15rem; }
+        #varPointsKpis .kpi { min-height: 0; padding: 14px 16px; overflow: hidden; }
+        #varPointsKpis .kpi-val { font-size: 1.15rem; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        #varPointsKpis .kpi-val.is-pos { color: var(--success); }
+        #varPointsKpis .kpi-val.is-neg { color: var(--danger); }
         .var-points-kpis .kpi-label {
           font-size: .65rem; letter-spacing: .04em; text-transform: uppercase;
           color: var(--muted); margin-bottom: 4px;
@@ -10622,12 +10624,12 @@ const HS_CONFIG = {
               <p class="text-hs-sm mt-1 text-hs-muted" style="color:var(--muted)" data-i18n="var.pointsDesc">Totals and epoch history from your Omni collect.</p>
             </div>
             <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 mb-4" id="varPointsKpis">
-              <div class="kpi kpi-accent"><div class="kpi-label" data-i18n="var.actPoints">Total points</div><div class="kpi-val" id="varActPoints" style="font-size:1.15rem">—</div><div class="kpi-sub" id="varActPointsSub"></div></div>
-              <div class="kpi"><div class="kpi-label" data-i18n="var.actRank">Points rank</div><div class="kpi-val" id="varActRank" style="font-size:1.15rem">—</div><div class="kpi-sub" id="varActRankSub"></div></div>
-              <div class="kpi"><div class="kpi-label" data-i18n="var.actSelfPts">Self points</div><div class="kpi-val" id="varActSelfPts" style="font-size:1.15rem">—</div></div>
-              <div class="kpi"><div class="kpi-label" data-i18n="var.actRefPts">Referral points</div><div class="kpi-val" id="varActRefPts" style="font-size:1.15rem">—</div></div>
-              <div class="kpi"><div class="kpi-label" data-i18n="var.compPlace">Comp. place</div><div class="kpi-val" id="varCompPlace" style="font-size:1.15rem">—</div><div class="kpi-sub" id="varCompPlaceSub"></div></div>
-              <div class="kpi"><div class="kpi-label" data-i18n="var.compScore">Comp. score</div><div class="kpi-val" id="varCompScore" style="font-size:1.15rem">—</div><div class="kpi-sub" id="varCompScoreSub"></div></div>
+              <div class="kpi kpi-accent"><div class="kpi-label" data-i18n="var.actPoints">Total points</div><div class="kpi-val" id="varActPoints">—</div><div class="kpi-sub" id="varActPointsSub"></div></div>
+              <div class="kpi"><div class="kpi-label" data-i18n="var.actRank">Points rank</div><div class="kpi-val" id="varActRank">—</div><div class="kpi-sub" id="varActRankSub"></div></div>
+              <div class="kpi"><div class="kpi-label" data-i18n="var.actSelfPts">Self points</div><div class="kpi-val" id="varActSelfPts">—</div></div>
+              <div class="kpi"><div class="kpi-label" data-i18n="var.actRefPts">Referral points</div><div class="kpi-val" id="varActRefPts">—</div></div>
+              <div class="kpi"><div class="kpi-label" data-i18n="var.compPlace">Comp. place</div><div class="kpi-val" id="varCompPlace">—</div><div class="kpi-sub" id="varCompPlaceSub"></div></div>
+              <div class="kpi"><div class="kpi-label" data-i18n="var.compScore">Comp. score</div><div class="kpi-val" id="varCompScore">—</div><div class="kpi-sub" id="varCompScoreSub"></div></div>
             </div>
             <div class="surface p-4 rounded-hs">
               <div class="section-h mb-2" id="varEpochHeading" style="display:none;margin:0 0 8px"><span class="bar" style="background:var(--accent)"></span><span data-i18n="var.epochTitle">Points by epoch</span></div>
