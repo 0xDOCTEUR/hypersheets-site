@@ -1000,6 +1000,13 @@ const HS_CONFIG = {
           font-size: .62rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
           color: #1a1208; background: #e8a04a;
         }
+        .var-epoch-badge.is-finalising {
+          color: #dbeafe; background: rgba(76, 154, 248, 0.28);
+          border: 1px solid rgba(76, 154, 248, 0.45);
+        }
+        .var-epoch-row.is-finalising .var-epoch-summary {
+          background: color-mix(in srgb, #4c9af8 5%, transparent);
+        }
         .var-epoch-col { text-align: right; }
         .var-epoch-col-lbl {
           display: none; font-size: .62rem; font-weight: 700; letter-spacing: .05em;
@@ -11606,6 +11613,7 @@ const I18N = {
     'var.epochNet': 'Net',
     'var.epochPtsPer': 'Pts / $1M',
     'var.epochInProgress': 'In progress',
+    'var.epochFinalising': 'Finalising · points in {time}',
     'var.epochTrades': '{n} trades',
     'var.epochOiTitle': 'Open interest',
     'var.epochOiAvg': 'Average',
@@ -12715,6 +12723,7 @@ const I18N = {
     'var.epochNet': 'Net',
     'var.epochPtsPer': 'Pts / $1M',
     'var.epochInProgress': 'En cours',
+    'var.epochFinalising': 'Finalisation · points dans {time}',
     'var.epochTrades': '{n} trades',
     'var.epochOiTitle': 'Open interest',
     'var.epochOiAvg': 'Moyenne',

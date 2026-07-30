@@ -4445,6 +4445,19 @@
     };
   }
 
+  /** Omni usually publishes points ~24h after the Thursday epoch closes (TimberJ "finalising"). */
+  const VAR_EPOCH_POINTS_PUBLISH_MS = 24 * 3600 * 1000;
+
+  function varFmtCountdown(ms) {
+    if (!(ms > 0) || !isFinite(ms)) return '';
+    const totalMin = Math.max(0, Math.floor(ms / 60000));
+    const d = Math.floor(totalMin / (60 * 24));
+    const h = Math.floor((totalMin % (60 * 24)) / 60);
+    const m = totalMin % 60;
+    if (d > 0) return `${d}d ${h}h`;
+    return `${h}h ${String(m).padStart(2, '0')}m`;
+  }
+
   function varEpochEstimateSelf(points, bundle, start, exclusiveEnd) {
     try {
       const trades = varLabPrepareTrades(bundle);
@@ -4467,6 +4480,10 @@
     }
   }
 
+  function varEpochOfficialNear(rows, start) {
+    return rows.find((r) => Math.abs(r.start - start) < 12 * 3600 * 1000) || null;
+  }
+
   function varBuildEpochRows(points, bundle) {
     const now = Date.now();
     const rows = [...(points?.points_history || [])]
@@ -4477,14 +4494,14 @@
         const referral = parseFloat(h.referral_points || 0);
         const total = parseFloat(h.total_points || 0);
         if (!isFinite(start) || !isFinite(end)) return null;
-        if (!(total > 0 || self > 0)) return null;
+        // Keep zero-point history rows — they may still be finalising (TimberJ shows ~estimate).
         return {
           id: `h:${start}`,
           start,
-          end,
-          self,
-          referral,
-          total,
+          end: end > start ? end : start + 7 * 864e5,
+          self: isFinite(self) ? self : 0,
+          referral: isFinite(referral) ? referral : 0,
+          total: isFinite(total) ? total : 0,
           estimated: false,
           inProgress: now >= start && now < end,
         };
@@ -4492,42 +4509,79 @@
       .filter(Boolean);
 
     const epochStart = varEpochStartUtc(now);
-    const epochEnd = epochStart + 7 * 864e5;
-    const hasOpen = rows.some(r => r.inProgress || Math.abs(r.start - epochStart) < 1000);
-    if (!hasOpen) {
-      const stats = varEpochWindowSummary(bundle, epochStart, epochEnd);
-      const est = varEpochEstimateSelf(points, bundle, epochStart, epochEnd);
-      if (stats.trades > 0 || stats.volume > 0 || est.points > 0) {
-        rows.push({
-          id: `est:${epochStart}`,
-          start: epochStart,
-          end: epochEnd,
-          self: est.points,
-          referral: 0,
-          total: est.points,
-          estimated: true,
-          inProgress: true,
-          estRate: est.rate,
-        });
+    const weekMs = 7 * 864e5;
+
+    // Ensure every recent Thursday week with volume appears (current + finalising + gaps).
+    for (let i = 0; i < 16; i++) {
+      const start = epochStart - i * weekMs;
+      const end = start + weekMs;
+      const inProgress = now >= start && now < end;
+      const finalisingUntil = end + VAR_EPOCH_POINTS_PUBLISH_MS;
+      const finalising = !inProgress && now >= end && now < finalisingUntil;
+      const existing = varEpochOfficialNear(rows, start);
+      const hasOfficialPts = !!(existing && (existing.total > 0 || existing.self > 0));
+
+      // Prefer Omni-published points whenever they exist.
+      if (hasOfficialPts) {
+        existing.inProgress = inProgress;
+        existing.finalising = false;
+        continue;
       }
-    } else {
-      for (const r of rows) {
-        if (!r.inProgress) continue;
-        const est = varEpochEstimateSelf(points, bundle, r.start, r.end);
-        // Keep official Omni points; attach Timber-style estimate as secondary (do not overwrite).
-        if (est.points > 0) {
-          r.estPoints = est.points;
-          r.estRate = est.rate;
-          if (!(r.self > 0) && !(r.total > 0)) {
-            r.estimated = true;
-            r.self = est.points;
-            r.total = est.points + (r.referral || 0);
+
+      const stats = varEpochWindowSummary(bundle, start, end);
+      const est = varEpochEstimateSelf(points, bundle, start, end);
+      const worthShow = inProgress || finalising
+        || stats.trades > 0 || stats.volume > 0 || est.points > 0;
+
+      if (!worthShow) continue;
+
+      if (existing) {
+        // Zero official points (or still finalising): show Timber-style estimate.
+        if (!(existing.total > 0 || existing.self > 0) || finalising) {
+          existing.estimated = true;
+          existing.finalising = finalising;
+          existing.finalisingUntil = finalisingUntil;
+          existing.inProgress = inProgress;
+          if (est.points > 0) {
+            existing.self = est.points;
+            existing.total = est.points + (existing.referral || 0);
+            existing.estPoints = est.points;
+            existing.estRate = est.rate;
           }
         }
+        continue;
+      }
+
+      rows.push({
+        id: `est:${start}`,
+        start,
+        end,
+        self: est.points,
+        referral: 0,
+        total: est.points,
+        estimated: true,
+        inProgress,
+        finalising,
+        finalisingUntil,
+        estRate: est.rate,
+        estPoints: est.points,
+      });
+    }
+
+    // Enrich in-progress official rows with secondary estimate when useful.
+    for (const r of rows) {
+      if (!r.inProgress || r.estimated) continue;
+      const est = varEpochEstimateSelf(points, bundle, r.start, r.end);
+      if (est.points > 0) {
+        r.estPoints = est.points;
+        r.estRate = est.rate;
       }
     }
 
-    return rows.sort((a, b) => b.start - a.start).slice(0, 24);
+    return rows
+      .filter((r) => r.estimated || r.inProgress || r.finalising || r.total > 0 || r.self > 0)
+      .sort((a, b) => b.start - a.start)
+      .slice(0, 24);
   }
 
   function varAssetLogoLetterBg(sym) {
@@ -4775,15 +4829,23 @@
       const ptsLabel = row.estimated
         ? `~${varFmtPoints(pts)}`
         : varFmtPoints(pts);
-      const rate = row.estimated && row.estRate != null
-        ? row.estRate
-        : (stats.volume > 0 && pts > 0 ? (pts / stats.volume) * 1e6 : null);
-      const badge = row.inProgress
-        ? `<span class="var-epoch-badge">${varEsc(varT('var.epochInProgress'))}</span>`
-        : '';
+      // TimberJ hides pts/$1M until the epoch is published.
+      const rate = (row.estimated && (row.inProgress || row.finalising))
+        ? null
+        : (row.estimated && row.estRate != null
+          ? row.estRate
+          : (stats.volume > 0 && pts > 0 ? (pts / stats.volume) * 1e6 : null));
+      let badge = '';
+      if (row.inProgress) {
+        badge = `<span class="var-epoch-badge">${varEsc(varT('var.epochInProgress'))}</span>`;
+      } else if (row.finalising) {
+        const left = Math.max(0, (row.finalisingUntil || 0) - Date.now());
+        const time = varFmtCountdown(left) || '—';
+        badge = `<span class="var-epoch-badge is-finalising">${varEsc(varT('var.epochFinalising').replace('{time}', time))}</span>`;
+      }
       const netCls = stats.realizedPnl > 0 ? 'is-pos' : (stats.realizedPnl < 0 ? 'is-neg' : '');
       const tradesLbl = varT('var.epochTrades').replace('{n}', String(stats.trades));
-      return `<div class="var-epoch-row${open ? ' is-open' : ''}${row.inProgress ? ' is-live' : ''}">
+      return `<div class="var-epoch-row${open ? ' is-open' : ''}${row.inProgress ? ' is-live' : ''}${row.finalising ? ' is-finalising' : ''}">
         <button type="button" class="var-epoch-summary" data-epoch-toggle="${varEsc(row.id)}" aria-expanded="${open ? 'true' : 'false'}">
           <div class="var-epoch-col-epoch">
             <div class="var-epoch-range">
@@ -4825,6 +4887,16 @@
       </div>
       ${body}
     </div>`;
+
+    // Refresh countdown while a week is still finalising.
+    if (rows.some((r) => r.finalising)) {
+      clearTimeout(window.__hsVarEpochFinalTimer);
+      window.__hsVarEpochFinalTimer = setTimeout(() => {
+        try {
+          if (_varSub === 'points' || _varSub === 'lab') varRenderEpochTable(varPointsLoad());
+        } catch (_) {}
+      }, 60000);
+    }
   }
 
   function varCompPlaceOf(row) {
