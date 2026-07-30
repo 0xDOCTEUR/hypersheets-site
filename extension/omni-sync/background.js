@@ -3,7 +3,7 @@
  * - One-click Omni collect (logged-in session APIs via content script)
  * - Widget data: Hypersheets imports + public marks + HL public API
  */
-const VERSION = 22;
+const VERSION = 23;
 const NAME = 'Hypersheets Omni Live';
 const VAR_STATS = 'https://omni-client-api.prod.ap-northeast-1.variational.io/metadata/stats';
 const HL_INFO = 'https://api.hyperliquid.xyz/info';
@@ -120,6 +120,103 @@ async function persistSyncState(next) {
   return synced;
 }
 
+function defaultAccountsGuard() {
+  return { deletedSlots: {}, clearedSlots: {} };
+}
+
+function normalizeAccountsGuard(raw) {
+  const base = defaultAccountsGuard();
+  if (!raw || typeof raw !== 'object') return base;
+  const deletedSlots = {};
+  const clearedSlots = {};
+  if (raw.deletedSlots && typeof raw.deletedSlots === 'object') {
+    Object.keys(raw.deletedSlots).forEach((id) => {
+      const t = Number(raw.deletedSlots[id]);
+      if (t > 0) deletedSlots[String(id)] = t;
+    });
+  }
+  if (raw.clearedSlots && typeof raw.clearedSlots === 'object') {
+    Object.keys(raw.clearedSlots).forEach((id) => {
+      const t = Number(raw.clearedSlots[id]);
+      if (t > 0) clearedSlots[String(id)] = t;
+    });
+  }
+  return { deletedSlots, clearedSlots };
+}
+
+function slotImportScore(slot) {
+  if (!slot || !slot.csv || typeof slot.csv !== 'object') return 0;
+  const trades = Array.isArray(slot.csv.trades) ? slot.csv.trades.length : 0;
+  const funding = Array.isArray(slot.csv.funding) ? slot.csv.funding.length : 0;
+  const transfers = Array.isArray(slot.csv.transfers) ? slot.csv.transfers.length : 0;
+  const importedAt = Number(slot.importedAt) || 0;
+  const rows = trades + funding + transfers;
+  if (!rows && !slot.points) return 0;
+  return rows * 1e6 + importedAt;
+}
+
+/**
+ * Hypersheets page → extension: never wipe richer local Omni legs,
+ * never resurrect slots the user just deleted/cleared in the widget.
+ */
+function mergeAccountsFromHypersheets(localRaw, remoteRaw, guardRaw) {
+  const local = normalizeAccounts(localRaw);
+  const guard = normalizeAccountsGuard(guardRaw);
+  if (!remoteRaw || typeof remoteRaw !== 'object') {
+    return { accounts: local, accountsGuard: guard };
+  }
+  const remote = normalizeAccounts(remoteRaw);
+  const deleted = Object.assign({}, guard.deletedSlots);
+  const cleared = Object.assign({}, guard.clearedSlots);
+
+  const out = {
+    slotOrder: local.slotOrder.slice(),
+    activeImportSlot: local.activeImportSlot,
+    slots: {},
+  };
+  local.slotOrder.forEach((id) => {
+    out.slots[id] = Object.assign({}, local.slots[id]);
+  });
+
+  remote.slotOrder.forEach((id) => {
+    const r = remote.slots[id];
+    if (!r) return;
+    const remAt = Number(r.importedAt) || 0;
+    const remScore = slotImportScore(r);
+
+    if (deleted[id] && remAt <= deleted[id]) return;
+    if (deleted[id] && remAt > deleted[id]) delete deleted[id];
+
+    const l = out.slots[id];
+    if (!l) {
+      if (remScore > 0 && out.slotOrder.length < MAX_LEGS) {
+        out.slots[id] = Object.assign({}, r);
+        out.slotOrder.push(id);
+      }
+      return;
+    }
+
+    const clearAt = cleared[id] || 0;
+    const locAt = Number(l.importedAt) || 0;
+    if (remScore > 0 && remAt > locAt && remAt > clearAt) {
+      out.slots[id].csv = r.csv;
+      out.slots[id].importedAt = r.importedAt;
+      if (r.points) out.slots[id].points = r.points;
+      if (cleared[id]) delete cleared[id];
+    }
+    if (!out.slots[id].hlWallet && r.hlWallet) out.slots[id].hlWallet = r.hlWallet;
+    if (!out.slots[id].label && r.label) out.slots[id].label = r.label;
+  });
+
+  if (!out.slots[out.activeImportSlot] && out.slotOrder[0]) {
+    out.activeImportSlot = out.slotOrder[0];
+  }
+  return {
+    accounts: normalizeAccounts(out),
+    accountsGuard: { deletedSlots: deleted, clearedSlots: cleared },
+  };
+}
+
 async function ensureSyncAccounts() {
   const prev = await loadSyncState();
   if (!prev) {
@@ -128,6 +225,7 @@ async function ensureSyncAccounts() {
       wallets: [],
       legacyCsv: null,
       pairOverrides: {},
+      accountsGuard: defaultAccountsGuard(),
       syncedAt: Date.now(),
       origin: 'extension-local',
     };
@@ -144,6 +242,7 @@ async function ensureSyncAccounts() {
     wallets,
     legacyCsv: prev.legacyCsv || null,
     pairOverrides: prev.pairOverrides && typeof prev.pairOverrides === 'object' ? prev.pairOverrides : {},
+    accountsGuard: normalizeAccountsGuard(prev.accountsGuard),
     syncedAt: prev.syncedAt || Date.now(),
     origin: prev.origin || 'extension-local',
   };
@@ -170,14 +269,64 @@ async function getWidgetState() {
 async function mutateAccounts(mutator) {
   const state = await ensureSyncAccounts();
   const accounts = normalizeAccounts(state.accounts);
+  if (!state.accountsGuard || typeof state.accountsGuard !== 'object') {
+    state.accountsGuard = defaultAccountsGuard();
+  } else {
+    state.accountsGuard = normalizeAccountsGuard(state.accountsGuard);
+  }
   mutator(accounts, state);
   state.accounts = normalizeAccounts(accounts);
   state.wallets = mergeWalletsList(state.accounts, state.wallets);
   if (!state.pairOverrides || typeof state.pairOverrides !== 'object') state.pairOverrides = {};
+  state.accountsGuard = normalizeAccountsGuard(state.accountsGuard);
   state.syncedAt = Date.now();
-  state.origin = state.origin || 'extension-local';
+  state.origin = 'extension-local';
   await persistSyncState(state);
+  // Keep Hypersheets localStorage aligned so content-hs-sync cannot resurrect deletes.
+  try {
+    void pushAccountsToHypersheetsTabs();
+  } catch (_) {}
   return getWidgetState();
+}
+
+async function pushAccountsToHypersheetsTabs() {
+  const state = await ensureSyncAccounts();
+  const patterns = [
+    'https://hypersheets.xyz/*',
+    'http://localhost/*',
+    'http://127.0.0.1/*',
+  ];
+  const tabs = await new Promise((resolve) => {
+    chrome.tabs.query({ url: patterns }, (list) => resolve(list || []));
+  });
+  let sent = 0;
+  for (const tab of tabs) {
+    if (tab.id == null) continue;
+    try {
+      await injectHsBridge(tab.id);
+    } catch (_) {}
+    const ok = await new Promise((resolve) => {
+      try {
+        chrome.tabs.sendMessage(
+          tab.id,
+          {
+            type: 'HS_ACCOUNTS_APPLY',
+            accounts: state.accounts,
+            wallets: state.wallets,
+            syncedAt: state.syncedAt,
+          },
+          (res) => {
+            void chrome.runtime.lastError;
+            resolve(!!(res && res.ok));
+          }
+        );
+      } catch (_) {
+        resolve(false);
+      }
+    });
+    if (ok) sent += 1;
+  }
+  return sent;
 }
 
 /** @type {{ accounts: any, wallets: string[], syncedAt: number } | null} */
@@ -466,9 +615,11 @@ async function ensureTargetImportSlot(opts) {
     activeSlot.csv.trades.length
   );
 
+  // Only create a jambe when explicitly requested (newLeg / autoNewLeg === true).
+  // Default Collect overwrites the active jambe — auto-cloning caused identical position cards.
   const wantNewLeg = !!(
     options.newLeg ||
-    (options.autoNewLeg !== false && !targetSlotId && activeHasTrades)
+    (options.autoNewLeg === true && !targetSlotId && activeHasTrades)
   );
 
   if (wantNewLeg && accounts.slotOrder.length < MAX_LEGS) {
@@ -525,9 +676,8 @@ async function runOmniCollect(preferredLabel) {
     });
   } catch (_) {}
 
-  // Preserve previous Omni accounts: if active jambe already has trades,
-  // create a new jambe for this wallet/session collect.
-  const target = await ensureTargetImportSlot({ autoNewLeg: true, label: preferredLabel });
+  // Refresh the active jambe in place. Explicit "new leg" is the only way to clone.
+  const target = await ensureTargetImportSlot({ autoNewLeg: false, label: preferredLabel });
 
   let applied = null;
   try {
@@ -594,12 +744,19 @@ async function applyLocalOmniBundle(bundle, origin, points, preferredSlotId, pre
   const prevSlot = accounts.slots[active];
   accounts.slots[active] = {
     id: active,
-    label: requestedLabel || prevSlot.label || '',
+    // Keep an existing label; only fill empty slots from the collecte name field.
+    label: (prevSlot.label && String(prevSlot.label).trim())
+      ? prevSlot.label
+      : (requestedLabel || ''),
     csv,
     points: points != null ? points : (prevSlot.points || null),
     hlWallet: prevSlot.hlWallet || '',
     importedAt: Date.now(),
   };
+  const guard = normalizeAccountsGuard(state.accountsGuard);
+  if (guard.deletedSlots[active]) delete guard.deletedSlots[active];
+  if (guard.clearedSlots[active]) delete guard.clearedSlots[active];
+  state.accountsGuard = guard;
   state.accounts = normalizeAccounts(accounts);
   // legacyCsv mirrors active jambe only — other jambes keep their own csv
   state.legacyCsv = csv;
@@ -607,6 +764,9 @@ async function applyLocalOmniBundle(bundle, origin, points, preferredSlotId, pre
   state.syncedAt = Date.now();
   state.origin = origin || 'extension-local';
   await persistSyncState(state);
+  try {
+    void pushAccountsToHypersheetsTabs();
+  } catch (_) {}
   return {
     ok: true,
     tradeCount: (csv.trades || []).length,
@@ -2168,7 +2328,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       const target = await ensureTargetImportSlot({
         slotId: msg.slotId ? String(msg.slotId) : '',
         newLeg: !!msg.newLeg,
-        autoNewLeg: msg.autoNewLeg !== false,
+        autoNewLeg: msg.autoNewLeg === true,
         label: msg.label || '',
       });
       const targetSlotId = target.slotId;
@@ -2329,8 +2489,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
   if (msg.type === 'HS_WIDGET_REMOVE_SLOT') {
     const id = String(msg.slotId || '');
-    mutateAccounts((accounts) => {
+    mutateAccounts((accounts, state) => {
       if (!accounts.slots[id]) return;
+      const guard = normalizeAccountsGuard(state.accountsGuard);
+      const now = Date.now();
       // Dernière jambe : on vide au lieu de bloquer
       if (accounts.slotOrder.length <= 1) {
         const keep = accounts.slots[id];
@@ -2342,6 +2504,8 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           hlWallet: keep.hlWallet || '',
           importedAt: null,
         };
+        guard.clearedSlots[id] = now;
+        state.accountsGuard = guard;
         return;
       }
       delete accounts.slots[id];
@@ -2349,6 +2513,9 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       if (accounts.activeImportSlot === id) {
         accounts.activeImportSlot = accounts.slotOrder[0];
       }
+      guard.deletedSlots[id] = now;
+      if (guard.clearedSlots[id]) delete guard.clearedSlots[id];
+      state.accountsGuard = guard;
     })
       .then((res) => sendResponse(res))
       .catch((e) => sendResponse({ ok: false, error: String(e && e.message || e) }));
@@ -2412,6 +2579,9 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       accounts.slots[id].points = null;
       accounts.slots[id].importedAt = null;
       if (accounts.activeImportSlot === id) state.legacyCsv = null;
+      const guard = normalizeAccountsGuard(state.accountsGuard);
+      guard.clearedSlots[id] = Date.now();
+      state.accountsGuard = guard;
     })
       .then((res) => sendResponse(res))
       .catch((e) => sendResponse({ ok: false, error: String(e && e.message || e) }));
@@ -2442,20 +2612,35 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
     Promise.resolve(loadSyncState()).then((prev) => {
       const prevAcc = prev && prev.accounts ? normalizeAccounts(prev.accounts) : null;
-      let accounts = msg.accounts ? normalizeAccounts(msg.accounts) : (prevAcc || defaultAccounts());
-      // Preserve local hlWallet / points when Hypersheets sync has none
+      const prevGuard = prev && prev.accountsGuard
+        ? normalizeAccountsGuard(prev.accountsGuard)
+        : defaultAccountsGuard();
+
+      // Prefer merge over replace: Hypersheets must not wipe extension Omni legs.
+      let accounts;
+      let accountsGuard = prevGuard;
+      if (msg.accounts && prevAcc) {
+        const merged = mergeAccountsFromHypersheets(prevAcc, msg.accounts, prevGuard);
+        accounts = merged.accounts;
+        accountsGuard = merged.accountsGuard;
+      } else if (msg.accounts && !prevAcc) {
+        accounts = normalizeAccounts(msg.accounts);
+      } else {
+        accounts = prevAcc || defaultAccounts();
+      }
+
+      // Preserve / map hlWallet + points when page sync has none
       if (prevAcc && accounts.slots) {
         omniSlotIds(accounts).forEach((id) => {
-          const prev = prevAcc.slots[id];
-          if (!prev) return;
-          if (!accounts.slots[id].hlWallet && prev.hlWallet) {
-            accounts.slots[id].hlWallet = prev.hlWallet;
+          const p = prevAcc.slots[id];
+          if (!p) return;
+          if (!accounts.slots[id].hlWallet && p.hlWallet) {
+            accounts.slots[id].hlWallet = p.hlWallet;
           }
-          if (!accounts.slots[id].points && prev.points) {
-            accounts.slots[id].points = prev.points;
+          if (!accounts.slots[id].points && p.points) {
+            accounts.slots[id].points = p.points;
           }
         });
-        // Map leftover wallets onto slots missing hlWallet
         let wi = 0;
         omniSlotIds(accounts).forEach((id) => {
           if (!accounts.slots[id].hlWallet && wallets[wi]) {
@@ -2471,12 +2656,71 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         });
       }
       accounts = normalizeAccounts(accounts);
+      const nextWallets = mergeWalletsList(accounts, wallets);
+      const nextLegacy = (prev && prev.legacyCsv) || msg.legacyCsv || null;
+      const nextPair = (prev && prev.pairOverrides) || {};
+      let nextOrigin = msg.origin || (prev && prev.origin) || null;
+      let nextSyncedAt = msg.syncedAt || Date.now();
+
+      // Never let a poorer page snapshot clobber a richer local import clock.
+      if (prev && prev.syncedAt && prev.origin === 'extension-local') {
+        const localScore = omniSlotIds(prevAcc || defaultAccounts()).reduce(
+          (s, id) => s + slotImportScore((prevAcc && prevAcc.slots[id]) || null),
+          0
+        );
+        const nextScore = omniSlotIds(accounts).reduce(
+          (s, id) => s + slotImportScore(accounts.slots[id]),
+          0
+        );
+        if (localScore > nextScore) {
+          accounts = prevAcc;
+          accountsGuard = prevGuard;
+          nextOrigin = 'extension-local';
+          nextSyncedAt = prev.syncedAt;
+        }
+      }
+
+      const fpOf = (acc, wals, guard) => {
+        try {
+          const a = normalizeAccounts(acc);
+          const g = normalizeAccountsGuard(guard);
+          return JSON.stringify({
+            order: a.slotOrder,
+            active: a.activeImportSlot,
+            slots: a.slotOrder.map((id) => {
+              const s = a.slots[id] || {};
+              return {
+                id,
+                label: s.label || '',
+                hl: s.hlWallet || '',
+                at: s.importedAt || null,
+                n: (s.csv && s.csv.trades && s.csv.trades.length) || 0,
+                pts: !!(s.points && s.points.points_summary),
+              };
+            }),
+            wallets: (wals || []).map((w) => String(w).toLowerCase()),
+            del: Object.keys(g.deletedSlots || {}).sort(),
+            clr: Object.keys(g.clearedSlots || {}).sort(),
+          });
+        } catch (_) {
+          return String(Date.now());
+        }
+      };
+      const prevFp = prev ? fpOf(prev.accounts, prev.wallets, prev.accountsGuard) : '';
+      const nextFp = fpOf(accounts, nextWallets, accountsGuard);
+      if (prevFp && prevFp === nextFp) {
+        sendResponse({ ok: true, unchanged: true });
+        return;
+      }
+
       synced = {
         accounts,
-        wallets: mergeWalletsList(accounts, wallets),
-        legacyCsv: msg.legacyCsv || null,
-        syncedAt: msg.syncedAt || Date.now(),
-        origin: msg.origin || null,
+        wallets: nextWallets,
+        legacyCsv: nextLegacy,
+        pairOverrides: nextPair,
+        accountsGuard,
+        syncedAt: nextSyncedAt,
+        origin: nextOrigin,
       };
       const toStore = { hsWidgetSync: synced };
       if (msg.origin) toStore.hsHypersheetsOrigin = msg.origin;

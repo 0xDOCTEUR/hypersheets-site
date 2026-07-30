@@ -1188,6 +1188,57 @@
       return null;
     }
   }
+
+  /** Merge trades/funding/… across every Omni CSV slot (wallet-style "Tous"). */
+  function varCsvLoadAll() {
+    try {
+      const acc = varAccountsLoad();
+      const ids = varOmniSlotIds(acc);
+      const bundles = ids
+        .map((id) => varCsvNormalize(acc.slots[id]?.csv || null))
+        .filter((b) => b && (
+          (b.trades && b.trades.length)
+          || (b.funding && b.funding.length)
+          || (b.realizedPnl && b.realizedPnl.length)
+          || (b.transfers && b.transfers.length)
+        ));
+      if (!bundles.length) return null;
+      if (bundles.length === 1) return bundles[0];
+      return varCsvNormalize({
+        trades: varDedupeRows(bundles.flatMap((b) => b.trades || [])),
+        funding: varDedupeRows(bundles.flatMap((b) => b.funding || [])),
+        realizedPnl: varDedupeRows(bundles.flatMap((b) => b.realizedPnl || [])),
+        transfers: varDedupeRows(bundles.flatMap((b) => b.transfers || [])),
+        files: {},
+      });
+    } catch {
+      return null;
+    }
+  }
+
+  let _varCsvScope = 'active'; // 'active' | 'all'
+  function varCsvScopeLoad() {
+    try {
+      const v = localStorage.getItem('hs-var-csv-scope');
+      if (v === 'all' || v === 'active') _varCsvScope = v;
+    } catch (_) {}
+    return _varCsvScope;
+  }
+  function varCsvScopeSave(scope) {
+    _varCsvScope = scope === 'all' ? 'all' : 'active';
+    try { localStorage.setItem('hs-var-csv-scope', _varCsvScope); } catch (_) {}
+  }
+  function varCsvLoadForView() {
+    varCsvScopeLoad();
+    return _varCsvScope === 'all' ? varCsvLoadAll() : varCsvLoad();
+  }
+  function varSetCsvScope(scope) {
+    varCsvScopeSave(scope);
+    _varOmniBookMemo = null;
+    _varOmniBookMemoTs = 0;
+    varAccountsScheduleActivityRefresh();
+    try { if (_varSub === 'points' || _varSub === 'lab') renderVarPoints(); } catch (_) {}
+  }
   function varCsvSave(bundle) {
     _varOmniBookMemo = null;
     _varOmniBookMemoTs = 0;
@@ -1413,17 +1464,63 @@
   let _varOmniBookMemo = null;
   let _varOmniBookMemoTs = 0;
 
+  function varCsvTradeFingerprint(bundle) {
+    const trades = bundle?.trades || [];
+    if (!trades.length) return '';
+    const ids = trades.map((t) => String(t.id || t.trade_id || '')).filter(Boolean).sort();
+    if (ids.length >= 2) {
+      return `id:${ids.length}:${ids[0]}:${ids[ids.length - 1]}:${ids[Math.floor(ids.length / 2)]}`;
+    }
+    if (ids.length === 1) return `id:1:${ids[0]}`;
+    const first = trades[0];
+    const last = trades[trades.length - 1];
+    return `n:${trades.length}:${first?.created_at || ''}:${last?.created_at || ''}:${first?.underlying || ''}`;
+  }
+
+  /** Slot ids for the open-book view — respects Actif / Tous scope. */
+  function varOmniBookSlotIds(acc) {
+    const a = acc || varAccountsLoad();
+    const all = varOmniSlotIds(a);
+    varCsvScopeLoad();
+    if (_varCsvScope === 'all') return all;
+    const active = varAccountsActiveId();
+    return all.includes(active) ? [active] : all.slice(0, 1);
+  }
+
+  function varHasAnyOmniCsv() {
+    try {
+      const acc = varAccountsLoad();
+      return varOmniSlotIds(acc).some((id) => {
+        const b = acc.slots[id]?.csv;
+        return !!(b && (
+          (b.trades && b.trades.length)
+          || (b.funding && b.funding.length)
+          || (b.realizedPnl && b.realizedPnl.length)
+          || (b.transfers && b.transfers.length)
+        ));
+      });
+    } catch (_) {
+      return false;
+    }
+  }
+
   function varGetOmniBookPositions() {
     if (_varOmniBookMemo && Date.now() - _varOmniBookMemoTs < 1200) return _varOmniBookMemo;
     const acc = varAccountsLoad();
+    const slotIds = varOmniBookSlotIds(acc);
     const positions = [];
     let anyFills = false;
     let latestAt = 0;
-    for (const id of varOmniSlotIds(acc)) {
+    const seenFp = new Set();
+    for (const id of slotIds) {
       const slot = acc.slots[id];
       const bundle = slot?.csv ? varCsvNormalize(slot.csv) : null;
       if (!bundle?.trades?.length) continue;
       anyFills = true;
+      const fp = varCsvTradeFingerprint(bundle);
+      // Skip cloned jambi that hold the exact same trade export.
+      if (fp && seenFp.has(fp)) continue;
+      if (fp) seenFp.add(fp);
       if (slot.importedAt && slot.importedAt > latestAt) latestAt = slot.importedAt;
       const fills = varRebuildOpenPositionsFromTrades(bundle);
       for (const p of fills) {
@@ -1435,7 +1532,8 @@
           live: false,
           fromFills: true,
           hasEntry: !!(p.entry > 0),
-          upnl: null,
+          // Keep rebuild uPnL when mark was available; enrich will refresh.
+          upnl: p.upnl != null && isFinite(p.upnl) ? p.upnl : null,
         });
       }
     }
@@ -1444,7 +1542,11 @@
       ? {
           positions,
           source: 'fills',
-          meta: { importedAt: latestAt || Date.now(), multiAccount: true },
+          meta: {
+            importedAt: latestAt || Date.now(),
+            multiAccount: slotIds.length > 1,
+            scope: _varCsvScope || 'active',
+          },
         }
       : { positions: [], source: anyFills ? 'fills' : 'none', meta: null };
     _varOmniBookMemo = result;
@@ -2073,6 +2175,8 @@
     let upnl = null;
     if (entry > 0 && mark > 0 && qty > 0) {
       upnl = (p.side === 'short' ? -1 : 1) * (mark - entry) * qty;
+    } else if (p.upnl != null && isFinite(Number(p.upnl))) {
+      upnl = Number(p.upnl);
     }
     return {
       ...p,
@@ -2304,8 +2408,13 @@
     const used = new Set();
     const pairs = [];
     for (const o of books.omni || []) {
-      const hedge = varHlPositionForTicker(o.market);
-      if (hedge) used.add(varTradePosKey(hedge));
+      let hedge = varHlPositionForTicker(o.market);
+      if (hedge) {
+        const key = varTradePosKey(hedge);
+        // One HL/XYZ claim per hedge position — avoid double-counting uPnL on Omni clones.
+        if (used.has(key)) hedge = null;
+        else used.add(key);
+      }
       const leg = {
         ticker: o.market,
         side: o.side,
@@ -2723,7 +2832,7 @@
       if (s && sub != null) s.textContent = sub;
     };
 
-    const bundle = varCsvLoad();
+    const bundle = varCsvLoadForView();
     const points = varPointsLoad();
     const hasTrades = !!(bundle && bundle.trades && bundle.trades.length);
     const hasPoints = !!(points && (points.points_summary || (points.points_history && points.points_history.length) || points.competition));
@@ -3669,12 +3778,26 @@
     };
   }
 
+  function varFmtSignedUsdExact(n) {
+    const v = Number(n);
+    if (!isFinite(v)) return '—';
+    if (v === 0) return '$0';
+    const abs = Math.abs(v);
+    const num = abs.toLocaleString('en-US', {
+      maximumFractionDigits: abs >= 100 ? 0 : 2,
+      minimumFractionDigits: 0,
+    });
+    return `${v > 0 ? '+' : '-'}$${num}`;
+  }
+
   function varFmtSignedUsd(n) {
     const v = Number(n);
     if (!isFinite(v)) return '—';
     if (v === 0) return '$0';
-    const body = varFmtCompactUsd(Math.abs(v));
-    return (v > 0 ? '+' : '-') + body;
+    // Timber-style: keep full dollars under $10k (e.g. -$1,022 not -$1.0K).
+    const abs = Math.abs(v);
+    if (abs < 1e4) return varFmtSignedUsdExact(v);
+    return (v > 0 ? '+' : '-') + varFmtCompactUsd(abs);
   }
 
   function varRelativeAgo(ts) {
@@ -3950,7 +4073,7 @@
   function renderVarDash() {
     const wrap = document.getElementById('varDash');
     if (!wrap) return;
-    const bundle = varCsvLoad();
+    const bundle = varCsvLoadForView();
     const points = varPointsLoad();
     const hasData = !!(bundle && (bundle.trades?.length || bundle.funding?.length || bundle.realizedPnl?.length));
     if (!hasData) {
@@ -4046,7 +4169,7 @@
     const posSub = document.querySelector('[data-i18n="var.dashPositionsSub"]');
     const liveWrap = varPositionsLoad();
     const omniBook = varGetOmniBookPositions();
-    const displayPositions = omniBook.positions;
+    const displayPositions = (omniBook.positions || []).map(varEnrichOmniLive).filter(Boolean);
     if (posSub) {
       if (omniBook.source === 'live') {
         const when = liveWrap?.pulled_at ? new Date(liveWrap.pulled_at).toLocaleString(varLoc()) : '';
@@ -4250,51 +4373,63 @@
 
     const hourMs = 3600e3;
     const chartStart = Math.floor(start / hourMs) * hourMs;
-    const chartEnd = Math.min(exclusiveEnd, displayEnd + hourMs);
+    const winEnd = Math.min(exclusiveEnd, displayEnd + 1);
     const posQ = {};
     const lastPx = {};
     let ti = 0;
     let peakOi = 0;
-    let sumAvg = 0;
-    let hourCount = 0;
-    let heldHours = 0;
+    let areaMs = 0;
+    let coveredMs = 0;
+    let heldMs = 0;
 
-    while (ti < tradesAll.length && tradesAll[ti].ts < chartStart) {
+    // Replay fills before the window so OI carries in (TimberJ openInterestSeries).
+    while (ti < tradesAll.length && tradesAll[ti].ts < start) {
       const t = tradesAll[ti++];
       lastPx[t.underlying] = t.px;
       posQ[t.underlying] = (posQ[t.underlying] || 0) + t.sign * t.qty;
       if (Math.abs(posQ[t.underlying]) < 1e-10) delete posQ[t.underlying];
     }
 
-    for (let h = chartStart; h < chartEnd; h += hourMs) {
-      const hend = h + hourMs;
-      let oi = varOiUsd(posQ, lastPx);
-      let peakH = oi;
-      let area = 0;
-      let cursor = h;
-      while (ti < tradesAll.length && tradesAll[ti].ts < hend) {
-        const t = tradesAll[ti++];
-        const seg = Math.max(0, t.ts - cursor);
-        area += oi * seg;
-        lastPx[t.underlying] = t.px;
-        posQ[t.underlying] = (posQ[t.underlying] || 0) + t.sign * t.qty;
-        if (Math.abs(posQ[t.underlying]) < 1e-10) delete posQ[t.underlying];
-        oi = varOiUsd(posQ, lastPx);
-        if (oi > peakH) peakH = oi;
-        cursor = t.ts;
-      }
-      area += oi * Math.max(0, hend - cursor);
-      const avgH = area / hourMs;
-      if (h >= start && h < exclusiveEnd && h <= displayEnd) {
-        sumAvg += avgH;
-        hourCount++;
-        if (avgH > 1) heldHours++;
-        if (peakH > peakOi) peakOi = peakH;
-      }
+    const samples = [{ ts: start, oi: varOiUsd(posQ, lastPx) }];
+    while (ti < tradesAll.length && tradesAll[ti].ts < winEnd) {
+      const t = tradesAll[ti++];
+      lastPx[t.underlying] = t.px;
+      posQ[t.underlying] = (posQ[t.underlying] || 0) + t.sign * t.qty;
+      if (Math.abs(posQ[t.underlying]) < 1e-10) delete posQ[t.underlying];
+      samples.push({ ts: t.ts, oi: varOiUsd(posQ, lastPx) });
+    }
+    samples.push({ ts: winEnd, oi: samples[samples.length - 1].oi });
+
+    for (let i = 0; i < samples.length - 1; i++) {
+      const a = samples[i];
+      const b = samples[i + 1];
+      const dt = Math.max(0, b.ts - a.ts);
+      if (!(dt > 0)) continue;
+      const oi = a.oi;
+      areaMs += oi * dt;
+      coveredMs += dt;
+      if (oi > 0) heldMs += dt;
+      if (oi > peakOi) peakOi = oi;
     }
 
-    const avgOi = hourCount ? sumAvg / hourCount : 0;
-    const heldPct = hourCount ? (heldHours / hourCount) * 100 : 0;
+    // Also track hourly peaks inside the window for display stability.
+    let hourPeak = 0;
+    let cursorOi = samples[0].oi;
+    let si = 0;
+    for (let h = chartStart; h < winEnd; h += hourMs) {
+      const hend = Math.min(h + hourMs, winEnd);
+      let peakH = cursorOi;
+      while (si < samples.length && samples[si].ts < hend) {
+        cursorOi = samples[si].oi;
+        if (cursorOi > peakH) peakH = cursorOi;
+        si++;
+      }
+      if (h >= start && peakH > hourPeak) hourPeak = peakH;
+    }
+    if (hourPeak > peakOi) peakOi = hourPeak;
+
+    const avgOi = coveredMs > 0 ? areaMs / coveredMs : 0;
+    const heldPct = coveredMs > 0 ? (heldMs / coveredMs) * 100 : 0;
     const pairs = Object.values(pairMap).sort((a, b) => b.volume - a.volume || Math.abs(b.pnl) - Math.abs(a.pnl));
 
     return {
@@ -4379,11 +4514,15 @@
       for (const r of rows) {
         if (!r.inProgress) continue;
         const est = varEpochEstimateSelf(points, bundle, r.start, r.end);
-        if (est.points > r.self) {
-          r.estimated = true;
-          r.self = est.points;
-          r.total = est.points + (r.referral || 0);
+        // Keep official Omni points; attach Timber-style estimate as secondary (do not overwrite).
+        if (est.points > 0) {
+          r.estPoints = est.points;
           r.estRate = est.rate;
+          if (!(r.self > 0) && !(r.total > 0)) {
+            r.estimated = true;
+            r.self = est.points;
+            r.total = est.points + (r.referral || 0);
+          }
         }
       }
     }
@@ -4488,7 +4627,7 @@
           <span class="var-epoch-mkt-name mono">${varEsc(p.market)}</span>
         </span>
         <div class="var-epoch-mkt-bar"><span style="width:${pct}%"></span></div>
-        <span class="var-epoch-mkt-pnl mono ${pnlCls}">${varFmtSignedUsd(p.pnl)}</span>
+        <span class="var-epoch-mkt-pnl mono ${pnlCls}">${varFmtSignedUsdExact(p.pnl)}</span>
       </div>`;
     }).join('');
     let more = '';
@@ -4506,19 +4645,19 @@
       : varT('var.epochWinRate').replace('{pct}', '—');
     const fundCls = stats.funding > 0 ? 'is-pos' : (stats.funding < 0 ? 'is-neg' : '');
     return `<div class="var-epoch-detail">
-      <div class="var-epoch-detail-col">
+      <div class="var-epoch-detail-col var-epoch-oi-card">
         <div class="var-epoch-detail-h">${varEsc(varT('var.epochOiTitle'))}</div>
         <div class="var-epoch-oi-grid">
           <div><span class="lbl">${varEsc(varT('var.epochOiAvg'))}</span><strong class="mono">${varFmtCompactUsd(stats.avgOi)}</strong></div>
           <div><span class="lbl">${varEsc(varT('var.epochOiPeak'))}</span><strong class="mono">${varFmtCompactUsd(stats.peakOi)}</strong></div>
-          <div><span class="lbl">${varEsc(varT('var.epochOiHeld'))}</span><strong class="mono">${stats.heldPct.toFixed(0)}%</strong></div>
+          <div><span class="lbl">${varEsc(varT('var.epochOiHeld'))}</span><strong class="mono">${Math.round(stats.heldPct)}%</strong></div>
         </div>
         <div class="var-epoch-oi-extra">
           <div>${varEsc(wr)}</div>
-          <div>${varEsc(varT('var.epochFunding'))}: <span class="mono ${fundCls}">${varFmtSignedUsd(stats.funding)}</span></div>
+          <div>${varEsc(varT('var.epochFunding'))}: <span class="mono ${fundCls}">${varFmtSignedUsdExact(stats.funding)}</span></div>
         </div>
       </div>
-      <div class="var-epoch-detail-col">
+      <div class="var-epoch-detail-col var-epoch-markets-card">
         <div class="var-epoch-detail-h">${varEsc(varT('var.epochMarketsTitle'))}</div>
         <div class="var-epoch-markets">${varEpochMarketsHtml(row.id, stats.pairs, marketsOpen)}</div>
       </div>
@@ -4597,7 +4736,7 @@
     const empty = document.getElementById('varEpochEmpty');
     if (!wrap || !heading) return;
 
-    const bundle = varCsvLoad() || { trades: [], funding: [], realizedPnl: [], transfers: [] };
+    const bundle = varCsvLoadForView() || { trades: [], funding: [], realizedPnl: [], transfers: [] };
     const rows = varBuildEpochRows(points, bundle);
     varBindEpochTableUi();
 
@@ -4663,7 +4802,7 @@
           </div>
           <div class="var-epoch-col">
             <div class="var-epoch-col-lbl">${varEsc(varT('var.epochNet'))}</div>
-            <div class="var-epoch-col-val mono ${netCls}">${varFmtSignedUsd(stats.realizedPnl)}</div>
+            <div class="var-epoch-col-val mono ${netCls}">${varFmtSignedUsdExact(stats.realizedPnl)}</div>
           </div>
           <div class="var-epoch-col var-epoch-col-rate">
             <div class="var-epoch-col-lbl">${varEsc(varT('var.epochPtsPer'))}</div>
@@ -5192,6 +5331,21 @@
     return VAR_POINTS_MODELS.find(m => m.id === id) || VAR_POINTS_MODELS[0];
   }
 
+  const VAR_LAB_CRYPTO = new Set([
+    'BTC', 'ETH', 'SOL', 'HYPE', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'DOT', 'LINK', 'UNI',
+    'AAVE', 'ARB', 'OP', 'SUI', 'APT', 'NEAR', 'ATOM', 'LTC', 'BCH', 'ETC', 'FIL', 'INJ',
+    'TIA', 'SEI', 'PEPE', 'WIF', 'BONK', 'JUP', 'PYTH', 'WLD', 'ONDO', 'ENA', 'PENDLE',
+    'MKR', 'CRV', 'LDO', 'STX', 'IMX', 'RENDER', 'FET', 'TAO', 'EIGEN', 'TRX', 'TON',
+  ]);
+  const VAR_LAB_COMMODITY = new Set([
+    'XAU', 'XAG', 'GOLD', 'SILVER', 'CL', 'WTI', 'BRENT', 'OIL', 'COPPER', 'XCU', 'HG',
+    'NATGAS', 'NG', 'WHEAT', 'CORN', 'SOY',
+  ]);
+  const VAR_LAB_ETF = new Set([
+    'EWY', 'SPCX', 'SPY', 'QQQ', 'IWM', 'DIA', 'EEM', 'EFA', 'TLT', 'GLD', 'SLV', 'USO',
+    'HYG', 'LQD', 'XLF', 'XLE', 'XLK', 'ARKK',
+  ]);
+
   function varLabAssetClass(t) {
     const k = String(t.instrument?.kind || t.kind || '').toLowerCase();
     if (k === 'equity' || k === 'stock' || k === 'stocks') return 'equity';
@@ -5201,6 +5355,17 @@
     if (k === 'crypto') return 'crypto';
     const it = String(t.instrument?.instrument_type || t.instrument_type || '').toLowerCase();
     if (it.includes('rwa')) return 'other';
+    if (it.includes('equity') || it.includes('stock')) return 'equity';
+    if (it.includes('commodity')) return 'commodity';
+    if (it.includes('etf') || it.includes('index')) return 'etf';
+    // Omni CSV often omits kind — classify by underlying (TimberJ-compatible).
+    const u = String(t.underlying || t.instrument?.underlying || '').toUpperCase().replace(/^XYZ:/, '');
+    if (!u) return 'crypto';
+    if (VAR_LAB_CRYPTO.has(u)) return 'crypto';
+    if (VAR_LAB_COMMODITY.has(u)) return 'commodity';
+    if (VAR_LAB_ETF.has(u)) return 'etf';
+    // Typical equity ticker: 1–5 letters (NVDA, MU, AAPL, DRAM…).
+    if (/^[A-Z]{1,5}$/.test(u)) return 'equity';
     return 'crypto';
   }
 
@@ -5344,7 +5509,7 @@
 
   function renderVarPointsLab() {
     const points = varPointsLoad();
-    const bundle = varCsvLoad();
+    const bundle = varCsvLoadForView();
     const trades = varLabPrepareTrades(bundle);
     const model = varLabModelById(_varLabModel);
 
@@ -5466,20 +5631,17 @@
 
   function renderVarActivity() {
     varBindJsonDrop();
-    const bundle = varCsvLoad();
+    try { varRenderOmniSlotsUi(); } catch (_) {}
+    const bundle = varCsvLoadForView();
     const points = varPointsLoad();
     varUpdateOmniExtUi();
     // Omni Live ready view: only light volume/positions — skip activity event table rebuild.
     if (_varSub === 'live') {
-      if (_varOmniExtInstalled) {
-        try { varRenderLiveDashboard(); } catch (_) {}
-      }
+      try { varRenderLiveDashboard(); } catch (_) {}
       try { renderVarUserHeroKpis(); } catch (_) {}
       return;
     }
-    if (_varOmniExtInstalled) {
-      try { varRenderLiveDashboard(); } catch (_) {}
-    }
+    try { varRenderLiveDashboard(); } catch (_) {}
     varRenderCsvImportStatus(bundle);
     varRenderJsonMeta(points);
     if (_varSub === 'dashboard') renderVarDash();
@@ -5743,7 +5905,7 @@
 
   function varToastAutoImported() {
     const now = Date.now();
-    if (now - _varLastImportToastAt < 8000) return;
+    if (now - _varLastImportToastAt < 2500) return;
     _varLastImportToastAt = now;
     if (typeof toast === 'function') toast(varT('var.collectorAutoImported'));
   }
@@ -5882,7 +6044,7 @@
       btn.classList.toggle('active', btn.dataset.livePeriod === period);
     });
 
-    const bundle = varCsvLoad();
+    const bundle = varCsvLoadForView();
     const hasTrades = !!(bundle && bundle.trades && bundle.trades.length);
     const dash = hasTrades ? varBuildDashAnalyticsCached(bundle, period, { light: true }) : null;
     const pairMap = varPairsByMarket(dash);
@@ -5921,9 +6083,18 @@
       }
     }
 
-    const omniBook = varGetOmniBookPositions();
-    const rows = (omniBook.positions || []).slice().sort((a, b) => (b.notional || 0) - (a.notional || 0));
     const books = varGetTradeBooks();
+    const rows = (books.omni || []).slice().sort((a, b) => (b.notional || 0) - (a.notional || 0));
+    // Kick public Omni marks if any leg is missing mark (Live used to skip this → Mark/uPnL = —).
+    if (rows.some((o) => !(o.mark > 0)) && !window.__hsVarLiveMarkKick) {
+      window.__hsVarLiveMarkKick = 1;
+      varRefreshOmniMarksOnly().then((ok) => {
+        window.__hsVarLiveMarkKick = 0;
+        if (ok && _varSub === 'live') {
+          try { varRenderLiveDashboard(); } catch (_) {}
+        }
+      }).catch(() => { window.__hsVarLiveMarkKick = 0; });
+    }
     const { pairs } = varHedgeLivePairs(books);
     const hasWallet = typeof wallets !== 'undefined' && Array.isArray(wallets) && wallets.length > 0;
     const tradeN = (books.trade || []).length;
@@ -6017,10 +6188,17 @@
           const o = x.omni;
           const h = x.hedge;
           const ou = varComputePosUpnl(o);
-          const omniMark = (Number(o.mark) > 0) ? Number(o.mark) : (varOmniLiveMark(o.market) || 0);
+          const omniMark = (Number(o.mark) > 0)
+            ? Number(o.mark)
+            : (varOmniLiveMark(o.market) || 0);
+          // Recompute uPnL with live mark when enrich left it null (fills have upnl:null).
+          const ouLive = (ou != null && isFinite(ou))
+            ? ou
+            : varComputePosUpnl({ ...o, mark: omniMark, upnl: null });
           const hu = h ? h.upnl : null;
-          const hasAny = ou != null || hu != null;
-          const net = (ou != null && isFinite(ou) ? ou : 0) + (hu != null && isFinite(hu) ? hu : 0);
+          const hasAny = (ouLive != null && isFinite(ouLive)) || (hu != null && isFinite(hu));
+          const net = (ouLive != null && isFinite(ouLive) ? ouLive : 0)
+            + (hu != null && isFinite(hu) ? hu : 0);
           const netCls = hasAny ? (net > 0 ? 'is-pos' : net < 0 ? 'is-neg' : '') : '';
           const mkt = String(o.market || '').toUpperCase();
           const pairStats = pairMap[mkt] || null;
@@ -6054,10 +6232,10 @@
               venue: 'Omni',
               side: o.side,
               qty: o.qty,
-              size: o.notional,
+              size: (Number(o.qty) > 0 && omniMark > 0) ? Number(o.qty) * omniMark : o.notional,
               entry: o.entry,
               mark: omniMark,
-              upnl: ou,
+              upnl: ouLive,
               rowCls: 'is-omni',
             })}
             ${h
@@ -6080,7 +6258,7 @@
     }
 
     const mktsSub = document.getElementById('varLiveMarketsSub');
-    const marketPairs = dash?.pairs || [];
+    const marketPairs = (dash?.pairs || []).filter((p) => (Number(p.volume) || 0) > 0 || (Number(p.trades) || 0) > 0);
     if (mktsSub) {
       mktsSub.textContent = marketPairs.length
         ? varT('var.liveMarketsCount').replace('{n}', String(marketPairs.length))
@@ -6198,13 +6376,14 @@
     if (status) status.textContent = statusText;
     if (statusGuide) statusGuide.textContent = statusText;
 
-    // Guide only when extension is missing; otherwise show positions + volume.
+    // Guide when extension is missing AND no CSV/JSON yet; otherwise show Live dashboard.
     const onLive = _varSub === 'live';
+    const hasImport = varHasAnyOmniCsv();
     if (onboard) {
-      onboard.style.display = onLive && !_varOmniExtInstalled ? '' : 'none';
+      onboard.style.display = onLive && !_varOmniExtInstalled && !hasImport ? '' : 'none';
     }
     if (ready) {
-      const showReady = onLive && _varOmniExtInstalled;
+      const showReady = onLive && (_varOmniExtInstalled || hasImport);
       ready.hidden = !showReady;
       ready.style.display = showReady ? 'flex' : 'none';
     }
@@ -6213,13 +6392,14 @@
   function varFocusOmniImport() {
     try { varSetSub('live', null); } catch (_) {}
     varUpdateOmniExtUi();
-    const target = _varOmniExtInstalled
+    const hasImport = varHasAnyOmniCsv();
+    const target = (_varOmniExtInstalled || hasImport)
       ? (document.getElementById('varLiveReady') || document.getElementById('varSecLive'))
       : (document.getElementById('varActivityOnboard') || document.getElementById('varSecLive'));
     if (target && typeof target.scrollIntoView === 'function') {
       target.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
-    if (!_varOmniExtInstalled) {
+    if (!_varOmniExtInstalled && !hasImport) {
       const dl = document.querySelector('#varActivityOnboard a[download], #varActivityOnboard a.btn-ac');
       if (dl) {
         dl.classList.add('is-focus');
@@ -6523,6 +6703,23 @@
       host.removeEventListener('click', host._hsOmniSlotsOnClick);
     }
     host._hsOmniSlotsOnClick = function (e) {
+      const scopeBtn = e.target.closest('[data-omni-scope]');
+      if (scopeBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (scopeBtn.disabled) return;
+        varSetCsvScope(scopeBtn.getAttribute('data-omni-scope') || 'all');
+        return;
+      }
+      const pickBtn = e.target.closest('[data-omni-pick]');
+      if (pickBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        const pid = pickBtn.getAttribute('data-omni-pick');
+        varCsvScopeSave('active');
+        varAccountsSetActiveImport(pid);
+        return;
+      }
       const addBtn = e.target.closest('[data-omni-add]');
       if (addBtn) {
         e.preventDefault();
@@ -6553,6 +6750,7 @@
       if (slot && slot.getAttribute('data-slot')) {
         e.preventDefault();
         e.stopPropagation();
+        varCsvScopeSave('active');
         varAccountsSetActiveImport(slot.getAttribute('data-slot'));
       }
     };
@@ -6568,6 +6766,20 @@
     const active = varAccountsActiveId();
     const canRemove = ids.length > VAR_OMNI_MIN_SLOTS;
     const canAdd = ids.length < VAR_OMNI_MAX_SLOTS;
+    const scope = varCsvScopeLoad();
+    const filled = ids.filter((id) => (acc.slots[id]?.csv?.trades || []).length > 0).length;
+
+    const chips = `<div class="var-omni-scope-chips" role="group" aria-label="CSV scope">
+      <button type="button" class="wallet-chip${scope === 'all' ? ' active' : ''}" data-omni-scope="all"${filled < 2 ? ' disabled' : ''}>${varT('var.csvScopeAll') || 'Tous'}</button>
+      ${ids.map((id, i) => {
+        const s = acc.slots[id];
+        const nTrades = (s.csv?.trades || []).length;
+        const label = s.label || varOmniLabelForIndex(i);
+        const on = scope === 'active' && id === active;
+        return `<button type="button" class="wallet-chip${on ? ' active' : ''}" data-omni-pick="${id}" title="${nTrades} trades">${varEsc(label)}${nTrades ? ` · ${nTrades}` : ''}</button>`;
+      }).join('')}
+    </div>`;
+
     const slotsHtml = ids.map((id, i) => {
       const s = acc.slots[id];
       const nTrades = (s.csv?.trades || []).length;
@@ -6598,7 +6810,7 @@
       <button type="button" class="btn btn-ghost text-xs" style="padding:6px 10px" data-omni-add="1" ${canAdd ? '' : 'disabled'}>${varT('var.slotAdd')}</button>
       <span style="font-size:.68rem;color:var(--muted)">${varT('var.slotAddHint').replace('{max}', String(VAR_OMNI_MAX_SLOTS))}</span>
     </div>`;
-    host.innerHTML = slotsHtml + actions;
+    host.innerHTML = chips + slotsHtml + actions;
   }
 
   function varAirdropCompute(points, fdvM, sharePct, totalPtsM) {
@@ -6903,6 +7115,8 @@
   window.varClearOmniSlot = varClearOmniSlot;
   window.varClearCsv = varClearCsv;
   window.varClearCsvKind = varClearCsvKind;
+  window.varSetCsvScope = varSetCsvScope;
+  window.varRenderOmniSlotsUi = varRenderOmniSlotsUi;
   window.varSetDashPeriod = varSetDashPeriod;
   window.varSetLiveVolPeriod = varSetLiveVolPeriod;
   window.renderVarDash = renderVarDash;

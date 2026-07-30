@@ -118,7 +118,7 @@
       collectStep2: "Donne un nom a la position active (optionnel).",
       collectStep3: "Clique pour collecter automatiquement toutes tes datas Omni en CSV.",
       collectStep4: "Sinon, depose un export JSON / CSV manuellement.",
-      positionNameLabel: "Nom de la position",
+      positionNameLabel: "Nom de la nouvelle position",
       positionNamePlaceholder: "Ex. Variational, Hedge BTC…",
       collectOmni: "Collecter Omni",
       dropTitle: "Deposer JSON / CSV (par compte)",
@@ -248,7 +248,7 @@
       collectStep2: "Name the active position (optional).",
       collectStep3: "Click to automatically collect all your Omni data as CSV.",
       collectStep4: "Or drop a JSON / CSV export manually.",
-      positionNameLabel: "Position name",
+      positionNameLabel: "New position name",
       positionNamePlaceholder: "e.g. Variational, BTC hedge…",
       collectOmni: "Collect Omni",
       dropTitle: "Drop JSON / CSV (per account)",
@@ -892,9 +892,15 @@
   function applyVolReport(res) {
     if (!volValueEl || !volMetaEl) return;
     if (res && Array.isArray(res.legs)) {
+      var prevFp = volLegs
+        .map(function (l) { return l.id + ":" + (l.trades || 0) + ":" + (l.label || ""); })
+        .join("|");
+      var nextFp = res.legs
+        .map(function (l) { return l.id + ":" + (l.trades || 0) + ":" + (l.label || ""); })
+        .join("|");
       volLegs = res.legs;
       if (res.slotId) setVolSlot(String(res.slotId));
-      renderVolSlotSelect();
+      if (prevFp !== nextFp) renderVolSlotSelect();
     }
     if (!res || !res.ok) {
       volValueEl.textContent = "—";
@@ -915,10 +921,12 @@
     volMetaEl.textContent = bits.join(" · ");
   }
 
-  function loadVolume() {
+  function loadVolume(opts) {
     if (!volSection || volSection.hidden) return;
+    var silent = !!(opts && opts.silent);
     var req = ++volReqId;
-    setVolLoading();
+    // Silent refresh keeps the previous $ / meta visible (avoids 3–4s blink on HS sync).
+    if (!silent) setVolLoading();
     try {
       chrome.runtime.sendMessage(
         {
@@ -1160,7 +1168,7 @@
     );
   }
 
-  function renderPositions(snap) {
+  function renderPositions(snap, opts) {
     lastSnap = snap;
     if (!summary || !posScroll) return;
 
@@ -1243,7 +1251,7 @@
     }
 
     // Avoid full DOM wipe while a native <select> popup is closing.
-    if (focusInside(posScroll) || focusInside(alertCard) || focusInside(alertReminderSectionEl)) {
+    if (!(opts && opts.force) && (focusInside(posScroll) || focusInside(alertCard) || focusInside(alertReminderSectionEl))) {
       updateAlertPositionNets();
       return;
     }
@@ -1513,11 +1521,22 @@
       var tog = e.target.closest('[data-act="toggle-leg"]');
       if (tog) {
         e.preventDefault();
+        e.stopPropagation();
         var sid = tog.getAttribute("data-slot");
         if (!sid) return;
         collapsedLegs[sid] = !collapsedLegs[sid];
         try { chrome.storage.local.set({ [COLLAPSE_KEY]: collapsedLegs }); } catch (_) {}
-        if (lastSnap) renderPositions(lastSnap);
+        // Apply collapse in-place. Full renderPositions() is skipped while focus is
+        // inside #posScroll (blur-safe for <select>), so the chevron click never redraws.
+        var group = tog.closest(".group");
+        if (group) {
+          var closed = !!collapsedLegs[sid];
+          group.classList.toggle("is-closed", closed);
+          tog.textContent = closed ? "▸" : "▾";
+          tog.title = closed ? t("open") : t("collapse");
+        } else if (lastSnap) {
+          renderPositions(lastSnap, { force: true });
+        }
         return;
       }
       var del = e.target.closest('[data-act="remove-leg"]');
@@ -1555,12 +1574,18 @@
   }
 
   if (collectBtn) {
+    // Prevent blur→commitActiveRename on the active leg before Collect runs.
+    // The rename field names the *new* collecte, not the currently open position.
+    collectBtn.addEventListener("mousedown", function (e) {
+      e.preventDefault();
+    });
     collectBtn.addEventListener("click", function (e) {
       e.preventDefault();
       if (collectBusy) return;
+      var newLegLabel = desiredPositionLabel();
       collectBusy = true;
       setCollectUi({ busy: true }, t("collecting"), t("readingOmni"));
-      chrome.runtime.sendMessage({ type: "HS_OMNI_COLLECT_RUN", label: desiredPositionLabel() }, function (res) {
+      chrome.runtime.sendMessage({ type: "HS_OMNI_COLLECT_RUN", label: newLegLabel }, function (res) {
         collectBusy = false;
         var err = chrome.runtime.lastError;
         if (err || !res || !res.ok) {
@@ -1742,9 +1767,8 @@
         label: desiredPositionLabel(),
         broadcast: !!jsonPayload,
         origin: "extension-drop",
-        // Drop zone: if jambe active déjà remplie → nouvelle jambe auto.
-        // Bouton CSV d'une jambe: forceReplace sur cette jambe seulement.
-        autoNewLeg: !(dropFile && dropFile.dataset.forceReplace === "1"),
+        // Default: refresh active jambe. Explicit new-leg UI should pass newLeg: true.
+        autoNewLeg: false,
         slotId: (dropFile && dropFile.dataset.forceSlot) || "",
       },
       function (res) {
@@ -2109,7 +2133,7 @@
       }
       if (changes.hsWidgetSync) {
         loadState();
-        if (volSection && !volSection.hidden) loadVolume();
+        if (volSection && !volSection.hidden) loadVolume({ silent: true });
       }
       if (changes[ALERT_KEY]) {
         alertPrefs = normalizeAlertPrefs(changes[ALERT_KEY].newValue);
