@@ -4447,6 +4447,7 @@
 
   /** Omni usually publishes points ~24h after the Thursday epoch closes (TimberJ "finalising"). */
   const VAR_EPOCH_POINTS_PUBLISH_MS = 24 * 3600 * 1000;
+  const VAR_EPOCH_RECENT_RATE_N = 4;
 
   function varFmtCountdown(ms) {
     if (!(ms > 0) || !isFinite(ms)) return '';
@@ -4458,25 +4459,64 @@
     return `${h}h ${String(m).padStart(2, '0')}m`;
   }
 
+  /**
+   * TimberJ "recent rate": arithmetic mean of self pts / $1M volume
+   * over the last N published earning epochs before `beforeStart`.
+   */
+  function varEpochRecentRate(points, bundle, beforeStart, lastN) {
+    const n = lastN != null ? lastN : VAR_EPOCH_RECENT_RATE_N;
+    const hist = [...(points?.points_history || [])]
+      .map((h) => {
+        const start = Date.parse(h.start_window || 0);
+        const end = Date.parse(h.end_window || 0);
+        const self = parseFloat(h.self_points || h.total_points || 0);
+        if (!isFinite(start) || !isFinite(end) || !(self > 0)) return null;
+        if (isFinite(beforeStart) && !(start < beforeStart)) return null;
+        return { start, end: end > start ? end : start + 7 * 864e5, self };
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.start - a.start);
+
+    const rates = [];
+    for (const h of hist) {
+      const vol = varEpochWindowSummary(bundle, h.start, h.end).volume;
+      if (!(vol > 0)) continue;
+      rates.push((h.self / vol) * 1e6);
+      if (rates.length >= n) break;
+    }
+    if (!rates.length) return null;
+    return rates.reduce((a, b) => a + b, 0) / rates.length;
+  }
+
+  /** TimberJ-style estimate: volume × recent pts/$1M (not the Lab RWA pool model). */
   function varEpochEstimateSelf(points, bundle, start, exclusiveEnd) {
     try {
-      const trades = varLabPrepareTrades(bundle);
-      const model = varLabModelById('rwa-9');
-      const m = varLabWindowMetrics(trades, start, exclusiveEnd);
-      if (!(m.volume > 0)) return { points: 0, rate: null, metrics: m };
-      const poolRows = varLabPoolHistory(model, points, trades).filter(r => r.start < start);
-      const recent = poolRows.slice(-12);
-      const median = varLabMedianPool(recent.length ? recent : poolRows);
-      if (!(median > 0)) return { points: 0, rate: null, metrics: m };
-      const exposure = varLabExposure(model, m);
-      const est = median * exposure;
-      return {
-        points: est,
-        rate: m.volume > 0 ? (est / m.volume) * 1e6 : null,
-        metrics: m,
-      };
+      const stats = varEpochWindowSummary(bundle, start, exclusiveEnd);
+      const volume = stats.volume || 0;
+      if (!(volume > 0)) return { points: 0, rate: null, metrics: stats, method: 'timber' };
+      const rate = varEpochRecentRate(points, bundle, start, VAR_EPOCH_RECENT_RATE_N);
+      if (!(rate > 0)) {
+        // Fallback: Lab rwa-9 only when we have no published earning epochs yet.
+        const trades = varLabPrepareTrades(bundle);
+        const model = varLabModelById('rwa-9');
+        const m = varLabWindowMetrics(trades, start, exclusiveEnd);
+        const poolRows = varLabPoolHistory(model, points, trades).filter((r) => r.start < start);
+        const recent = poolRows.slice(-12);
+        const median = varLabMedianPool(recent.length ? recent : poolRows);
+        if (!(median > 0)) return { points: 0, rate: null, metrics: stats, method: 'none' };
+        const exposure = varLabExposure(model, m);
+        const est = median * exposure;
+        return {
+          points: est,
+          rate: volume > 0 ? (est / volume) * 1e6 : null,
+          metrics: stats,
+          method: 'lab',
+        };
+      }
+      const est = (volume * rate) / 1e6;
+      return { points: est, rate, metrics: stats, method: 'timber' };
     } catch (_) {
-      return { points: 0, rate: null, metrics: null };
+      return { points: 0, rate: null, metrics: null, method: 'none' };
     }
   }
 
