@@ -100,6 +100,46 @@ const HS_CONFIG = {
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.tailwindcss.com"></script>
+<script>
+  /* Map Tailwind utilities to Hypersheets design tokens (no separate tailwind.config.js). */
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          hs: {
+            bg: 'var(--bg)',
+            surface: 'var(--surface)',
+            'surface-2': 'var(--surface-2)',
+            border: 'var(--border)',
+            text: 'var(--text)',
+            muted: 'var(--muted)',
+            accent: 'var(--accent)',
+            success: 'var(--success)',
+            danger: 'var(--danger)',
+            warning: 'var(--warning)',
+          },
+        },
+        borderRadius: {
+          hs: 'var(--hs-radius-tile)',
+          'hs-badge': 'var(--hs-radius-badge)',
+        },
+        fontSize: {
+          'hs-xs': 'var(--fs-xs)',
+          'hs-sm': 'var(--fs-sm)',
+          'hs-base': 'var(--fs-base)',
+          'hs-md': 'var(--fs-md)',
+          'hs-lg': 'var(--fs-lg)',
+          'hs-xl': 'var(--fs-xl)',
+          'hs-2xl': 'var(--fs-2xl)',
+        },
+        fontFamily: {
+          display: ["'Bricolage Grotesque'", 'sans-serif'],
+          sans: ["'Inter'", 'system-ui', 'sans-serif'],
+        },
+      },
+    },
+  };
+</script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
   <script>
@@ -365,7 +405,11 @@ const HS_CONFIG = {
         [data-theme="light"] #navTabs .nav-tab[data-tab="variational"].active {
           color: #4c9af8;
         }
-        #page-variational { --var-accent: #4c9af8; --var-omni: #4c9af8; --var-hl: #5eead4; }
+        #page-variational {
+          --var-accent: var(--accent);
+          --var-omni: #4c9af8;
+          --var-hl: #5eead4;
+        }
         .var-hedge-lead { font-size: .84rem; color: var(--muted); line-height: 1.55; margin: 0 0 12px; }
         .var-hedge-steps { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; counter-reset: var-hedge-step; }
         .var-hedge-step { font-size: .72rem; padding: 5px 11px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); color: var(--muted); transition: border-color .15s, background .15s, color .15s; }
@@ -626,8 +670,8 @@ const HS_CONFIG = {
           margin: 0 0 16px;
           padding: 12px 14px;
           border: 1px solid var(--border);
-          border-radius: 12px;
-          background: color-mix(in srgb, var(--surface-2) 80%, transparent);
+          border-radius: var(--hs-radius-tile);
+          background: var(--surface);
         }
         .var-omni-csv-bar-h {
           display: flex;
@@ -689,8 +733,8 @@ const HS_CONFIG = {
           justify-content: center;
           font-size: .72rem;
           font-weight: 800;
-          color: #041016;
-          background: linear-gradient(180deg, #9af0ff, #4c9af8);
+          color: var(--on-accent);
+          background: var(--accent);
         }
         .var-guide-step p { margin: 0 0 8px; }
         .var-guide-step p:last-child { margin-bottom: 0; }
@@ -738,48 +782,40 @@ const HS_CONFIG = {
           font-size: .7rem;
           color: var(--muted);
         }
-        .var-live-ready { display: flex; flex-direction: column; gap: 14px; }
+        .var-live-ready { display: flex; flex-direction: column; gap: 16px; }
         .var-live-ready-head {
           display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between;
           gap: 10px 14px;
         }
-        .var-live-ready-title { font-size: 1.05rem; font-weight: 700; }
+        .var-live-ready-title {
+          font-size: var(--fs-lg); font-weight: 700; letter-spacing: -0.02em;
+          font-family: 'Bricolage Grotesque', sans-serif; color: var(--text);
+        }
         .var-live-ready-actions { display: flex; flex-wrap: wrap; gap: 8px; }
         .var-live-period-row {
-          display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
-          gap: 8px;
+          display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
         }
         .var-live-kpis {
-          display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;
+          display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;
         }
-        @media (min-width: 720px) { .var-live-kpis { grid-template-columns: repeat(3, 1fr); } }
-        @media (min-width: 1100px) { .var-live-kpis { grid-template-columns: repeat(6, 1fr); } }
-        .var-live-kpi {
-          padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border);
-          background: var(--surface-2);
-        }
-        .var-live-kpi-label {
-          font-size: .65rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
-          color: var(--muted); margin-bottom: 6px;
-        }
-        .var-live-kpi-val {
-          font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2;
-        }
-        .var-live-kpi-val.is-pos { color: #3dba7a; }
-        .var-live-kpi-val.is-neg { color: #e06b6b; }
-        .var-live-kpi-sub { font-size: .7rem; color: var(--muted); margin-top: 4px; line-height: 1.35; }
+        @media (min-width: 720px) { .var-live-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+        @media (min-width: 1100px) { .var-live-kpis { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+        #varLiveKpis .kpi { min-height: 0; padding: 14px 16px; border-radius: var(--hs-radius-tile); }
+        #varLiveKpis .kpi-val { font-size: 1.15rem; }
+        #varLiveKpis .kpi-val.is-pos { color: var(--success); }
+        #varLiveKpis .kpi-val.is-neg { color: var(--danger); }
         .var-live-panel {
-          border: 1px solid var(--border); border-radius: 14px; background: var(--surface-2);
-          padding: 14px 16px;
+          border: 1px solid var(--border); border-radius: var(--hs-radius-tile); background: var(--surface);
+          padding: 16px 18px;
         }
-        .var-live-panel-h { font-size: .92rem; font-weight: 650; margin: 0 0 2px; }
-        .var-live-panel-sub { font-size: .72rem; color: var(--muted); margin: 0 0 12px; }
+        .var-live-panel-h { font-size: var(--fs-md); font-weight: 650; margin: 0 0 2px; color: var(--text); }
+        .var-live-panel-sub { font-size: var(--fs-sm); color: var(--muted); margin: 0 0 12px; }
         .var-live-pos .var-pos-empty,
-        .var-live-markets .var-pos-empty { font-size: .82rem; color: var(--muted); padding: 8px 0; }
+        .var-live-markets .var-pos-empty { font-size: var(--fs-base); color: var(--muted); padding: 8px 0; }
         #varLivePositions .is-pos,
-        #varLiveMarkets .is-pos { color: #3dba7a; }
+        #varLiveMarkets .is-pos { color: var(--success); }
         #varLivePositions .is-neg,
-        #varLiveMarkets .is-neg { color: #e06b6b; }
+        #varLiveMarkets .is-neg { color: var(--danger); }
         #varLiveMarkets table { width: 100%; min-width: 560px; }
         .var-live-hedge { display: flex; flex-direction: column; gap: 12px; }
         .var-live-hedge-hint {
@@ -921,6 +957,8 @@ const HS_CONFIG = {
           border: 1px solid var(--border);
           box-shadow: none;
         }
+        #varPointsKpis .kpi { min-height: 0; padding: 14px 16px; }
+        #varPointsKpis .kpi-val { font-size: 1.15rem; }
         .var-points-kpis .kpi-label {
           font-size: .65rem; letter-spacing: .04em; text-transform: uppercase;
           color: var(--muted); margin-bottom: 4px;
@@ -939,21 +977,23 @@ const HS_CONFIG = {
           box-shadow: none;
         }
         .var-dash-nav {
-          display: flex; gap: 2px; flex-wrap: wrap;
+          display: flex; gap: 4px; flex-wrap: wrap;
           background: var(--surface-2);
           border: 1px solid var(--border);
-          border-radius: 999px;
+          border-radius: var(--hs-radius-tile);
           padding: 4px;
         }
         .var-dash-nav .var-sub-tab {
-          padding: 7px 14px; border-radius: 999px; font-size: .82rem; font-weight: 600;
-          cursor: pointer; transition: background .15s, color .15s;
+          padding: 7px 14px; border-radius: var(--hs-radius-badge); font-size: var(--fs-base); font-weight: 600;
+          cursor: pointer; transition: background .15s, color .15s, border-color .15s;
           background: transparent; color: var(--muted); user-select: none;
+          border: 1px solid transparent;
         }
-        .var-dash-nav .var-sub-tab:hover { color: var(--text); }
+        .var-dash-nav .var-sub-tab:hover { color: var(--text); background: var(--hover-bg); }
         .var-dash-nav .var-sub-tab.active {
-          background: color-mix(in srgb, var(--text) 12%, transparent);
-          color: var(--text);
+          background: var(--accent-soft);
+          color: var(--accent);
+          border-color: var(--accent-border);
         }
         .var-points-inner { display: none !important; }
         .var-points-inner-tab {
@@ -1001,11 +1041,11 @@ const HS_CONFIG = {
           color: #1a1208; background: #e8a04a;
         }
         .var-epoch-badge.is-finalising {
-          color: #dbeafe; background: rgba(76, 154, 248, 0.28);
-          border: 1px solid rgba(76, 154, 248, 0.45);
+          color: var(--on-accent); background: var(--accent-soft);
+          border: 1px solid var(--accent-border);
         }
         .var-epoch-row.is-finalising .var-epoch-summary {
-          background: color-mix(in srgb, #4c9af8 5%, transparent);
+          background: var(--accent-glow);
         }
         .var-epoch-col { text-align: right; }
         .var-epoch-col-lbl {
@@ -1013,8 +1053,8 @@ const HS_CONFIG = {
           text-transform: uppercase; color: var(--muted); margin-bottom: 2px;
         }
         .var-epoch-col-val { font-variant-numeric: tabular-nums; font-weight: 600; }
-        .var-epoch-col-val.is-pos, .var-epoch-mkt-pnl.is-pos, .var-epoch-oi-extra .is-pos { color: #3dba7a; }
-        .var-epoch-col-val.is-neg, .var-epoch-mkt-pnl.is-neg, .var-epoch-oi-extra .is-neg { color: #e06b6b; }
+        .var-epoch-col-val.is-pos, .var-epoch-mkt-pnl.is-pos, .var-epoch-oi-extra .is-pos { color: var(--success); }
+        .var-epoch-col-val.is-neg, .var-epoch-mkt-pnl.is-neg, .var-epoch-oi-extra .is-neg { color: var(--danger); }
         .var-epoch-chev {
           width: 18px; height: 18px; margin-left: auto;
           background: currentColor; opacity: .45;
@@ -1260,16 +1300,17 @@ const HS_CONFIG = {
           font-size: .72rem; font-weight: 600; padding: 6px 11px; border-radius: 999px; cursor: pointer;
           border: 1px solid var(--border); background: var(--surface-2); color: var(--muted); transition: all .15s;
         }
-        .var-dash-period.active { background: var(--var-accent,#4c9af8); color: #0b0d14; border-color: transparent; }
-        .var-dash-kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 14px; }
-        @media (min-width: 720px) { .var-dash-kpis { grid-template-columns: repeat(3, 1fr); } }
-        @media (min-width: 1100px) { .var-dash-kpis { grid-template-columns: repeat(6, 1fr); } }
-        .var-dash-kpi { padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-2); }
-        .var-dash-kpi-label { font-size: .65rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
-        .var-dash-kpi-val { font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; }
-        .var-dash-kpi-sub { font-size: .7rem; color: var(--muted); margin-top: 4px; line-height: 1.35; }
-        .var-dash-kpi-val.pos { color: var(--success); }
-        .var-dash-kpi-val.neg { color: var(--danger); }
+        .var-dash-period:hover { color: var(--text); border-color: var(--accent-border); }
+        .var-dash-period.active {
+          background: var(--accent); color: var(--on-accent); border-color: var(--accent);
+        }
+        .var-dash-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
+        @media (min-width: 720px) { .var-dash-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+        @media (min-width: 1100px) { .var-dash-kpis { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+        #varDashKpis .kpi { min-height: 0; padding: 14px 16px; }
+        #varDashKpis .kpi-val { font-size: 1.15rem; }
+        #varDashKpis .kpi-val.pos { color: var(--success); }
+        #varDashKpis .kpi-val.neg { color: var(--danger); }
         .var-overview-panel { border-bottom: 1px solid var(--border); }
         .var-overview-head { margin-bottom: 16px; }
         .var-overview-title {
@@ -10252,12 +10293,12 @@ const HS_CONFIG = {
               </div>
             </div>
             <div class="var-dash-kpis" id="varDashKpis">
-              <div class="var-dash-kpi"><div class="var-dash-kpi-label" data-i18n="var.dashVol">Volume</div><div class="var-dash-kpi-val" id="varDashVol">—</div><div class="var-dash-kpi-sub" id="varDashVolSub"></div></div>
-              <div class="var-dash-kpi"><div class="var-dash-kpi-label" data-i18n="var.dashPnl">Realized PnL</div><div class="var-dash-kpi-val" id="varDashPnl">—</div><div class="var-dash-kpi-sub" id="varDashPnlSub"></div></div>
-              <div class="var-dash-kpi"><div class="var-dash-kpi-label" data-i18n="var.dashAvgOi">Avg open interest</div><div class="var-dash-kpi-val" id="varDashAvgOi">—</div><div class="var-dash-kpi-sub" id="varDashAvgOiSub"></div></div>
-              <div class="var-dash-kpi"><div class="var-dash-kpi-label" data-i18n="var.dashPeakOi">Peak open interest</div><div class="var-dash-kpi-val" id="varDashPeakOi">—</div><div class="var-dash-kpi-sub" id="varDashPeakOiSub"></div></div>
-              <div class="var-dash-kpi"><div class="var-dash-kpi-label" data-i18n="var.dashAvgTrade">Avg trade size</div><div class="var-dash-kpi-val" id="varDashAvgTrade">—</div><div class="var-dash-kpi-sub" id="varDashAvgTradeSub"></div></div>
-              <div class="var-dash-kpi"><div class="var-dash-kpi-label" data-i18n="var.dashFunding">Funding</div><div class="var-dash-kpi-val" id="varDashFunding">—</div><div class="var-dash-kpi-sub" id="varDashFundingSub"></div></div>
+              <div class="kpi"><div class="kpi-label" data-i18n="var.dashVol">Volume</div><div class="kpi-val" id="varDashVol">—</div><div class="kpi-sub" id="varDashVolSub"></div></div>
+              <div class="kpi"><div class="kpi-label" data-i18n="var.dashPnl">Realized PnL</div><div class="kpi-val" id="varDashPnl">—</div><div class="kpi-sub" id="varDashPnlSub"></div></div>
+              <div class="kpi"><div class="kpi-label" data-i18n="var.dashAvgOi">Avg open interest</div><div class="kpi-val" id="varDashAvgOi">—</div><div class="kpi-sub" id="varDashAvgOiSub"></div></div>
+              <div class="kpi"><div class="kpi-label" data-i18n="var.dashPeakOi">Peak open interest</div><div class="kpi-val" id="varDashPeakOi">—</div><div class="kpi-sub" id="varDashPeakOiSub"></div></div>
+              <div class="kpi"><div class="kpi-label" data-i18n="var.dashAvgTrade">Avg trade size</div><div class="kpi-val" id="varDashAvgTrade">—</div><div class="kpi-sub" id="varDashAvgTradeSub"></div></div>
+              <div class="kpi"><div class="kpi-label" data-i18n="var.dashFunding">Funding</div><div class="kpi-val" id="varDashFunding">—</div><div class="kpi-sub" id="varDashFundingSub"></div></div>
             </div>
             <div class="var-dash-chart">
               <p class="var-dash-chart-h" data-i18n="var.dashVolChart">Volume</p>
@@ -10383,7 +10424,7 @@ const HS_CONFIG = {
 
 <div class="var-sub-panel" data-varpanel="activity" id="varSecLive" style="order:1;display:none;border-top:1px solid var(--border)">
         <div class="px-5 py-4 border-b" style="border-color:var(--border)">
-          <div class="section-h mb-3"><span class="bar" style="background:var(--var-accent,#4c9af8)"></span><span data-i18n="var.liveTitle">Omni Live</span></div>
+          <div class="section-h mb-3"><span class="bar" style="background:var(--accent)"></span><span data-i18n="var.liveTitle">Omni Live</span></div>
           <div class="var-onboard" id="varActivityOnboard">
             <strong class="var-guide-title" data-i18n="var.onboardTitle">Omni Live requires the Chrome extension</strong>
             <p class="var-guide-lead" data-i18n="var.onboardBody">Install Hypersheets Omni Live, collect your data on Omni, then sync to this dashboard.</p>
@@ -10527,20 +10568,20 @@ const HS_CONFIG = {
           </div>
 
           <div class="var-points-view is-on" data-ptsview-panel="points" id="varPointsOverviewView">
-            <div class="var-points-hero">
-              <h2 data-i18n="var.pointsTitle">Variational Points</h2>
-              <p data-i18n="var.pointsDesc">Totals and epoch history from your Omni collect.</p>
+            <div class="mb-4">
+              <h2 class="text-lg font-bold tracking-tight font-display" data-i18n="var.pointsTitle">Variational Points</h2>
+              <p class="text-hs-sm mt-1 text-hs-muted" style="color:var(--muted)" data-i18n="var.pointsDesc">Totals and epoch history from your Omni collect.</p>
             </div>
-            <div class="var-points-kpis" id="varPointsKpis">
-              <div class="card2 p3"><div class="kpi-label" data-i18n="var.actPoints">Total points</div><div class="kpi-val" id="varActPoints" style="font-size:1rem">—</div><div class="kpi-sub" id="varActPointsSub" style="font-size:.68rem;color:var(--muted)"></div></div>
-              <div class="card2 p3"><div class="kpi-label" data-i18n="var.actRank">Points rank</div><div class="kpi-val" id="varActRank" style="font-size:1rem">—</div><div class="kpi-sub" id="varActRankSub" style="font-size:.68rem;color:var(--muted)"></div></div>
-              <div class="card2 p3"><div class="kpi-label" data-i18n="var.actSelfPts">Self points</div><div class="kpi-val" id="varActSelfPts" style="font-size:1rem">—</div></div>
-              <div class="card2 p3"><div class="kpi-label" data-i18n="var.actRefPts">Referral points</div><div class="kpi-val" id="varActRefPts" style="font-size:1rem">—</div></div>
-              <div class="card2 p3"><div class="kpi-label" data-i18n="var.compPlace">Comp. place</div><div class="kpi-val" id="varCompPlace" style="font-size:1rem">—</div><div class="kpi-sub" id="varCompPlaceSub" style="font-size:.68rem;color:var(--muted)"></div></div>
-              <div class="card2 p3"><div class="kpi-label" data-i18n="var.compScore">Comp. score</div><div class="kpi-val" id="varCompScore" style="font-size:1rem">—</div><div class="kpi-sub" id="varCompScoreSub" style="font-size:.68rem;color:var(--muted)"></div></div>
+            <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 mb-4" id="varPointsKpis">
+              <div class="kpi kpi-accent"><div class="kpi-label" data-i18n="var.actPoints">Total points</div><div class="kpi-val" id="varActPoints" style="font-size:1.15rem">—</div><div class="kpi-sub" id="varActPointsSub"></div></div>
+              <div class="kpi"><div class="kpi-label" data-i18n="var.actRank">Points rank</div><div class="kpi-val" id="varActRank" style="font-size:1.15rem">—</div><div class="kpi-sub" id="varActRankSub"></div></div>
+              <div class="kpi"><div class="kpi-label" data-i18n="var.actSelfPts">Self points</div><div class="kpi-val" id="varActSelfPts" style="font-size:1.15rem">—</div></div>
+              <div class="kpi"><div class="kpi-label" data-i18n="var.actRefPts">Referral points</div><div class="kpi-val" id="varActRefPts" style="font-size:1.15rem">—</div></div>
+              <div class="kpi"><div class="kpi-label" data-i18n="var.compPlace">Comp. place</div><div class="kpi-val" id="varCompPlace" style="font-size:1.15rem">—</div><div class="kpi-sub" id="varCompPlaceSub"></div></div>
+              <div class="kpi"><div class="kpi-label" data-i18n="var.compScore">Comp. score</div><div class="kpi-val" id="varCompScore" style="font-size:1.15rem">—</div><div class="kpi-sub" id="varCompScoreSub"></div></div>
             </div>
-            <div class="card2 p3">
-              <div class="section-h mb-2" id="varEpochHeading" style="display:none;margin:0 0 8px"><span class="bar" style="background:var(--var-accent,#4c9af8)"></span><span data-i18n="var.epochTitle">Points by epoch</span></div>
+            <div class="surface p-4 rounded-hs">
+              <div class="section-h mb-2" id="varEpochHeading" style="display:none;margin:0 0 8px"><span class="bar" style="background:var(--accent)"></span><span data-i18n="var.epochTitle">Points by epoch</span></div>
               <div class="overflow-x-auto" id="varEpochTable" style="display:none"></div>
               <div id="varEpochEmpty" style="display:none;font-size:.82rem;color:var(--muted)" data-i18n="var.epochEmpty">No epoch history yet.</div>
               <div id="varPointsEmpty" class="mt-2" style="display:none;color:var(--muted);font-size:.85rem" data-i18n="var.pointsEmpty">No points imported yet.</div>

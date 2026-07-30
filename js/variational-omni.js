@@ -4124,7 +4124,7 @@
     set('varDashVolChartSub', varT('var.dashVolChartSub').replace('{usd}', varFmtCompactUsd(dash.volume)));
     set('varDashPairsSub', varT('var.dashPairsSub').replace('{n}', String(dash.pairs.length)));
 
-    varDrawVolChart(document.getElementById('varDashVolCanvas'), dash.volHours, '#4c9af8');
+    varDrawVolChart(document.getElementById('varDashVolCanvas'), dash.volHours, '#6ee7ff');
     varDrawOiChart(document.getElementById('varDashOiCanvas'), dash.oiHours, dash.avgOi, '#4c9af8');
     if (!window._varDashResizeBound) {
       window._varDashResizeBound = true;
