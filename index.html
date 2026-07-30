@@ -10494,44 +10494,50 @@ const HS_CONFIG = {
               </div>
             </div>
             <div class="var-live-kpis" id="varLiveKpis">
-              <div class="var-live-kpi">
-                <div class="var-live-kpi-label" data-i18n="var.liveVolTitle">Volume</div>
-                <div class="var-live-kpi-val mono" id="varLiveVolValue">—</div>
-                <div class="var-live-kpi-sub" id="varLiveVolMeta"></div>
+              <div class="kpi kpi-accent">
+                <div class="kpi-label" data-i18n="var.liveVolTitle">Volume</div>
+                <div class="kpi-val mono" id="varLiveVolValue">—</div>
+                <div class="kpi-sub" id="varLiveVolMeta"></div>
               </div>
-              <div class="var-live-kpi">
-                <div class="var-live-kpi-label" data-i18n="var.livePnlTitle">Realized PnL</div>
-                <div class="var-live-kpi-val mono" id="varLivePnlValue">—</div>
-                <div class="var-live-kpi-sub" id="varLivePnlMeta"></div>
+              <div class="kpi">
+                <div class="kpi-label" data-i18n="var.livePnlTitle">Realized PnL</div>
+                <div class="kpi-val mono" id="varLivePnlValue">—</div>
+                <div class="kpi-sub" id="varLivePnlMeta"></div>
               </div>
-              <div class="var-live-kpi">
-                <div class="var-live-kpi-label" data-i18n="var.liveFundingTitle">Funding</div>
-                <div class="var-live-kpi-val mono" id="varLiveFundingValue">—</div>
-                <div class="var-live-kpi-sub" id="varLiveFundingMeta" data-i18n="var.liveFundingSub">Period window</div>
+              <div class="kpi">
+                <div class="kpi-label" data-i18n="var.liveFundingTitle">Funding</div>
+                <div class="kpi-val mono" id="varLiveFundingValue">—</div>
+                <div class="kpi-sub" id="varLiveFundingMeta" data-i18n="var.liveFundingSub">Period window</div>
               </div>
-              <div class="var-live-kpi">
-                <div class="var-live-kpi-label" data-i18n="var.liveOpenSizeTitle">Open size</div>
-                <div class="var-live-kpi-val mono" id="varLiveOpenSizeValue">—</div>
-                <div class="var-live-kpi-sub" id="varLiveOpenSizeMeta"></div>
+              <div class="kpi">
+                <div class="kpi-label" data-i18n="var.liveOpenSizeTitle">Open size</div>
+                <div class="kpi-val mono" id="varLiveOpenSizeValue">—</div>
+                <div class="kpi-sub" id="varLiveOpenSizeMeta"></div>
               </div>
-              <div class="var-live-kpi">
-                <div class="var-live-kpi-label" data-i18n="var.liveUpnlTitle">Unrealized PnL</div>
-                <div class="var-live-kpi-val mono" id="varLiveUpnlValue">—</div>
-                <div class="var-live-kpi-sub" id="varLiveUpnlMeta" data-i18n="var.liveUpnlSub">Marks × entry</div>
+              <div class="kpi">
+                <div class="kpi-label" data-i18n="var.liveUpnlTitle">Unrealized PnL</div>
+                <div class="kpi-val mono" id="varLiveUpnlValue">—</div>
+                <div class="kpi-sub" id="varLiveUpnlMeta" data-i18n="var.liveUpnlSub">Marks × entry</div>
               </div>
-              <div class="var-live-kpi">
-                <div class="var-live-kpi-label" data-i18n="var.liveTradesTitle">Trades</div>
-                <div class="var-live-kpi-val mono" id="varLiveTradesValue">—</div>
-                <div class="var-live-kpi-sub" id="varLiveTradesMeta"></div>
+              <div class="kpi">
+                <div class="kpi-label" data-i18n="var.liveTradesTitle">Trades</div>
+                <div class="kpi-val mono" id="varLiveTradesValue">—</div>
+                <div class="kpi-sub" id="varLiveTradesMeta"></div>
               </div>
             </div>
             <div class="var-live-panel var-live-pos">
-              <p class="var-live-panel-h" data-i18n="var.livePosTitle">Open positions</p>
+              <div class="section-h mb-1" style="margin:0 0 2px">
+                <span class="bar" style="background:var(--accent)"></span>
+                <span data-i18n="var.livePosTitle">Open positions</span>
+              </div>
               <p class="var-live-panel-sub" id="varLivePosSub" data-i18n="var.livePosSub">Une carte par marché · Omni vs HL / XYZ</p>
               <div class="overflow-x-auto" id="varLivePositions"></div>
             </div>
             <div class="var-live-panel var-live-markets">
-              <p class="var-live-panel-h" data-i18n="var.liveMarketsTitle">Markets this period</p>
+              <div class="section-h mb-1" style="margin:0 0 2px">
+                <span class="bar" style="background:var(--accent)"></span>
+                <span data-i18n="var.liveMarketsTitle">Markets this period</span>
+              </div>
               <p class="var-live-panel-sub" id="varLiveMarketsSub" data-i18n="var.liveMarketsSub">Every traded market in the selected window</p>
               <div class="overflow-x-auto" id="varLiveMarkets"></div>
             </div>
