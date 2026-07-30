@@ -1001,12 +1001,24 @@
     return empty;
   }
 
+  let _varAccountsMemo = null;
+  let _varCsvViewMemo = null;
+  let _varCsvViewMemoKey = '';
+
+  function varAccountsInvalidateMemo() {
+    _varAccountsMemo = null;
+    _varCsvViewMemo = null;
+    _varCsvViewMemoKey = '';
+  }
+
   function varAccountsLoad() {
+    if (_varAccountsMemo) return _varAccountsMemo;
     try {
       const raw = JSON.parse(localStorage.getItem(HS_VAR_ACCOUNTS_KEY) || 'null');
       if (raw && raw.slots && typeof raw.slots === 'object') {
         try {
-          return varAccountsNormalize(raw);
+          _varAccountsMemo = varAccountsNormalize(raw);
+          return _varAccountsMemo;
         } catch (err) {
           console.warn('[Hypersheets] omni accounts normalize failed', err);
           // Soft repair — never wipe existing slots on normalize errors.
@@ -1017,7 +1029,8 @@
             slotOrder: order,
             slots: raw.slots,
           };
-          return varAccountsNormalize(repaired);
+          _varAccountsMemo = varAccountsNormalize(repaired);
+          return _varAccountsMemo;
         }
       }
     } catch (_) {}
@@ -1028,13 +1041,16 @@
         localStorage.setItem(HS_VAR_ACCOUNTS_KEY, JSON.stringify(migrated));
       }
     } catch (_) {}
+    _varAccountsMemo = migrated;
     return migrated;
   }
 
   function varAccountsSave(acc) {
     _varOmniBookMemo = null;
     _varOmniBookMemoTs = 0;
+    varAccountsInvalidateMemo();
     const normalized = varAccountsNormalize(acc);
+    _varAccountsMemo = normalized;
     try { localStorage.setItem(HS_VAR_ACCOUNTS_KEY, JSON.stringify(normalized)); } catch (_) {}
     const active = normalized.slots[normalized.activeImportSlot] || normalized.slots[normalized.slotOrder[0]];
     try {
@@ -1230,12 +1246,35 @@
   }
   function varCsvLoadForView() {
     varCsvScopeLoad();
-    return _varCsvScope === 'all' ? varCsvLoadAll() : varCsvLoad();
+    try {
+      const acc = varAccountsLoad();
+      const id = varAccountsActiveId();
+      const slot = acc.slots[id];
+      const trades = slot?.csv?.trades;
+      const lastAt = trades && trades.length ? (trades[trades.length - 1]?.created_at || '') : '';
+      const key = [
+        _varCsvScope,
+        id,
+        slot?.importedAt || 0,
+        trades?.length || 0,
+        lastAt,
+        varOmniSlotIds(acc).length,
+      ].join(':');
+      if (_varCsvViewMemo && _varCsvViewMemoKey === key) return _varCsvViewMemo;
+      const bundle = _varCsvScope === 'all' ? varCsvLoadAll() : varCsvLoad();
+      _varCsvViewMemo = bundle;
+      _varCsvViewMemoKey = key;
+      return bundle;
+    } catch (_) {
+      return _varCsvScope === 'all' ? varCsvLoadAll() : varCsvLoad();
+    }
   }
   function varSetCsvScope(scope) {
     varCsvScopeSave(scope);
     _varOmniBookMemo = null;
     _varOmniBookMemoTs = 0;
+    _varCsvViewMemo = null;
+    _varCsvViewMemoKey = '';
     varAccountsScheduleActivityRefresh();
     try { if (_varSub === 'points' || _varSub === 'lab') renderVarPoints(); } catch (_) {}
   }
@@ -2730,13 +2769,18 @@
       const liveHead = act && act.querySelector(':scope > .border-b');
       if (liveHead) liveHead.style.display = '';
       varStopHedgeLivePoll();
-      renderVarActivity();
-      // Pull HL/XYZ books so Live can show the hedge leg next to Omni.
-      varRefreshHlPositionsLight().then(() => {
-        if (_varSub === 'live') {
-          try { varRenderLiveDashboard(); } catch (_) {}
-        }
-      }).catch(() => {});
+      // Cheap chrome first — defer CSV analytics / book rebuild off the click path.
+      try { varBindJsonDrop(); } catch (_) {}
+      try { varUpdateOmniExtUi(); } catch (_) {}
+      setTimeout(() => {
+        if (_varSub !== 'live') return;
+        try { renderVarActivity(); } catch (_) {}
+        varRefreshHlPositionsLight().then(() => {
+          if (_varSub === 'live') {
+            try { varRenderLiveDashboard(); } catch (_) {}
+          }
+        }).catch(() => {});
+      }, 0);
     } else if (tab === 'dashboard') {
       if (overview) overview.style.display = 'block';
       if (hedge) hedge.style.display = 'none';
@@ -2747,7 +2791,10 @@
       if (dashEl) dashEl.style.display = '';
       varStopHedgeLivePoll();
       // Defer full OI/chart rebuild so tab switch stays responsive.
-      setTimeout(() => { try { renderVarDash(); } catch (_) {} }, 0);
+      setTimeout(() => {
+        try { renderVarDash(); } catch (_) {}
+        try { renderVarUserHeroKpis(); } catch (_) {}
+      }, 0);
     } else if (varIsPointsTab(tab)) {
       if (pts) pts.style.display = 'block';
       if (onboard) onboard.style.display = 'none';
@@ -2761,8 +2808,6 @@
       if (radar) radar.style.display = 'block';
       renderVarRadar();
     }
-
-    renderVarUserHeroKpis();
 
     try {
       const hashMap = {
@@ -5799,16 +5844,19 @@
 
   function renderVarActivity() {
     varBindJsonDrop();
+    varUpdateOmniExtUi();
+    // Omni Live: paint extension/onboard chrome first; rebuild slots + KPIs next tick.
+    if (_varSub === 'live') {
+      setTimeout(() => {
+        if (_varSub !== 'live') return;
+        try { varRenderOmniSlotsUi(); } catch (_) {}
+        try { varRenderLiveDashboard(); } catch (_) {}
+      }, 0);
+      return;
+    }
     try { varRenderOmniSlotsUi(); } catch (_) {}
     const bundle = varCsvLoadForView();
     const points = varPointsLoad();
-    varUpdateOmniExtUi();
-    // Omni Live ready view: only light volume/positions — skip activity event table rebuild.
-    if (_varSub === 'live') {
-      try { varRenderLiveDashboard(); } catch (_) {}
-      try { renderVarUserHeroKpis(); } catch (_) {}
-      return;
-    }
     try { varRenderLiveDashboard(); } catch (_) {}
     varRenderCsvImportStatus(bundle);
     varRenderJsonMeta(points);
@@ -7197,6 +7245,8 @@
     window.open(url, '_blank', 'noopener,noreferrer');
   }
 
+  let _varInitInFlight = null;
+
   async function initVarPage(force) {
     try {
       const stuck = document.getElementById('shareToast');
@@ -7224,21 +7274,39 @@
         if (hashTab === 'airdrop' || hashTab === 'lab' || hashTab === 'competition' || hashTab === 'points') {
           _varPointsView = hashTab;
         }
-        if (typeof switchPage === 'function') switchPage('variational');
+        // Avoid re-entering switchPage → initVarPage while already opening Variational.
+        const already = document.body?.dataset?.page === 'variational'
+          || document.getElementById('page-variational')?.classList.contains('active');
+        if (!already && typeof switchPage === 'function') switchPage('variational');
       }
     } catch (_) {}
-    try {
-      const stats = await fetchVarStats(!!force);
-      varIndexOmniListings(stats?.listings || []);
-      varPopulateLegTickers(_varListingsCache);
-      await fetchHlFundingMap();
-    } catch (_) {}
+
+    // Paint the active subview immediately — do not wait on Omni/HL network.
     varBindLegForm();
     varInitLegTickerPicker();
     varBindJsonDrop();
     const bootSub = varNormalizeSub(_varSub || 'live');
     varSetSub(bootSub, null);
-    if (force) _varStatsCache = null;
+
+    if (_varInitInFlight && !force) return _varInitInFlight;
+    _varInitInFlight = (async () => {
+      try {
+        const [stats] = await Promise.all([
+          fetchVarStats(!!force).catch(() => null),
+          fetchHlFundingMap().catch(() => null),
+        ]);
+        if (stats) {
+          varIndexOmniListings(stats.listings || []);
+          varPopulateLegTickers(_varListingsCache);
+        }
+      } catch (_) {}
+      if (force) _varStatsCache = null;
+      // Soft refresh once metadata is warm (radar/listings only need it).
+      if (_varSub === 'radar') {
+        try { renderVarRadar(); } catch (_) {}
+      }
+    })().finally(() => { _varInitInFlight = null; });
+    return _varInitInFlight;
   }
 
   function varBindLegForm() {
