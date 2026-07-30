@@ -1002,8 +1002,9 @@ const HS_CONFIG = {
           color: var(--muted); transition: all .15s;
         }
         .var-points-inner-tab.is-on {
-          background: color-mix(in srgb, var(--var-accent,#4c9af8) 22%, transparent);
-          color: var(--text);
+          background: var(--accent-soft);
+          color: var(--accent);
+          border: 1px solid var(--accent-border);
         }
         .var-points-view { display: none; }
         .var-points-view.is-on { display: block; }
@@ -1151,112 +1152,105 @@ const HS_CONFIG = {
           .var-epoch-col, .var-epoch-col-epoch { text-align: left; }
           .var-epoch-chev { grid-column: 2; justify-self: end; }
         }
-        .var-comp-wrap { border: 1px solid var(--border); border-radius: 14px; background: var(--surface-2); overflow: hidden; }
+        .var-comp-wrap { border: 1px solid var(--border-subtle); border-radius: var(--hs-radius-tile); background: var(--surface); overflow: hidden; }
         .var-comp-wrap .hs-trades-table { margin: 0; }
         .var-comp-wrap .hs-trades-table th,
         .var-comp-wrap .hs-trades-table td { padding: 10px 12px; }
-        .var-comp-wrap tr.is-self td {
-          background: color-mix(in srgb, var(--var-accent,#4c9af8) 12%, transparent);
-        }
+        .var-comp-wrap tr.is-self td { background: var(--accent-soft); }
         .var-comp-meta { font-size: .72rem; color: var(--muted); margin-top: 8px; }
         .var-comp-stand-head, .var-comp-field-head, .var-comp-bands-head {
           display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px;
           margin: 18px 0 10px;
         }
         .var-comp-stand-head h3, .var-comp-field-head h3, .var-comp-bands-head h3 {
-          margin: 0; font-size: .95rem; font-weight: 700;
+          margin: 0; font-size: var(--fs-md); font-weight: 650; color: var(--text);
         }
         .var-comp-stand-head span, .var-comp-field-head span, .var-comp-bands-head span {
-          font-size: .72rem; color: var(--muted);
+          font-size: var(--fs-sm); color: var(--muted);
         }
         .var-comp-stand-grid {
-          display: grid; grid-template-columns: 1fr; gap: 10px; margin-bottom: 8px;
+          display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 8px;
         }
-        @media (min-width: 720px) { .var-comp-stand-grid { grid-template-columns: repeat(3, 1fr); } }
-        .var-comp-stand-card {
-          padding: 14px 16px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-2);
-        }
-        .var-comp-stand-card .lbl { font-size: .65rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
-        .var-comp-stand-card .val { font-size: 1.35rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.15; }
-        .var-comp-stand-card .sub { font-size: .72rem; color: var(--muted); margin-top: 6px; line-height: 1.35; }
+        @media (min-width: 720px) { .var-comp-stand-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+        #varCompStandingBlock .kpi,
+        #varCompFieldBlock .kpi,
+        #varLabResultKpis .kpi,
+        .var-airdrop-result-grid .kpi { min-height: 0; padding: 14px 16px; }
+        #varCompStandingBlock .kpi-val,
+        #varCompFieldBlock .kpi-val,
+        #varLabResultKpis .kpi-val,
+        .var-airdrop-result-grid .kpi-val { font-size: 1.15rem; }
         .var-comp-stand-bar {
-          margin-top: 10px; height: 6px; border-radius: 3px; background: var(--border); overflow: hidden;
+          height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; margin-top: 10px;
         }
         .var-comp-stand-bar > span {
-          display: block; height: 100%; border-radius: 3px;
-          background: var(--var-accent,#4c9af8);
+          display: block; height: 100%; background: var(--accent); border-radius: 3px;
         }
         .var-comp-meta-row {
-          display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center;
+          display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
           margin: 10px 0 0; font-size: .78rem; color: var(--muted);
         }
         .var-comp-meta-pill {
           display: inline-flex; align-items: center; gap: 6px;
           padding: 4px 10px; border-radius: 999px;
           border: 1px solid var(--border); background: var(--surface-2);
-          font-size: .72rem; color: var(--text);
+          font-size: .72rem; color: var(--muted); font-weight: 600;
         }
         .var-comp-wallet {
-          margin: 14px 0 8px; padding: 16px 18px; border-radius: 14px;
-          border: 1px solid color-mix(in srgb, var(--var-accent,#4c9af8) 35%, var(--border));
-          background: linear-gradient(135deg, color-mix(in srgb, var(--var-accent,#4c9af8) 12%, transparent), var(--surface-2));
+          margin: 14px 0 8px; padding: 16px 18px; border-radius: var(--hs-radius-tile);
+          border: 1px solid var(--border-subtle); background: var(--surface);
         }
         .var-comp-wallet-kicker {
-          font-size: .65rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
-          color: var(--muted); margin-bottom: 8px;
+          font-size: .65rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+          color: var(--muted); margin-bottom: 6px;
         }
         .var-comp-wallet-main {
-          display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 10px 16px;
+          display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px;
         }
         .var-comp-wallet-name { font-size: 1.15rem; font-weight: 700; }
         .var-comp-wallet-addr { font-size: .78rem; color: var(--muted); margin-left: 8px; font-weight: 500; }
-        .var-comp-wallet-place { font-size: 1.05rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+        .var-comp-wallet-place { font-size: 1.05rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--accent); }
         .var-comp-wallet-stats {
-          display: flex; flex-wrap: wrap; gap: 14px 20px; margin-top: 12px; font-size: .82rem; color: var(--muted);
+          display: flex; flex-wrap: wrap; gap: 10px 16px; margin-top: 10px; font-size: .78rem; color: var(--muted);
         }
         .var-comp-wallet-stats strong { color: var(--text); font-variant-numeric: tabular-nums; }
         .var-comp-score-hint {
-          margin: 12px 0 4px; padding: 12px 14px; border-radius: 12px;
+          margin: 0 0 14px; padding: 12px 14px; border-radius: var(--hs-radius-tile);
           border: 1px solid var(--border); background: var(--surface-2);
-          font-size: .8rem; color: var(--muted); line-height: 1.5;
+          font-size: .78rem; color: var(--muted); line-height: 1.45;
         }
         .var-comp-score-hint strong { color: var(--text); }
         .var-comp-score-hint code {
-          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-          font-size: .78rem; color: var(--var-accent,#4c9af8);
+          font-family: 'JetBrains Mono', monospace; font-size: .72rem; color: var(--accent);
         }
         .var-comp-field-grid {
-          display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 8px;
+          display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 8px;
         }
-        @media (min-width: 900px) { .var-comp-field-grid { grid-template-columns: repeat(3, 1fr); } }
-        @media (min-width: 1200px) { .var-comp-field-grid { grid-template-columns: repeat(6, 1fr); } }
-        .var-comp-field-card {
-          padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-2);
-        }
-        .var-comp-field-card .lbl { font-size: .62rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
-        .var-comp-field-card .val { font-size: 1.05rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-        .var-comp-field-card .sub { font-size: .68rem; color: var(--muted); margin-top: 4px; line-height: 1.35; }
+        @media (min-width: 900px) { .var-comp-field-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+        @media (min-width: 1200px) { .var-comp-field-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
         .var-comp-bands {
-          padding: 14px 16px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface-2); margin-bottom: 16px;
+          border: 1px solid var(--border-subtle); border-radius: var(--hs-radius-tile);
+          background: var(--surface); padding: 4px 14px; margin-bottom: 14px;
         }
         .var-comp-band-row {
-          display: grid; grid-template-columns: 88px 1fr 72px 72px; gap: 10px; align-items: center;
-          padding: 7px 0; border-bottom: 1px solid var(--border); font-size: .78rem;
+          display: grid; grid-template-columns: minmax(90px, 0.9fr) minmax(0, 1.4fr) 64px 88px;
+          gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border);
+          font-size: .78rem;
         }
         .var-comp-band-row:last-child { border-bottom: 0; }
         .var-comp-band-label { color: var(--muted); font-variant-numeric: tabular-nums; }
         .var-comp-band-track { height: 8px; border-radius: 4px; background: var(--border); overflow: hidden; }
-        .var-comp-band-track > span { display: block; height: 100%; background: var(--var-accent,#4c9af8); border-radius: 4px; }
+        .var-comp-band-track > span { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
         .var-comp-band-n, .var-comp-band-vol { text-align: right; font-variant-numeric: tabular-nums; }
-        .var-lab-models { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
+        .var-lab-models { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
         .var-lab-model {
           appearance: none; border: 1px solid var(--border); background: var(--surface-2); color: var(--muted);
-          border-radius: 999px; padding: 7px 14px; font-size: .78rem; font-weight: 600; cursor: pointer;
+          border-radius: 999px; padding: 6px 12px; font-size: .72rem; font-weight: 600; cursor: pointer;
+          transition: background .15s, color .15s, border-color .15s;
         }
+        .var-lab-model:hover { color: var(--text); border-color: var(--accent-border); }
         .var-lab-model.is-on {
-          background: color-mix(in srgb, var(--var-accent,#4c9af8) 22%, transparent);
-          border-color: color-mix(in srgb, var(--var-accent,#4c9af8) 45%, var(--border));
-          color: var(--text);
+          background: var(--accent); border-color: var(--accent); color: var(--on-accent);
         }
         .var-lab-claim {
           font-size: .85rem; color: var(--text); line-height: 1.45; margin: 0 0 6px; max-width: 70ch;
@@ -1264,11 +1258,11 @@ const HS_CONFIG = {
         .var-lab-provenance { font-size: .72rem; color: var(--muted); line-height: 1.4; margin: 0 0 16px; max-width: 70ch; }
         .var-lab-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
         @media (min-width: 960px) { .var-lab-grid { grid-template-columns: minmax(260px, 340px) 1fr; } }
-        .var-lab-result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
-        @media (min-width: 640px) { .var-lab-result-grid { grid-template-columns: repeat(4, 1fr); } }
+        .var-lab-result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+        @media (min-width: 640px) { .var-lab-result-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
         .var-lab-pool-hint { font-size: .72rem; color: var(--muted); line-height: 1.45; margin: 10px 0 0; max-width: 72ch; }
-        #varLabPoolTable .is-pos { color: #3dba7a; }
-        #varLabPoolTable .is-neg { color: #e06b6b; }
+        #varLabPoolTable .is-pos { color: var(--success); }
+        #varLabPoolTable .is-neg { color: var(--danger); }
         .var-points-hero { margin-bottom: 14px; }
         .var-points-hero h2 {
           margin: 0 0 6px; font-size: 1.35rem; font-weight: 700; letter-spacing: -.02em;
@@ -1282,14 +1276,14 @@ const HS_CONFIG = {
         .var-airdrop-assumptions label { display: block; margin-bottom: 14px; }
         .var-airdrop-assumptions .lab { font-size: .72rem; color: var(--muted); margin-bottom: 6px; display: flex; justify-content: space-between; gap: 8px; }
         .var-airdrop-assumptions .lab strong { color: var(--text); font-variant-numeric: tabular-nums; }
-        .var-airdrop-assumptions input[type="range"] { width: 100%; accent-color: var(--var-accent,#4c9af8); }
+        .var-airdrop-assumptions input[type="range"] { width: 100%; accent-color: var(--accent); }
         .var-airdrop-consensus { font-size: .65rem; color: var(--muted); margin-top: 4px; }
-        .var-airdrop-result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
-        @media (min-width: 640px) { .var-airdrop-result-grid { grid-template-columns: repeat(4, 1fr); } }
+        .var-airdrop-result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+        @media (min-width: 640px) { .var-airdrop-result-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
         .var-airdrop-cost-row { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: .82rem; }
         .var-airdrop-cost-row:last-child { border-bottom: none; }
-        .var-airdrop-share { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
-        .var-airdrop-share canvas { width: 100%; max-width: 420px; height: auto; border-radius: 12px; border: 1px solid var(--border); display: block; margin-bottom: 10px; background: #0b0d14; }
+        .var-airdrop-share { margin-top: 0; padding-top: 0; border-top: 0; }
+        .var-airdrop-share canvas { width: 100%; max-width: 420px; height: auto; border-radius: 12px; border: 1px solid var(--border); display: block; margin-bottom: 10px; background: var(--bg); }
         .var-airdrop-disclaimer { font-size: .72rem; color: var(--muted); line-height: 1.45; margin: 12px 0 0; }
         .var-dash { margin: 8px 0 18px; }
         .var-dash-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
@@ -10644,10 +10638,10 @@ const HS_CONFIG = {
           </div>
 
           <div class="var-points-view" data-ptsview-panel="competition" id="varPointsCompetitionView">
-            <div class="var-points-hero">
-              <h2 data-i18n="var.competitionTitle">Competition</h2>
-              <p id="varCompHeroDesc" data-i18n="var.competitionDesc">Where you stand among qualified wallets (≥ $250k volume), field stats, volume bands, then the leaderboard from your Omni collect.</p>
-              <div class="var-comp-meta-row" id="varCompDayMeta"></div>
+            <div class="mb-4">
+              <h2 class="text-lg font-bold tracking-tight font-display" data-i18n="var.competitionTitle">Competition</h2>
+              <p class="text-hs-sm mt-1" style="color:var(--muted);max-width:62ch" id="varCompHeroDesc" data-i18n="var.competitionDesc">Where you stand among qualified wallets (≥ $250k volume), field stats, volume bands, then the leaderboard from your Omni collect.</p>
+              <div class="var-comp-meta-row mt-2" id="varCompDayMeta"></div>
             </div>
             <div id="varCompWalletBlock"></div>
             <div id="varCompStandingBlock"></div>
@@ -10656,13 +10650,13 @@ const HS_CONFIG = {
             <div id="varCompBandsBlock"></div>
             <div class="var-points-grid">
               <div class="var-points-main">
-                <div class="var-comp-wrap" id="varCompetitionBlock">
+                <div class="surface overflow-hidden var-comp-wrap" id="varCompetitionBlock">
                   <div class="overflow-x-auto max-h-[min(62vh,720px)] overflow-y-auto" id="varCompetitionBody"></div>
                 </div>
                 <div class="var-comp-meta" id="varCompetitionMeta"></div>
               </div>
               <div class="var-points-side">
-                <div class="card2 p3 mb-3 var-self-card" id="varCompSelfCard">
+                <div class="kpi mb-3 var-self-card" id="varCompSelfCard">
                   <div class="kpi-label mb-2" data-i18n="var.compYourStanding">Your standing</div>
                   <div id="varCompSelfBody" style="color:var(--muted);font-size:.82rem" data-i18n="var.competitionEmpty">No competition board in this export.</div>
                 </div>
@@ -10671,16 +10665,16 @@ const HS_CONFIG = {
           </div>
 
           <div class="var-points-view" data-ptsview-panel="lab" id="varPointsLabView">
-            <div class="var-points-hero" id="varSecLab">
-              <h2 data-i18n="var.labTitle">Points Lab</h2>
-              <p data-i18n="var.labDesc">Heuristic models of how Omni may weight RWA vs crypto volume (community fit — not official). Calibrated on your epoch history when available.</p>
+            <div class="mb-4" id="varSecLab">
+              <h2 class="text-lg font-bold tracking-tight font-display" data-i18n="var.labTitle">Points Lab</h2>
+              <p class="text-hs-sm mt-1" style="color:var(--muted);max-width:62ch" data-i18n="var.labDesc">Heuristic models of how Omni may weight RWA vs crypto volume (community fit — not official). Calibrated on your epoch history when available.</p>
             </div>
             <div class="var-lab-models" id="varLabModels" role="tablist" aria-label="Points Lab models"></div>
             <p class="var-lab-claim" id="varLabClaim"></p>
             <p class="var-lab-provenance" id="varLabProvenance"></p>
             <div class="var-lab-grid">
-              <div class="card2 p3 var-airdrop-assumptions">
-                <div class="var-hedge-form-title" style="margin:0 0 12px" data-i18n="var.labSimulate">Simulate a week</div>
+              <div class="surface p-4 var-airdrop-assumptions">
+                <div class="section-h mb-3" style="margin:0 0 12px"><span class="bar" style="background:var(--accent)"></span><span data-i18n="var.labSimulate">Simulate a week</span></div>
                 <label>
                   <div class="lab"><span data-i18n="var.labWeeklyVol">Weekly volume</span><strong id="varLabVolLabel">—</strong></div>
                   <input id="varLabVol" type="range" min="50" max="20000" step="50" value="700" oninput="renderVarPointsLab()"/>
@@ -10692,14 +10686,14 @@ const HS_CONFIG = {
                 <p class="var-airdrop-disclaimer" style="margin-top:8px" data-i18n="var.labDisclaimer">Models are community heuristics fitted on public epoch ratios — not Variational’s formula.</p>
               </div>
               <div>
-                <div class="var-lab-result-grid">
-                  <div class="card2 p3"><div class="kpi-label" data-i18n="var.labEstPoints">Est. points / week</div><div class="kpi-val" id="varLabEstPts" style="font-size:1.05rem">—</div><div class="kpi-sub" id="varLabEstPtsSub" style="font-size:.68rem;color:var(--muted)"></div></div>
-                  <div class="card2 p3"><div class="kpi-label" data-i18n="var.labEffVol">Effective volume</div><div class="kpi-val" id="varLabEffVol" style="font-size:1.05rem">—</div></div>
-                  <div class="card2 p3"><div class="kpi-label" data-i18n="var.labPool">Pool index</div><div class="kpi-val" id="varLabPool" style="font-size:1.05rem">—</div><div class="kpi-sub" id="varLabPoolSub" style="font-size:.68rem;color:var(--muted)"></div></div>
-                  <div class="card2 p3"><div class="kpi-label" data-i18n="var.labRate">Pts / $1M raw</div><div class="kpi-val" id="varLabRate" style="font-size:1.05rem">—</div></div>
+                <div class="var-lab-result-grid" id="varLabResultKpis">
+                  <div class="kpi kpi-accent"><div class="kpi-label" data-i18n="var.labEstPoints">Est. points / week</div><div class="kpi-val" id="varLabEstPts">—</div><div class="kpi-sub" id="varLabEstPtsSub"></div></div>
+                  <div class="kpi"><div class="kpi-label" data-i18n="var.labEffVol">Effective volume</div><div class="kpi-val" id="varLabEffVol">—</div></div>
+                  <div class="kpi"><div class="kpi-label" data-i18n="var.labPool">Pool index</div><div class="kpi-val" id="varLabPool">—</div><div class="kpi-sub" id="varLabPoolSub"></div></div>
+                  <div class="kpi"><div class="kpi-label" data-i18n="var.labRate">Pts / $1M raw</div><div class="kpi-val" id="varLabRate">—</div></div>
                 </div>
-                <div class="card2 p3 overflow-x-auto">
-                  <div class="kpi-label mb-2" data-i18n="var.labPoolHistory">Your pool week-by-week</div>
+                <div class="surface p-4 overflow-x-auto">
+                  <div class="section-h mb-2" style="margin:0 0 8px"><span class="bar" style="background:var(--accent)"></span><span data-i18n="var.labPoolHistory">Your pool week-by-week</span></div>
                   <div id="varLabPoolTable"></div>
                 </div>
               </div>
@@ -10707,16 +10701,16 @@ const HS_CONFIG = {
           </div>
 
           <div class="var-points-view" data-ptsview-panel="airdrop" id="varPointsAirdropView">
-            <div class="var-points-hero">
-              <h2 data-i18n="var.airdropTitle">Airdrop simulator</h2>
-              <p data-i18n="var.airdropDesc">Nothing about a Variational airdrop has been announced. These are community estimates you can move to see what your points would be worth under each scenario.</p>
+            <div class="mb-4">
+              <h2 class="text-lg font-bold tracking-tight font-display" data-i18n="var.airdropTitle">Airdrop simulator</h2>
+              <p class="text-hs-sm mt-1" style="color:var(--muted);max-width:62ch" data-i18n="var.airdropDesc">Nothing about a Variational airdrop has been announced. These are community estimates you can move to see what your points would be worth under each scenario.</p>
             </div>
             <p class="var-guide-inline" data-i18n-html="var.airdropGuideHint">Points auto-fill after Omni collect, or type them manually below.</p>
             <div class="var-airdrop-grid">
-              <div class="card2 p3 var-airdrop-assumptions">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-                  <div class="var-hedge-form-title" style="margin:0" data-i18n="var.airdropAssumptions">Assumptions</div>
-                  <button type="button" class="btn btn-ghost" style="font-size:.72rem;padding:4px 10px" onclick="varAirdropReset()" data-i18n="var.airdropReset">Reset</button>
+              <div class="surface p-4 var-airdrop-assumptions">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px">
+                  <div class="section-h" style="margin:0"><span class="bar" style="background:var(--accent)"></span><span data-i18n="var.airdropAssumptions">Assumptions</span></div>
+                  <button type="button" class="btn btn-ghost text-xs" style="padding:4px 10px" onclick="varAirdropReset()" data-i18n="var.airdropReset">Reset</button>
                 </div>
                 <label>
                   <div class="lab"><span data-i18n="var.airdropYourPoints">Your points</span><strong id="varAirPointsLabel">—</strong></div>
@@ -10741,23 +10735,23 @@ const HS_CONFIG = {
               </div>
               <div>
                 <div class="var-airdrop-result-grid">
-                  <div class="card2 p3"><div class="kpi-label" data-i18n="var.airdropValuePerPoint">Value / point</div><div class="kpi-val" id="varAirValPerPt" style="font-size:1.05rem">—</div><div class="kpi-sub" id="varAirValPerPtSub" style="font-size:.68rem;color:var(--muted)"></div></div>
-                  <div class="card2 p3"><div class="kpi-label" data-i18n="var.airdropPayout">Your payout</div><div class="kpi-val" id="varAirPayout" style="font-size:1.05rem">—</div><div class="kpi-sub" id="varAirPayoutSub" style="font-size:.68rem;color:var(--muted)"></div></div>
-                  <div class="card2 p3"><div class="kpi-label" data-i18n="var.airdropYourShare">Your share</div><div class="kpi-val" id="varAirYourShare" style="font-size:1.05rem">—</div></div>
-                  <div class="card2 p3"><div class="kpi-label" data-i18n="var.airdropPool">Airdrop pool</div><div class="kpi-val" id="varAirPool" style="font-size:1.05rem">—</div></div>
+                  <div class="kpi kpi-accent"><div class="kpi-label" data-i18n="var.airdropValuePerPoint">Value / point</div><div class="kpi-val" id="varAirValPerPt">—</div><div class="kpi-sub" id="varAirValPerPtSub"></div></div>
+                  <div class="kpi"><div class="kpi-label" data-i18n="var.airdropPayout">Your payout</div><div class="kpi-val" id="varAirPayout">—</div><div class="kpi-sub" id="varAirPayoutSub"></div></div>
+                  <div class="kpi"><div class="kpi-label" data-i18n="var.airdropYourShare">Your share</div><div class="kpi-val" id="varAirYourShare">—</div></div>
+                  <div class="kpi"><div class="kpi-label" data-i18n="var.airdropPool">Airdrop pool</div><div class="kpi-val" id="varAirPool">—</div></div>
                 </div>
-                <div class="card2 p3 mb-3">
-                  <div class="kpi-label mb-2" data-i18n="var.airdropCostTitle">What each payout costs</div>
+                <div class="surface p-4 mb-3">
+                  <div class="section-h mb-2" style="margin:0 0 8px"><span class="bar" style="background:var(--accent)"></span><span data-i18n="var.airdropCostTitle">What each payout costs</span></div>
                   <div id="varAirCostRows"></div>
                 </div>
-                <div class="card2 p3 mb-3 overflow-x-auto">
-                  <div class="kpi-label mb-2" data-i18n="var.airdropGridTitle">FDV scenarios (fixed supply share)</div>
+                <div class="surface p-4 mb-3 overflow-x-auto">
+                  <div class="section-h mb-2" style="margin:0 0 8px"><span class="bar" style="background:var(--accent)"></span><span data-i18n="var.airdropGridTitle">FDV scenarios (fixed supply share)</span></div>
                   <div id="varAirScenarioTable"></div>
                 </div>
-                <div class="var-airdrop-share">
-                  <div class="kpi-label mb-2" data-i18n="var.airdropShareTitle">Share this scenario</div>
+                <div class="var-airdrop-share surface p-4">
+                  <div class="section-h mb-2" style="margin:0 0 8px"><span class="bar" style="background:var(--accent)"></span><span data-i18n="var.airdropShareTitle">Share this scenario</span></div>
                   <canvas id="varAirShareCanvas" width="840" height="480" aria-label="Variational airdrop share card"></canvas>
-                  <div style="display:flex;gap:8px;flex-wrap:wrap">
+                  <div class="flex flex-wrap gap-2">
                     <button type="button" class="btn btn-ac" onclick="varAirdropDownloadPng()" data-i18n="var.airdropDownload">Download PNG</button>
                     <button type="button" class="btn btn-ghost" onclick="varAirdropCopyImage()" data-i18n="var.airdropCopyImg">Copy image</button>
                     <button type="button" class="btn btn-ghost" onclick="varAirdropShareX()" data-i18n="var.airdropShareX">Post on X</button>

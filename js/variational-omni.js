@@ -5155,12 +5155,12 @@
       const w = pct != null && isFinite(pct) ? Math.max(2, Math.min(100, Math.round(pct * 100))) : 0;
       return `<div class="var-comp-stand-bar" aria-hidden="true"><span style="width:${w}%"></span></div>`;
     };
-    const card = (labelKey, pct, sub) => `
-      <div class="var-comp-stand-card">
-        <div class="lbl">${varT(labelKey)}</div>
-        <div class="val">${varFmtFracPct(pct, 1)}</div>
+    const card = (labelKey, pct, sub, accent) => `
+      <div class="kpi${accent ? ' kpi-accent' : ''}">
+        <div class="kpi-label">${varT(labelKey)}</div>
+        <div class="kpi-val">${varFmtFracPct(pct, 1)}</div>
         ${bar(pct)}
-        <div class="sub">${sub || ''}</div>
+        <div class="kpi-sub">${sub || ''}</div>
       </div>`;
     const scoreSub = standing.place != null
       ? varT('var.compOfficialPlace').replace('{n}', standing.place.toLocaleString(varLoc()))
@@ -5177,9 +5177,9 @@
         <span>${varT('var.compWhereStandSub')}</span>
       </div>
       <div class="var-comp-stand-grid">
-        ${card('var.compScorePct', standing.scorePercentile, scoreSub)}
-        ${card('var.compPnlPct', standing.pnlPercentile, pnlSub)}
-        ${card('var.compVolPct', standing.volumePercentile, volSub)}
+        ${card('var.compScorePct', standing.scorePercentile, scoreSub, true)}
+        ${card('var.compPnlPct', standing.pnlPercentile, pnlSub, false)}
+        ${card('var.compVolPct', standing.volumePercentile, volSub, false)}
       </div>`;
   }
 
@@ -5255,7 +5255,7 @@
         <span>${varT('var.compFieldSub')}</span>
       </div>
       <div class="var-comp-field-grid">
-        ${cells.map(c => `<div class="var-comp-field-card"><div class="lbl">${c.lbl}</div><div class="val">${c.val}</div><div class="sub">${c.sub || ''}</div></div>`).join('')}
+        ${cells.map((c, i) => `<div class="kpi${i === 0 ? ' kpi-accent' : ''}"><div class="kpi-label">${c.lbl}</div><div class="kpi-val">${c.val}</div><div class="kpi-sub">${c.sub || ''}</div></div>`).join('')}
       </div>`;
   }
 
