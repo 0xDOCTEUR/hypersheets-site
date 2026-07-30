@@ -4568,35 +4568,98 @@
     return rates.reduce((a, b) => a + b, 0) / rates.length;
   }
 
+  /** Lifetime self pts / lifetime CSV volume — used when no per-epoch rates exist yet. */
+  function varEpochLifetimeRate(points, bundle) {
+    const self = parseFloat(
+      points?.points_summary?.self_points
+      ?? points?.points_summary?.total_points
+      ?? NaN
+    );
+    if (!(self > 0)) return null;
+    let vol = 0;
+    for (const t of bundle?.trades || []) {
+      if (t.status && t.status !== 'confirmed') continue;
+      const px = parseFloat(t.price || t.mark_price || 0);
+      const qty = parseFloat(t.qty || 0);
+      const notional = Math.abs(px * qty);
+      if (notional > 0) vol += notional;
+    }
+    if (!(vol > 0)) return null;
+    return (self / vol) * 1e6;
+  }
+
+  function varEpochRememberRate(rate) {
+    if (!(rate > 0) || !isFinite(rate)) return;
+    try { localStorage.setItem('hs-var-epoch-rate', String(rate)); } catch (_) {}
+  }
+
+  function varEpochStoredRate() {
+    try {
+      const v = parseFloat(localStorage.getItem('hs-var-epoch-rate') || '');
+      return v > 0 && isFinite(v) ? v : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /** Community heuristic when no personal calibration exists yet (pts / $1M raw). */
+  const VAR_EPOCH_COMMUNITY_RATE = 14;
+
+  function varEpochHeuristicRate(bundle, start, exclusiveEnd) {
+    try {
+      const trades = varLabPrepareTrades(bundle);
+      const m = varLabWindowMetrics(trades, start, exclusiveEnd);
+      if (!(m.volume > 0)) return VAR_EPOCH_COMMUNITY_RATE;
+      // Boost with RWA share — Omni weights RWA higher (rough community fit).
+      const rwa = Math.max(0, Math.min(1, m.rwaShare || 0));
+      return VAR_EPOCH_COMMUNITY_RATE * (1 + 3.5 * rwa);
+    } catch (_) {
+      return VAR_EPOCH_COMMUNITY_RATE;
+    }
+  }
+
   /** TimberJ-style estimate: volume × recent pts/$1M (not the Lab RWA pool model). */
   function varEpochEstimateSelf(points, bundle, start, exclusiveEnd, rateOpt) {
     try {
       const stats = varEpochWindowSummary(bundle, start, exclusiveEnd);
       const volume = stats.volume || 0;
       if (!(volume > 0)) return { points: 0, rate: null, metrics: stats, method: 'timber' };
-      const rate = rateOpt !== undefined
+      let rate = rateOpt != null && rateOpt > 0
         ? rateOpt
         : varEpochRecentRate(points, bundle, start, VAR_EPOCH_RECENT_RATE_N);
+      let method = 'timber';
       if (!(rate > 0)) {
-        // Fallback: Lab rwa-9 only when we have no published earning epochs yet.
-        const trades = varLabPrepareTrades(bundle);
-        const model = varLabModelById('rwa-9');
-        const m = varLabWindowMetrics(trades, start, exclusiveEnd);
-        const poolRows = varLabPoolHistory(model, points, trades).filter((r) => r.start < start);
-        const recent = poolRows.slice(-12);
-        const median = varLabMedianPool(recent.length ? recent : poolRows);
-        if (!(median > 0)) return { points: 0, rate: null, metrics: stats, method: 'none' };
-        const exposure = varLabExposure(model, m);
-        const est = median * exposure;
-        return {
-          points: est,
-          rate: volume > 0 ? (est / volume) * 1e6 : null,
-          metrics: stats,
-          method: 'lab',
-        };
+        // Fallback: Lab rwa-9 when we can calibrate a pool from overlapping epochs.
+        try {
+          const trades = varLabPrepareTrades(bundle);
+          const model = varLabModelById('rwa-9');
+          const m = varLabWindowMetrics(trades, start, exclusiveEnd);
+          const poolRows = varLabPoolHistory(model, points, trades).filter((r) => r.start < start);
+          const recent = poolRows.slice(-12);
+          const median = varLabMedianPool(recent.length ? recent : poolRows);
+          if (median > 0) {
+            const exposure = varLabExposure(model, m);
+            const est = median * exposure;
+            const labRate = volume > 0 ? (est / volume) * 1e6 : null;
+            if (labRate > 0) varEpochRememberRate(labRate);
+            return {
+              points: est,
+              rate: labRate,
+              metrics: stats,
+              method: 'lab',
+            };
+          }
+        } catch (_) {}
+        const life = varEpochLifetimeRate(points, bundle);
+        const stored = varEpochStoredRate();
+        if (life > 0) { rate = life; method = 'lifetime'; }
+        else if (stored > 0) { rate = stored; method = 'stored'; }
+        else { rate = varEpochHeuristicRate(bundle, start, exclusiveEnd); method = 'community'; }
       }
+      if (!(rate > 0)) return { points: 0, rate: null, metrics: stats, method: 'none' };
+      varEpochRememberRate(rate);
       const est = (volume * rate) / 1e6;
-      return { points: est, rate, metrics: stats, method: 'timber' };
+      return { points: est, rate, metrics: stats, method };
     } catch (_) {
       return { points: 0, rate: null, metrics: null, method: 'none' };
     }
@@ -5793,18 +5856,27 @@
       oiDays: 7 * avgOi,
     };
     const exposure = varLabExposure(model, input);
-    const estPts = medianPool > 0 ? medianPool * exposure : 0;
+    let estPts = medianPool > 0 ? medianPool * exposure : 0;
+    let usedHeuristic = false;
+    if (!(estPts > 0) && volume > 0) {
+      // No overlapping epoch calibration yet — fall back to community pts/$1M × volume mix.
+      const rate = VAR_EPOCH_COMMUNITY_RATE * (1 + 3.5 * rwaShare);
+      estPts = (volume * rate) / 1e6;
+      usedHeuristic = true;
+    }
     const effVol = model.basis === 'oi' ? exposure : Math.pow(exposure, 1 / Math.max(model.alpha, 1e-9));
 
     const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
     set('varLabEstPts', estPts > 0 ? varFmtPoints(estPts) : '—');
-    set('varLabEstPtsSub', medianPool > 0 ? varT('var.labEstPtsSub') : varT('var.labPoolEmpty'));
+    set('varLabEstPtsSub', medianPool > 0
+      ? varT('var.labEstPtsSub')
+      : (usedHeuristic ? varT('var.labEstHeuristic') || 'Community rate (no calibrated pool yet)' : varT('var.labPoolEmpty')));
     set('varLabEffVol', model.basis === 'oi' ? varFmtCompactUsd(avgOi) + ' OI' : varFmtCompactUsd(effVol));
     // Card shows the pricing baseline (median = 1.00×). Week rows are vs this median.
-    set('varLabPool', medianPool > 0 ? varFmtPoolIndex(1) : '—');
+    set('varLabPool', medianPool > 0 ? varFmtPoolIndex(1) : (usedHeuristic ? '~1.00x' : '—'));
     set('varLabPoolSub', medianPool > 0
       ? varT('var.labPoolSub').replace('{n}', String((anchor.length || history.length) || 0))
-      : '');
+      : (usedHeuristic ? 'heuristic' : ''));
     set('varLabRate', volume > 0 && estPts > 0 ? varFmtPoints(estPts / volume * 1e6) : '—');
 
     const table = document.getElementById('varLabPoolTable');
@@ -5835,6 +5907,57 @@
     }
   }
 
+  function varPointsHasData(raw) {
+    return !!(raw && (
+      raw.points_summary
+      || (Array.isArray(raw.points_history) && raw.points_history.length)
+      || raw.competition
+    ));
+  }
+
+  function varMergePointsPreferRich(prev, next) {
+    if (!next) return prev || null;
+    if (!prev) return next;
+    const prevHist = Array.isArray(prev.points_history) ? prev.points_history : [];
+    const nextHist = Array.isArray(next.points_history) ? next.points_history : [];
+    const hist = nextHist.length ? nextHist : prevHist;
+    const summary = next.points_summary || prev.points_summary || null;
+    const competition = next.competition || prev.competition || null;
+    if (!summary && !hist.length && !competition) return prev;
+    return {
+      v: 1,
+      points_summary: summary,
+      points_history: hist,
+      competition,
+      exported_at: next.exported_at || prev.exported_at || null,
+      sourceFile: next.sourceFile || prev.sourceFile || null,
+      importedAt: next.importedAt || prev.importedAt || Date.now(),
+    };
+  }
+
+  function varRequestExtPoints() {
+    try {
+      window.postMessage({ source: 'hs-page', type: 'HS_OMNI_EXT_GET_POINTS' }, '*');
+    } catch (_) {}
+  }
+
+  function varApplyExtPoints(points) {
+    if (!varPointsHasData(points)) return false;
+    const cur = varPointsLoad();
+    const merged = varMergePointsPreferRich(cur, points);
+    if (!merged) return false;
+    // Skip no-op writes when nothing richer arrived.
+    const curN = (cur?.points_history || []).length;
+    const nextN = (merged.points_history || []).length;
+    const curTot = parseFloat(cur?.points_summary?.total_points || 0) || 0;
+    const nextTot = parseFloat(merged?.points_summary?.total_points || 0) || 0;
+    if (cur && nextN <= curN && nextTot <= curTot && merged.competition === cur.competition) {
+      return false;
+    }
+    varPointsSave(merged);
+    return true;
+  }
+
   function renderVarPoints() {
     const view = (_varPointsView === 'lab' || _varPointsView === 'airdrop' || _varPointsView === 'competition' || _varPointsView === 'points')
       ? _varPointsView
@@ -5848,6 +5971,13 @@
       p.classList.toggle('is-on', on);
       p.style.display = on ? 'block' : 'none';
     });
+    // Ask the extension for points if the page slot is empty / thin.
+    try {
+      const cur = varPointsLoad();
+      if (!varPointsHasData(cur) || !(cur.points_history && cur.points_history.length)) {
+        varRequestExtPoints();
+      }
+    } catch (_) {}
     const points = varPointsLoad();
     varRenderJsonMeta(points);
     // Heavy CSV scans (epoch estimates / Lab OI) only on the tabs that need them —
@@ -6585,6 +6715,14 @@
         try { varAccountsScheduleActivityRefresh(); } catch (_) {}
         try {
           if (varIsPointsTab(_varSub)) renderVarPoints();
+        } catch (_) {}
+        return;
+      }
+      if (data.type === 'HS_OMNI_POINTS_STATE') {
+        try {
+          if (data.ok && data.points && varApplyExtPoints(data.points)) {
+            if (varIsPointsTab(_varSub)) renderVarPoints();
+          }
         } catch (_) {}
         return;
       }

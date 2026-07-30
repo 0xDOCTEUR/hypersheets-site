@@ -145,14 +145,22 @@ function normalizeAccountsGuard(raw) {
 }
 
 function slotImportScore(slot) {
-  if (!slot || !slot.csv || typeof slot.csv !== 'object') return 0;
-  const trades = Array.isArray(slot.csv.trades) ? slot.csv.trades.length : 0;
-  const funding = Array.isArray(slot.csv.funding) ? slot.csv.funding.length : 0;
-  const transfers = Array.isArray(slot.csv.transfers) ? slot.csv.transfers.length : 0;
+  if (!slot || typeof slot !== 'object') return 0;
+  const csv = slot.csv && typeof slot.csv === 'object' ? slot.csv : null;
+  const trades = csv && Array.isArray(csv.trades) ? csv.trades.length : 0;
+  const funding = csv && Array.isArray(csv.funding) ? csv.funding.length : 0;
+  const transfers = csv && Array.isArray(csv.transfers) ? csv.transfers.length : 0;
   const importedAt = Number(slot.importedAt) || 0;
   const rows = trades + funding + transfers;
-  if (!rows && !slot.points) return 0;
-  return rows * 1e6 + importedAt;
+  const pts = slot.points;
+  const hasPts = !!(pts && (
+    pts.points_summary
+    || (Array.isArray(pts.points_history) && pts.points_history.length)
+    || pts.competition
+  ));
+  if (!rows && !hasPts) return 0;
+  // Points-only jambes must still beat empty slots in merge.
+  return rows * 1e6 + (hasPts ? 5e5 : 0) + importedAt;
 }
 
 /**
@@ -742,6 +750,7 @@ async function applyLocalOmniBundle(bundle, origin, points, preferredSlotId, pre
   accounts.activeImportSlot = active;
   const csv = bundle || emptyCsv();
   const prevSlot = accounts.slots[active];
+  const nextPoints = mergePointsPreferRich(prevSlot.points || null, points);
   accounts.slots[active] = {
     id: active,
     // Keep an existing label; only fill empty slots from the collecte name field.
@@ -749,7 +758,7 @@ async function applyLocalOmniBundle(bundle, origin, points, preferredSlotId, pre
       ? prevSlot.label
       : (requestedLabel || ''),
     csv,
-    points: points != null ? points : (prevSlot.points || null),
+    points: nextPoints != null ? nextPoints : (prevSlot.points || null),
     hlWallet: prevSlot.hlWallet || '',
     importedAt: Date.now(),
   };
@@ -778,19 +787,41 @@ async function applyLocalOmniBundle(bundle, origin, points, preferredSlotId, pre
 
 function pointsFromPayload(payload) {
   if (!payload || typeof payload !== 'object') return null;
+  const hist = Array.isArray(payload.points_history) ? payload.points_history : [];
   const has =
     payload.points_summary ||
-    (Array.isArray(payload.points_history) && payload.points_history.length) ||
+    hist.length ||
     payload.competition;
   if (!has) return null;
   return {
     v: 1,
     points_summary: payload.points_summary || null,
-    points_history: Array.isArray(payload.points_history) ? payload.points_history : [],
+    points_history: hist,
     competition: payload.competition || null,
     exported_at: payload.exported_at || null,
     sourceFile: 'omni-collect',
     importedAt: Date.now(),
+  };
+}
+
+/** Prefer non-empty history/summary — never let a competition-only shell wipe earning epochs. */
+function mergePointsPreferRich(prev, next) {
+  if (!next) return prev || null;
+  if (!prev) return next;
+  const prevHist = Array.isArray(prev.points_history) ? prev.points_history : [];
+  const nextHist = Array.isArray(next.points_history) ? next.points_history : [];
+  const hist = nextHist.length ? nextHist : prevHist;
+  const summary = next.points_summary || prev.points_summary || null;
+  const competition = next.competition || prev.competition || null;
+  if (!summary && !hist.length && !competition) return prev;
+  return {
+    v: 1,
+    points_summary: summary,
+    points_history: hist,
+    competition,
+    exported_at: next.exported_at || prev.exported_at || null,
+    sourceFile: next.sourceFile || prev.sourceFile || null,
+    importedAt: next.importedAt || prev.importedAt || Date.now(),
   };
 }
 
