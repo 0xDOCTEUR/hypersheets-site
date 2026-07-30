@@ -4489,12 +4489,14 @@
   }
 
   /** TimberJ-style estimate: volume × recent pts/$1M (not the Lab RWA pool model). */
-  function varEpochEstimateSelf(points, bundle, start, exclusiveEnd) {
+  function varEpochEstimateSelf(points, bundle, start, exclusiveEnd, rateOpt) {
     try {
       const stats = varEpochWindowSummary(bundle, start, exclusiveEnd);
       const volume = stats.volume || 0;
       if (!(volume > 0)) return { points: 0, rate: null, metrics: stats, method: 'timber' };
-      const rate = varEpochRecentRate(points, bundle, start, VAR_EPOCH_RECENT_RATE_N);
+      const rate = rateOpt !== undefined
+        ? rateOpt
+        : varEpochRecentRate(points, bundle, start, VAR_EPOCH_RECENT_RATE_N);
       if (!(rate > 0)) {
         // Fallback: Lab rwa-9 only when we have no published earning epochs yet.
         const trades = varLabPrepareTrades(bundle);
@@ -4550,6 +4552,14 @@
 
     const epochStart = varEpochStartUtc(now);
     const weekMs = 7 * 864e5;
+    // One recent-rate lookup reused across the 16-week fill loop (same published history).
+    const rateByBefore = new Map();
+    const rateFor = (beforeStart) => {
+      if (rateByBefore.has(beforeStart)) return rateByBefore.get(beforeStart);
+      const r = varEpochRecentRate(points, bundle, beforeStart, VAR_EPOCH_RECENT_RATE_N);
+      rateByBefore.set(beforeStart, r);
+      return r;
+    };
 
     // Ensure every recent Thursday week with volume appears (current + finalising + gaps).
     for (let i = 0; i < 16; i++) {
@@ -4569,7 +4579,11 @@
       }
 
       const stats = varEpochWindowSummary(bundle, start, end);
-      const est = varEpochEstimateSelf(points, bundle, start, end);
+      // Skip estimate math when the week clearly has no volume (still keep finalising/live shells).
+      if (!(stats.volume > 0) && !(stats.trades > 0) && !inProgress && !finalising && !existing) {
+        continue;
+      }
+      const est = varEpochEstimateSelf(points, bundle, start, end, rateFor(start));
       const worthShow = inProgress || finalising
         || stats.trades > 0 || stats.volume > 0 || est.points > 0;
 
@@ -4611,7 +4625,7 @@
     // Enrich in-progress official rows with secondary estimate when useful.
     for (const r of rows) {
       if (!r.inProgress || r.estimated) continue;
-      const est = varEpochEstimateSelf(points, bundle, r.start, r.end);
+      const est = varEpochEstimateSelf(points, bundle, r.start, r.end, rateFor(r.start));
       if (est.points > 0) {
         r.estPoints = est.points;
         r.estRate = est.rate;
@@ -4771,7 +4785,7 @@
         const id = mktBtn.getAttribute('data-epoch-markets');
         if (_varEpochMarketsOpen.has(id)) _varEpochMarketsOpen.delete(id);
         else _varEpochMarketsOpen.add(id);
-        renderVarPoints();
+        try { varRenderEpochTable(varPointsLoad()); } catch (_) {}
         return;
       }
       const head = e.target.closest('[data-epoch-toggle]');
@@ -4780,16 +4794,35 @@
       const id = head.getAttribute('data-epoch-toggle');
       if (_varEpochExpanded.has(id)) _varEpochExpanded.delete(id);
       else _varEpochExpanded.add(id);
-      renderVarPoints();
+      try { varRenderEpochTable(varPointsLoad()); } catch (_) {}
     });
   }
 
+  let _varEpochSumCache = null;
+
+  function varEpochSumCacheKey(bundle) {
+    const trades = bundle?.trades || [];
+    const last = trades.length ? trades[trades.length - 1] : null;
+    return [
+      trades.length,
+      last?.created_at || '',
+      bundle?.realizedPnl?.length || 0,
+      bundle?.transfers?.length || 0,
+    ].join(':');
+  }
+
   function varEpochWindowSummary(bundle, start, exclusiveEnd) {
-    const trades = [...(bundle?.trades || [])]
-      .filter(t => !t.status || t.status === 'confirmed');
+    const ck = varEpochSumCacheKey(bundle);
+    if (!_varEpochSumCache || _varEpochSumCache.key !== ck) {
+      _varEpochSumCache = { key: ck, map: new Map() };
+    }
+    const mapKey = `${start}:${exclusiveEnd}`;
+    if (_varEpochSumCache.map.has(mapKey)) return _varEpochSumCache.map.get(mapKey);
+
     let volume = 0;
     let tradeCount = 0;
-    for (const t of trades) {
+    for (const t of bundle?.trades || []) {
+      if (t.status && t.status !== 'confirmed') continue;
       const ts = Date.parse(t.created_at || 0);
       if (!(ts >= start && ts < exclusiveEnd)) continue;
       const px = parseFloat(t.price || t.mark_price || 0);
@@ -4811,7 +4844,7 @@
     };
     if (bundle?.realizedPnl?.length) pushPnl(bundle.realizedPnl);
     else pushPnl(bundle?.transfers);
-    return {
+    const out = {
       volume,
       trades: tradeCount,
       realizedPnl,
@@ -4822,6 +4855,8 @@
       heldPct: 0,
       pairs: [],
     };
+    _varEpochSumCache.map.set(mapKey, out);
+    return out;
   }
 
   function varRenderEpochTable(points) {
@@ -4845,11 +4880,8 @@
     heading.style.display = '';
     wrap.style.display = '';
 
-    if (!_varEpochDidInitExpand) {
-      _varEpochDidInitExpand = true;
-      const open = rows.find(r => r.inProgress) || rows[0];
-      if (open) _varEpochExpanded.add(open.id);
-    }
+    // Keep rows collapsed on first paint — expanding runs O(hours×trades) OI analytics.
+    if (!_varEpochDidInitExpand) _varEpochDidInitExpand = true;
 
     const cache = new Map();
     const statsFor = (row, full) => {
@@ -5619,6 +5651,15 @@
     renderVarPointsLab();
   }
 
+  let _varLabRenderTimer = 0;
+  function varLabScheduleRender() {
+    clearTimeout(_varLabRenderTimer);
+    _varLabRenderTimer = setTimeout(() => {
+      try { renderVarPointsLab(); } catch (_) {}
+    }, 80);
+  }
+  try { window.varLabScheduleRender = varLabScheduleRender; } catch (_) {}
+
   function renderVarPointsLab() {
     const points = varPointsLoad();
     const bundle = varCsvLoadForView();
@@ -5729,16 +5770,31 @@
     });
     const points = varPointsLoad();
     varRenderJsonMeta(points);
-    varRenderPointsKpis(points);
-    varRenderEpochTable(points);
-    varRenderCompetition(points);
-    try { renderVarPointsLab(); } catch (_) {}
-    const empty = document.getElementById('varPointsEmpty');
-    if (empty) {
-      const has = !!(points?.points_summary || (points?.points_history && points.points_history.length) || points?.competition);
-      empty.style.display = has ? 'none' : '';
+    // Heavy CSV scans (epoch estimates / Lab OI) only on the tabs that need them —
+    // Competition used to freeze the tab by also rebuilding every epoch + Lab pool.
+    if (view === 'points') {
+      varRenderPointsKpis(points);
+      const empty = document.getElementById('varPointsEmpty');
+      if (empty) {
+        const has = !!(points?.points_summary || (points?.points_history && points.points_history.length) || points?.competition);
+        empty.style.display = has ? 'none' : '';
+      }
+      // Defer epoch rebuild so Points chrome paints before CSV scans.
+      setTimeout(() => { try { varRenderEpochTable(points); } catch (_) {} }, 0);
+      return;
     }
-    if (view === 'airdrop') renderVarAirdrop();
+    if (view === 'competition') {
+      varRenderPointsKpis(points);
+      setTimeout(() => { try { varRenderCompetition(points); } catch (_) {} }, 0);
+      return;
+    }
+    if (view === 'lab') {
+      setTimeout(() => { try { renderVarPointsLab(); } catch (_) {} }, 0);
+      return;
+    }
+    if (view === 'airdrop') {
+      renderVarAirdrop();
+    }
   }
 
   function renderVarActivity() {

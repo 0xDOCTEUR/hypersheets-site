@@ -10677,11 +10677,11 @@ const HS_CONFIG = {
                 <div class="section-h mb-3" style="margin:0 0 12px"><span class="bar" style="background:var(--accent)"></span><span data-i18n="var.labSimulate">Simulate a week</span></div>
                 <label>
                   <div class="lab"><span data-i18n="var.labWeeklyVol">Weekly volume</span><strong id="varLabVolLabel">—</strong></div>
-                  <input id="varLabVol" type="range" min="50" max="20000" step="50" value="700" oninput="renderVarPointsLab()"/>
+                  <input id="varLabVol" type="range" min="50" max="20000" step="50" value="700" oninput="typeof varLabScheduleRender==='function'?varLabScheduleRender():renderVarPointsLab()"/>
                 </label>
                 <label>
                   <div class="lab"><span data-i18n="var.labRwaShare">Share traded in RWA</span><strong id="varLabRwaLabel">—</strong></div>
-                  <input id="varLabRwa" type="range" min="0" max="100" step="1" value="40" oninput="renderVarPointsLab()"/>
+                  <input id="varLabRwa" type="range" min="0" max="100" step="1" value="40" oninput="typeof varLabScheduleRender==='function'?varLabScheduleRender():renderVarPointsLab()"/>
                 </label>
                 <p class="var-airdrop-disclaimer" style="margin-top:8px" data-i18n="var.labDisclaimer">Models are community heuristics fitted on public epoch ratios — not Variational’s formula.</p>
               </div>
