@@ -9811,15 +9811,21 @@ try {
     white-space: nowrap;
     color: #fff;
   }
-  html.hs-omni-standalone #hsOmniTopbar .hs-omni-wordmark .hs-brand-hyper {
+  html.hs-omni-standalone #hsOmniTopbar .hs-omni-wordmark .hs-brand-hyper,
+  html.hs-omni-standalone #hsOmniTopbar .hs-omni-wordmark .hs-brand-sheets {
     font-style: normal;
-    font-weight: 600;
     color: #fff;
+    background: none;
+    -webkit-background-clip: unset;
+    background-clip: unset;
+    -webkit-text-fill-color: #fff;
+  }
+  html.hs-omni-standalone #hsOmniTopbar .hs-omni-wordmark .hs-brand-hyper {
+    font-weight: 600;
   }
   html.hs-omni-standalone #hsOmniTopbar .hs-omni-wordmark .hs-brand-sheets {
     font-style: italic;
     font-weight: 500;
-    color: #fff;
   }
   html.hs-omni-standalone #hsOmniTopbar .hs-omni-wordmark .hs-brand-omni {
     font-style: normal;
