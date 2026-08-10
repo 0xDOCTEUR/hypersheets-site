@@ -9768,7 +9768,7 @@ try {
   html.hs-omni-standalone #hsOmniTopbar {
     display: flex !important;
     align-items: center;
-    justify-content: flex-end;
+    justify-content: flex-start;
     gap: 12px;
     padding: 16px 22px;
     border-bottom: 1px solid rgba(255,255,255,.08);
@@ -32600,16 +32600,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('hsOmniTopbar')) return;
     var bar = document.createElement('div');
     bar.id = 'hsOmniTopbar';
-    bar.innerHTML = '<span class="hs-omni-brand">'
+    bar.innerHTML = '<a class="hs-omni-back" href="/" title="Retour à Hypersheets">'
+      + '<span class="hs-omni-back-label-full">Retour à Hypersheets</span>'
+      + '<span class="hs-omni-back-label-short">Retour</span>'
+      + '</a>'
+      + '<span class="hs-omni-brand">'
       + '<img class="hs-omni-brand-logo" src="../img/hypersheets-logo.png" alt="" width="34" height="34" decoding="async">'
       + '<span class="hs-brand-wordmark hs-omni-wordmark" aria-label="Hypersheets Omni">'
       + '<span class="hs-brand-hyper">Hyper</span><span class="hs-brand-sheets">sheets</span><span class="hs-brand-omni">Omni</span>'
       + '</span>'
-      + '</span>'
-      + '<a class="hs-omni-back" href="/" title="Retour à Hypersheets">'
-      + '<span class="hs-omni-back-label-full">Retour à Hypersheets</span>'
-      + '<span class="hs-omni-back-label-short">Retour</span>'
-      + '</a>';
+      + '</span>';
     var main = document.getElementById('mainContent') || document.getElementById('appShell') || document.body;
     main.insertBefore(bar, main.firstChild);
   }
