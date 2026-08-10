@@ -15224,9 +15224,8 @@ async function fetchTwapSliceFills(wallet, startTime, walletLabel, walletIdx) {
     };
   };
   try {
-    if (typeof walletIdx === 'number') {
-      const n = Math.max(1, _glp.nWallets || 1)
-      glpSetProgress(14 + (walletIdx + 0.42) * (62 / n))
+    if (typeof walletIdx === 'number' && typeof glpMarkWalletStage === 'function') {
+      glpMarkWalletStage(walletIdx, 'twap');
     }
     const out = [];
     const seen = new Set();
@@ -15555,10 +15554,11 @@ function hsLaunchSetProgress(pct) {
 function hsLaunchSetStatusFromProgress(pct) {
   const statusEl = document.getElementById('hsLaunchStatus');
   if (!statusEl) return;
+  // Aligned with fetch order: meta → fills (long) → bridge/funding → render
   let key = 'launch.phase4';
-  if (pct < 18) key = 'launch.phase1';
-  else if (pct < 45) key = 'launch.phase2';
-  else if (pct < 72) key = 'launch.phase3';
+  if (pct < 14) key = 'launch.phase1';
+  else if (pct < 68) key = 'launch.phase2';
+  else if (pct < 88) key = 'launch.phase3';
   statusEl.classList.remove('is-ready');
   statusEl.textContent = typeof t === 'function' ? t(key) : key;
 }
@@ -16129,6 +16129,7 @@ async function loadData(opts = {}) {
     const startTime = isAll ? ALL_TIME_START : Date.now() - 31 * 86400000;
 
     glpSetProgress(8);
+    if (_glp) _glp.creepCap = 12;
     // Metadata only when needed for this page scope
     let spotBundleRes, outcomeMetaRes, midsRes, xyzMetaRes;
     if (_need.meta || !_dataScopeState.meta) {
@@ -16243,6 +16244,7 @@ async function loadData(opts = {}) {
     };
 
     glpSetProgress(14);
+    if (_glp) _glp.creepCap = Math.max(_glp.creepCap || 0, 20);
     let fillFetchIncomplete = false;
     for (let loadAttempt = 0; loadAttempt < 2; loadAttempt++) {
       if (loadAttempt > 0) {
@@ -16266,16 +16268,9 @@ async function loadData(opts = {}) {
       for (let i = 0; i < wallets.length; i++) {
         const w = wallets[i]
         const tag = `[${i+1}/${wallets.length} ${truncAddr(w)}]`;
-                const [twapW, fundingRes, bridgeRes, posRes, spotRes, posXyzRes] = await Promise.allSettled([
-          _need.hl ? fetchTwapSliceFills(w, startTime, tag, i) : Promise.resolve([]),
-          _need.funding ? fetchAllFunding(w, startTime, maxPages, tag, i) : Promise.resolve([]),
-          _need.unit ? fetch(`${UNIT_API}/${w}`).then(r => r.ok ? r.json() : null).catch(() => null) : Promise.resolve(null),
-          _need.portfolio ? hlPost({ type: 'clearinghouseState', user: w }, { label: `clearinghouseState ${truncAddr(w)}` }) : Promise.resolve(null),
-          _need.portfolio || _need.unit ? hlPost({ type: 'spotClearinghouseState', user: w }, { label: `spotClearinghouseState ${truncAddr(w)}` }) : Promise.resolve(null),
-          _need.portfolio
-            ? hlPost({ type: 'clearinghouseState', user: w, dex: 'xyz' }, { label: `clearinghouseState xyz ${truncAddr(w)}` })
-            : Promise.resolve(null),
-        ]);
+        // Fills first (heavy + drives progress), then bridge/funding/positions.
+        // Old order ran funding first → progress jumped to ~50%, then fill page
+        // updates were ignored by monotone glpSetProgress (looked frozen).
         let hlW = { status: 'fulfilled', value: { fills: [], incomplete: false } };
         let xyzW = { status: 'fulfilled', value: { fills: [], incomplete: false } };
         if (_need.hl) {
@@ -16298,6 +16293,17 @@ async function loadData(opts = {}) {
             fillFetchIncomplete = true;
           }
         }
+        if (typeof glpMarkWalletStage === 'function') glpMarkWalletStage(i, 'secondary');
+        const [twapW, fundingRes, bridgeRes, posRes, spotRes, posXyzRes] = await Promise.allSettled([
+          _need.hl ? fetchTwapSliceFills(w, startTime, tag, i) : Promise.resolve([]),
+          _need.funding ? fetchAllFunding(w, startTime, maxPages, tag, i) : Promise.resolve([]),
+          _need.unit ? fetch(`${UNIT_API}/${w}`).then(r => r.ok ? r.json() : null).catch(() => null) : Promise.resolve(null),
+          _need.portfolio ? hlPost({ type: 'clearinghouseState', user: w }, { label: `clearinghouseState ${truncAddr(w)}` }) : Promise.resolve(null),
+          _need.portfolio || _need.unit ? hlPost({ type: 'spotClearinghouseState', user: w }, { label: `spotClearinghouseState ${truncAddr(w)}` }) : Promise.resolve(null),
+          _need.portfolio
+            ? hlPost({ type: 'clearinghouseState', user: w, dex: 'xyz' }, { label: `clearinghouseState xyz ${truncAddr(w)}` })
+            : Promise.resolve(null),
+        ]);
         walletBundles.push({ w, hlW, xyzW, twapW, fundingRes, bridgeRes, posRes, spotRes, posXyzRes });
       }
 
@@ -19061,7 +19067,7 @@ function renderHorizontal(id, labels, data, fixedColor) {
 // ╚═══════════════════════════════════════════════════════════════════════════╝
 function setXyzPageLoading() { /* chargement unifié : barre header + bouton Rafraîchir */ }
 
-let _glp = { lastPct: 4, nWallets: 1, maxPages: 30, loading: false, creepTimer: null }
+let _glp = { lastPct: 4, nWallets: 1, maxPages: 30, loading: false, creepTimer: null, creepCap: 12, lastBumpAt: 0 }
 
 /** Progression monotone par phase (évite le saut 16 % → 100 %). */
 function glpSetProgress(pct) {
@@ -19069,24 +19075,51 @@ function glpSetProgress(pct) {
   const p = Math.max(_glp.lastPct, Math.min(cap, Math.round(pct)))
   if (p === _glp.lastPct) return
   _glp.lastPct = p
+  _glp.lastBumpAt = Date.now()
   glpRender()
 }
 
-function glpOnWalletFetchPage(walletIdx, stream, pageIndex, maxPages) {
+/** Wallet phase band: 14% → 76%. Stages match fetch order (fills → xyz → funding). */
+function glpWalletSpan() {
   const n = Math.max(1, _glp.nWallets || 1)
+  return { base: 14, span: 62 / n, n }
+}
+
+function glpStreamRange(stream) {
+  // fractions of each wallet's span
+  if (stream === 'xyz') return { start: 0.52, end: 0.78 };
+  if (stream === 'funding') return { start: 0.78, end: 0.96 };
+  if (stream === 'twap' || stream === 'secondary') return { start: 0.78, end: 0.90 };
+  return { start: 0, end: 0.52 }; // hl fills
+}
+
+function glpOnWalletFetchPage(walletIdx, stream, pageIndex, maxPages) {
+  const { base, span } = glpWalletSpan()
   const mp = Math.max(1, maxPages || _glp.maxPages || 30)
-  const mpEff = Math.min(mp, 16)
-  const base = 14
-  const span = 62 / n
-  const half = span * 0.5
-  const streamBase = stream === 'funding' ? half : 0
+  // Don't assume max pages will be reached — ease so early pages still move the bar
+  const mpEff = Math.min(Math.max(mp, 4), 24)
+  const { start, end } = glpStreamRange(stream)
   const pageRatio = Math.min(1, (pageIndex + 1) / mpEff)
-  glpSetProgress(base + walletIdx * span + streamBase + half * pageRatio)
+  // ease-out so page 1–3 already feel progressive
+  const eased = 1 - Math.pow(1 - pageRatio, 0.65)
+  const target = base + walletIdx * span + span * (start + (end - start) * eased)
+  _glp.creepCap = Math.min(76, Math.floor(target + 3))
+  glpSetProgress(target)
+}
+
+function glpMarkWalletStage(walletIdx, stage) {
+  const { base, span } = glpWalletSpan()
+  const { start } = glpStreamRange(stage === 'twap' ? 'twap' : stage === 'secondary' ? 'secondary' : 'fills')
+  const target = base + walletIdx * span + span * start
+  _glp.creepCap = Math.min(76, Math.floor(target + 4))
+  glpSetProgress(target)
 }
 
 function glpOnWalletBundleDone(walletIdx) {
-  const n = Math.max(1, _glp.nWallets || 1)
-  glpSetProgress(14 + ((walletIdx + 1) / n) * 62)
+  const { base, span, n } = glpWalletSpan()
+  const target = base + ((walletIdx + 1) / n) * (span * n)
+  _glp.creepCap = Math.min(76, Math.floor(target + 1))
+  glpSetProgress(target)
 }
 
 /** Indicateur header (barre seule) pour chargements secondaires hors loadData principal. */
@@ -19176,6 +19209,8 @@ async function glpStart(nWallets, maxPages) {
   _glp.nWallets = Math.max(1, nWallets || 1)
   _glp.maxPages = maxPages || 30
   _glp.lastPct = 4
+  _glp.creepCap = 12
+  _glp.lastBumpAt = Date.now()
   _glp.loading = true
   window._glpLoading = true
   document.body.classList.add('hs-loading')
@@ -19186,7 +19221,15 @@ async function glpStart(nWallets, maxPages) {
   }
   glpSetProgress(6)
   if (_glp.creepTimer) clearInterval(_glp.creepTimer)
-  _glp.creepTimer = null
+  // Soft creep when a long HL page stalls — never freezes the launch % 
+  _glp.creepTimer = setInterval(() => {
+    if (!_glp.loading) return
+    const idleMs = Date.now() - (_glp.lastBumpAt || 0)
+    if (idleMs < 650) return
+    const cap = Math.min(94, Math.max(_glp.creepCap || 12, _glp.lastPct))
+    if (_glp.lastPct >= cap) return
+    glpSetProgress(_glp.lastPct + 1)
+  }, 420)
   await glpPaintFrame()
 }
 function glpTick(n) {
