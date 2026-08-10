@@ -9866,16 +9866,267 @@ try {
     box-shadow: none !important;
     overflow: visible !important;
   }
+  html.hs-omni-standalone #varDashboard .var-dash-sticky-nav {
+    background: rgba(0,0,0,.55) !important;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(255,255,255,.08) !important;
+    padding: 10px 18px !important;
+    position: sticky;
+    top: 0;
+    z-index: 25;
+  }
   html.hs-omni-standalone #varDashboard .var-dash-nav {
     background: transparent !important;
     border: 0 !important;
     border-radius: 0 !important;
     padding: 0 !important;
-    gap: 8px;
+    gap: 4px;
   }
-  html.hs-omni-standalone #varDashboard .var-dash-sticky-nav {
+  html.hs-omni-standalone #varDashboard .var-dash-nav .var-sub-tab {
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: rgba(255,255,255,.55);
+    border: 1px solid transparent;
+    background: transparent;
+    transition: color .15s, background .15s, border-color .15s;
+  }
+  html.hs-omni-standalone #varDashboard .var-dash-nav .var-sub-tab:hover {
+    color: rgba(255,255,255,.88);
+    background: rgba(255,255,255,.05);
+  }
+  html.hs-omni-standalone #varDashboard .var-dash-nav .var-sub-tab.active {
+    color: #fff;
+    background: rgba(76,154,248,.14);
+    border-color: rgba(76,154,248,.35);
+    box-shadow: inset 0 -2px 0 #4c9af8;
+  }
+
+  /* ── Dashboard polish ── */
+  html.hs-omni-standalone #varSecLive > .border-b {
+    border-bottom: 0 !important;
+    padding: 18px 22px 28px !important;
+  }
+  html.hs-omni-standalone .var-live-ready {
+    gap: 20px;
+  }
+  html.hs-omni-standalone .var-live-ready-title {
+    font-size: clamp(1.25rem, 2.2vw, 1.55rem);
+    letter-spacing: -0.03em;
+  }
+  html.hs-omni-standalone .var-farm-score {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  @media (min-width: 900px) {
+    html.hs-omni-standalone .var-farm-score {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+  html.hs-omni-standalone .var-farm-score .kpi,
+  html.hs-omni-standalone #varLiveKpis .kpi {
+    background: rgba(255,255,255,.025);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 12px;
+    padding: 14px 16px;
+    transition: border-color .15s, background .15s;
+  }
+  html.hs-omni-standalone .var-farm-score .kpi:hover,
+  html.hs-omni-standalone #varLiveKpis .kpi:hover {
+    border-color: rgba(76,154,248,.28);
+    background: rgba(76,154,248,.06);
+  }
+  html.hs-omni-standalone .var-farm-score .kpi-accent,
+  html.hs-omni-standalone #varLiveKpis .kpi-accent {
+    border-color: rgba(76,154,248,.4);
+    background: linear-gradient(160deg, rgba(76,154,248,.12), rgba(255,255,255,.02));
+  }
+  html.hs-omni-standalone .var-omni-csv-bar {
+    background: rgba(255,255,255,.02);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 14px;
+    padding: 14px 16px;
+  }
+  html.hs-omni-standalone .var-json-drop {
+    margin-bottom: 0;
+    margin-top: 12px;
+    border-radius: 12px;
+    padding: 16px;
+    background: rgba(76,154,248,.04);
+  }
+  html.hs-omni-standalone .var-live-panel {
+    background: rgba(255,255,255,.02);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 14px;
+    padding: 16px 18px;
+  }
+  html.hs-omni-standalone .var-live-panel .section-h {
+    margin-bottom: 6px;
+  }
+  html.hs-omni-standalone .var-live-hedge-card {
+    background: rgba(0,0,0,.25);
+    border-radius: 12px;
+    border-color: rgba(255,255,255,.08);
+  }
+  html.hs-omni-standalone .var-dash-periods {
+    display: inline-flex;
+    gap: 4px;
+    padding: 3px;
+    border-radius: 10px;
+    background: rgba(255,255,255,.04);
+    border: 1px solid rgba(255,255,255,.08);
+  }
+  html.hs-omni-standalone .var-dash-period {
+    border: 0 !important;
     background: transparent !important;
-    border-bottom-color: rgba(255,255,255,.08) !important;
+    color: rgba(255,255,255,.55);
+    border-radius: 7px;
+    padding: 6px 12px;
+    font-weight: 600;
+    font-size: 0.75rem;
+  }
+  html.hs-omni-standalone .var-dash-period.active {
+    background: rgba(76,154,248,.2) !important;
+    color: #fff;
+  }
+
+  /* ── Extension polish ── */
+  html.hs-omni-standalone #varSecExtension > div {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 28px 22px 40px !important;
+  }
+  html.hs-omni-standalone #varSecExtension .section-h {
+    font-size: clamp(1.2rem, 2vw, 1.45rem);
+    font-family: 'Bricolage Grotesque', 'Raleway', sans-serif;
+    letter-spacing: -0.02em;
+    margin-bottom: 8px;
+  }
+  html.hs-omni-standalone #varSecExtension .var-farm-lead {
+    font-size: 0.92rem;
+    color: rgba(255,255,255,.6);
+    margin: 0 0 22px;
+    line-height: 1.5;
+  }
+  html.hs-omni-standalone #varSecExtension .var-onboard {
+    background: transparent;
+    border: 0;
+    padding: 0;
+    margin: 0;
+  }
+  html.hs-omni-standalone #varSecExtension .var-onboard-compact {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 18px 20px;
+    border-radius: 14px;
+    border: 1px solid rgba(76,154,248,.3);
+    background: linear-gradient(135deg, rgba(76,154,248,.12), rgba(255,255,255,.02));
+    margin-bottom: 18px;
+  }
+  html.hs-omni-standalone #varSecExtension .var-onboard-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+  }
+  html.hs-omni-standalone #varSecExtension .var-guide-note {
+    margin-top: 8px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: rgba(76,154,248,.08);
+    border: 1px solid rgba(76,154,248,.2);
+    font-size: 0.78rem;
+    color: rgba(255,255,255,.7);
+  }
+  html.hs-omni-standalone #varSecExtension .var-onboard-actions .btn-ac {
+    flex: 1 1 auto;
+    min-width: 140px;
+  }
+  html.hs-omni-standalone #varSecExtension .var-onboard-details {
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 14px;
+    background: rgba(255,255,255,.02);
+    padding: 4px 16px 14px;
+  }
+  html.hs-omni-standalone #varSecExtension .var-onboard-details > summary {
+    cursor: pointer;
+    font-weight: 650;
+    font-size: 0.9rem;
+    padding: 12px 0;
+    color: #fff;
+    list-style: none;
+  }
+  html.hs-omni-standalone #varSecExtension .var-onboard-details > summary::-webkit-details-marker { display: none; }
+  html.hs-omni-standalone #varSecExtension .var-guide-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 0;
+    margin: 0;
+    list-style: none;
+  }
+  html.hs-omni-standalone #varSecExtension .var-guide-step {
+    padding: 14px 14px 14px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,.07);
+    background: rgba(0,0,0,.22);
+  }
+  html.hs-omni-standalone #varSecExtension .var-guide-step-h {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 650;
+    color: #fff;
+    margin-bottom: 6px;
+  }
+  html.hs-omni-standalone #varSecExtension .var-guide-num {
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.78rem;
+    font-weight: 700;
+    background: rgba(76,154,248,.2);
+    color: #6eb0ff;
+    flex-shrink: 0;
+  }
+  html.hs-omni-standalone #varSecExtension .var-guide-step p {
+    margin: 0;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: rgba(255,255,255,.58);
+  }
+  html.hs-omni-standalone #varSecExtension .var-guide-credit {
+    margin-top: 16px;
+    font-size: 0.7rem;
+    color: rgba(255,255,255,.35);
+  }
+
+  /* ── Suivi / Classement iframe shells ── */
+  html.hs-omni-standalone #varSecSuivi,
+  html.hs-omni-standalone #varSecClassement {
+    border-top: 0 !important;
+  }
+  html.hs-omni-standalone #varSecSuivi > div,
+  html.hs-omni-standalone #varSecClassement > div {
+    padding: 12px 16px 24px !important;
+    min-height: calc(100vh - 140px);
+  }
+  html.hs-omni-standalone #varSuiviFrame,
+  html.hs-omni-standalone #varClassementFrame {
+    min-height: calc(100vh - 160px) !important;
+    border-radius: 14px !important;
+    background: rgba(255,255,255,.02) !important;
+    border: 1px solid rgba(255,255,255,.06);
   }
   @media (max-width: 720px) {
     html.hs-omni-standalone #hsOmniTopbar {
@@ -10847,10 +11098,6 @@ try {
           <p class="var-farm-lead" data-i18n="var.onboardBodyShort">Installe → collecte sur Omni → sync ici. Les données restent locales.</p>
           <div class="var-onboard" id="varActivityOnboard">
             <div class="var-onboard-compact">
-              <div class="var-onboard-copy">
-                <strong data-i18n="var.onboardTitle">Extension Chrome requise</strong>
-                <p data-i18n="var.onboardBodyShort">Installe → collecte sur Omni → sync ici. Les données restent locales.</p>
-              </div>
               <div class="var-onboard-actions">
                 <a class="btn btn-ac" href="../downloads/Hypersheets%20Omni%20Live.zip" download="Hypersheets Omni Live.zip" data-i18n="var.extDownload">Télécharger</a>
                 <a class="btn btn-ghost" href="https://omni.variational.io/?ref=OMNILD9IBR89" target="_blank" rel="noopener noreferrer" data-i18n="var.onboardLink">Omni ↗</a>
