@@ -1250,21 +1250,45 @@
     try {
       const acc = varAccountsLoad();
       const ids = varOmniSlotIds(acc);
-      const bundles = ids
-        .map((id) => varCsvNormalize(acc.slots[id]?.csv || null))
-        .filter((b) => b && (
-          (b.trades && b.trades.length)
-          || (b.funding && b.funding.length)
-          || (b.realizedPnl && b.realizedPnl.length)
-          || (b.transfers && b.transfers.length)
-        ));
-      if (!bundles.length) return null;
-      if (bundles.length === 1) return bundles[0];
+      const seenFp = new Set();
+      const trades = [];
+      const funding = [];
+      const realizedPnl = [];
+      const transfers = [];
+      let any = false;
+      for (const id of ids) {
+        const bundle = varCsvNormalize(acc.slots[id]?.csv || null);
+        if (!bundle) continue;
+        const has = !!(
+          (bundle.trades && bundle.trades.length)
+          || (bundle.funding && bundle.funding.length)
+          || (bundle.realizedPnl && bundle.realizedPnl.length)
+          || (bundle.transfers && bundle.transfers.length)
+        );
+        if (!has) continue;
+        // Skip cloned jambes that hold the exact same export (same as open-book).
+        const fp = varCsvTradeFingerprint(bundle);
+        if (fp && seenFp.has(fp)) continue;
+        if (fp) seenFp.add(fp);
+        any = true;
+        // Namespace row ids per jambe so numeric/shared Omni ids don't collapse across accounts.
+        const tag = (rows) => (rows || []).map((r) => {
+          if (!r || typeof r !== 'object') return r;
+          if (r.id == null && r.trade_id == null) return r;
+          const rid = r.id != null ? r.id : r.trade_id;
+          return { ...r, id: String(id) + ':' + String(rid) };
+        });
+        trades.push.apply(trades, tag(bundle.trades));
+        funding.push.apply(funding, tag(bundle.funding));
+        realizedPnl.push.apply(realizedPnl, tag(bundle.realizedPnl));
+        transfers.push.apply(transfers, tag(bundle.transfers));
+      }
+      if (!any) return null;
       return varCsvNormalize({
-        trades: varDedupeRows(bundles.flatMap((b) => b.trades || [])),
-        funding: varDedupeRows(bundles.flatMap((b) => b.funding || [])),
-        realizedPnl: varDedupeRows(bundles.flatMap((b) => b.realizedPnl || [])),
-        transfers: varDedupeRows(bundles.flatMap((b) => b.transfers || [])),
+        trades,
+        funding,
+        realizedPnl,
+        transfers,
         files: {},
       });
     } catch {
@@ -1288,18 +1312,27 @@
     varCsvScopeLoad();
     try {
       const acc = varAccountsLoad();
-      const id = varAccountsActiveId();
-      const slot = acc.slots[id];
-      const trades = slot?.csv?.trades;
-      const lastAt = trades && trades.length ? (trades[trades.length - 1]?.created_at || '') : '';
-      const key = [
-        _varCsvScope,
-        id,
-        slot?.importedAt || 0,
-        trades?.length || 0,
-        lastAt,
-        varOmniSlotIds(acc).length,
-      ].join(':');
+      const ids = varOmniSlotIds(acc);
+      let key;
+      if (_varCsvScope === 'all') {
+        key = 'all:' + ids.map((sid) => {
+          const s = acc.slots[sid];
+          const n = s?.csv?.trades?.length || 0;
+          return sid + ':' + (s?.importedAt || 0) + ':' + n;
+        }).join('|');
+      } else {
+        const id = varAccountsActiveId();
+        const slot = acc.slots[id];
+        const trades = slot?.csv?.trades;
+        const lastAt = trades && trades.length ? (trades[trades.length - 1]?.created_at || '') : '';
+        key = [
+          'active',
+          id,
+          slot?.importedAt || 0,
+          trades?.length || 0,
+          lastAt,
+        ].join(':');
+      }
       if (_varCsvViewMemo && _varCsvViewMemoKey === key) return _varCsvViewMemo;
       const bundle = _varCsvScope === 'all' ? varCsvLoadAll() : varCsvLoad();
       _varCsvViewMemo = bundle;
@@ -1315,6 +1348,9 @@
     _varOmniBookMemoTs = 0;
     _varCsvViewMemo = null;
     _varCsvViewMemoKey = '';
+    _varDashAnalyticsMemo = null;
+    _varDashAnalyticsMemoKey = '';
+    _varDashAnalyticsMemoTs = 0;
     varAccountsScheduleActivityRefresh();
     try { if (_varSub === 'points' || _varSub === 'lab') renderVarPoints(); } catch (_) {}
   }
@@ -1341,35 +1377,120 @@
     };
   }
 
-  function varPointsLoad() {
+  function varPointsNormalizeRaw(raw) {
+    if (!raw) return null;
+    return {
+      v: 1,
+      points_summary: raw.points_summary || null,
+      points_history: Array.isArray(raw.points_history) ? raw.points_history : [],
+      competition: raw.competition || null,
+      exported_at: raw.exported_at || null,
+      sourceFile: raw.sourceFile || null,
+      importedAt: raw.importedAt || null,
+    };
+  }
+
+  function varPointsHasData(raw) {
+    return !!(raw && (
+      raw.points_summary
+      || (Array.isArray(raw.points_history) && raw.points_history.length)
+      || raw.competition
+    ));
+  }
+
+  /** Sum Omni points across jambes when scope is Tous. */
+  function varPointsLoadAll() {
     try {
       const acc = varAccountsLoad();
-      const normalize = (raw) => {
-        if (!raw) return null;
-        return {
-          v: 1,
-          points_summary: raw.points_summary || null,
-          points_history: Array.isArray(raw.points_history) ? raw.points_history : [],
-          competition: raw.competition || null,
-          exported_at: raw.exported_at || null,
-          sourceFile: raw.sourceFile || null,
-          importedAt: raw.importedAt || null,
-        };
+      const parts = varOmniSlotIds(acc)
+        .map((id) => acc.slots[id]?.points)
+        .filter(varPointsHasData)
+        .map(varPointsNormalizeRaw)
+        .filter(Boolean);
+      if (!parts.length) {
+        const legacy = JSON.parse(localStorage.getItem(HS_VAR_POINTS_KEY) || 'null');
+        return varPointsHasData(legacy) ? varPointsNormalizeRaw(legacy) : null;
+      }
+      if (parts.length === 1) return parts[0];
+
+      let total = 0;
+      let selfPts = 0;
+      let refPts = 0;
+      let hasTotal = false;
+      let hasSelf = false;
+      let hasRef = false;
+      let importedAt = 0;
+      const histMap = new Map();
+
+      for (const p of parts) {
+        if (p.importedAt && p.importedAt > importedAt) importedAt = p.importedAt;
+        const s = p.points_summary || {};
+        const t = parseFloat(s.total_points ?? s.total);
+        const sf = parseFloat(s.self_points ?? s.self);
+        const rf = parseFloat(s.referral_points ?? s.referral);
+        if (isFinite(t)) { total += t; hasTotal = true; }
+        if (isFinite(sf)) { selfPts += sf; hasSelf = true; }
+        if (isFinite(rf)) { refPts += rf; hasRef = true; }
+        for (const row of (p.points_history || [])) {
+          if (!row || typeof row !== 'object') continue;
+          const key = String(row.epoch_id ?? row.epoch ?? row.week ?? row.created_at ?? JSON.stringify(row));
+          const prev = histMap.get(key);
+          if (!prev) {
+            histMap.set(key, { ...row });
+            continue;
+          }
+          const add = (a, b) => {
+            const x = parseFloat(a);
+            const y = parseFloat(b);
+            if (isFinite(x) && isFinite(y)) return x + y;
+            return isFinite(x) ? x : (isFinite(y) ? y : a);
+          };
+          histMap.set(key, {
+            ...prev,
+            ...row,
+            points: add(prev.points, row.points),
+            self_points: add(prev.self_points, row.self_points),
+            referral_points: add(prev.referral_points, row.referral_points),
+            volume: add(prev.volume, row.volume),
+          });
+        }
+      }
+
+      return {
+        v: 1,
+        points_summary: {
+          total_points: hasTotal ? total : null,
+          self_points: hasSelf ? selfPts : null,
+          referral_points: hasRef ? refPts : null,
+        },
+        points_history: Array.from(histMap.values()),
+        // Rank / competition are per-account — don't invent a merged place.
+        competition: null,
+        exported_at: null,
+        sourceFile: null,
+        importedAt: importedAt || Date.now(),
+        multiAccount: true,
       };
-      const hasPts = (raw) => !!(raw && (
-        raw.points_summary
-        || (Array.isArray(raw.points_history) && raw.points_history.length)
-        || raw.competition
-      ));
+    } catch {
+      return null;
+    }
+  }
+
+  function varPointsLoad() {
+    try {
+      varCsvScopeLoad();
+      if (_varCsvScope === 'all') return varPointsLoadAll();
+
+      const acc = varAccountsLoad();
       const active = acc.slots[varAccountsActiveId()]?.points;
-      if (hasPts(active)) return normalize(active);
+      if (varPointsHasData(active)) return varPointsNormalizeRaw(active);
       // Other jambes may hold the Omni points export while the active jambe is CSV-only.
       for (const id of varOmniSlotIds(acc)) {
         const p = acc.slots[id]?.points;
-        if (hasPts(p)) return normalize(p);
+        if (varPointsHasData(p)) return varPointsNormalizeRaw(p);
       }
       const legacy = JSON.parse(localStorage.getItem(HS_VAR_POINTS_KEY) || 'null');
-      if (hasPts(legacy)) return normalize(legacy);
+      if (varPointsHasData(legacy)) return varPointsNormalizeRaw(legacy);
       return null;
     } catch {
       return null;
