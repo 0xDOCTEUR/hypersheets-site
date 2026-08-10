@@ -9777,8 +9777,58 @@ try {
     top: 0;
     z-index: 40;
   }
+  html.hs-omni-standalone #hsOmniTopbar .hs-omni-brand {
+    grid-column: 2;
+    justify-self: center;
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    color: #fff;
+  }
+  html.hs-omni-standalone #hsOmniTopbar .hs-omni-brand-logo {
+    width: 34px;
+    height: 34px;
+    object-fit: contain;
+    flex-shrink: 0;
+    display: block;
+    background: transparent;
+    border: 0;
+    outline: none;
+    box-shadow: none;
+    border-radius: 0;
+  }
+  html.hs-omni-standalone #hsOmniTopbar .hs-omni-wordmark {
+    font-family: 'Raleway', system-ui, sans-serif;
+    font-size: clamp(1.2rem, 2.4vw, 1.65rem);
+    font-weight: 400;
+    letter-spacing: 0;
+    line-height: 1;
+    white-space: nowrap;
+    color: #fff;
+  }
+  html.hs-omni-standalone #hsOmniTopbar .hs-omni-wordmark .hs-brand-hyper,
+  html.hs-omni-standalone #hsOmniTopbar .hs-omni-wordmark .hs-brand-sheets,
+  html.hs-omni-standalone #hsOmniTopbar .hs-omni-wordmark .hs-brand-omni {
+    color: #fff;
+    background: none;
+    -webkit-background-clip: unset;
+    background-clip: unset;
+    -webkit-text-fill-color: #fff;
+  }
+  html.hs-omni-standalone #hsOmniTopbar .hs-omni-wordmark .hs-brand-hyper,
+  html.hs-omni-standalone #hsOmniTopbar .hs-omni-wordmark .hs-brand-sheets {
+    font-style: normal;
+    font-weight: 500;
+  }
+  html.hs-omni-standalone #hsOmniTopbar .hs-omni-wordmark .hs-brand-omni {
+    font-style: normal;
+    font-weight: 700;
+    margin-left: 0.28em;
+  }
   html.hs-omni-standalone #hsOmniTopbar .hs-omni-back {
-    justify-self: start;
+    grid-column: 3;
+    justify-self: end;
     display: inline-flex;
     align-items: center;
     gap: 8px;
@@ -9791,129 +9841,28 @@ try {
     white-space: nowrap;
     opacity: .92;
     transition: opacity .15s ease;
-    z-index: 1;
-  }
-  html.hs-omni-standalone #hsOmniTopbar .hs-omni-back::before {
-    content: '<';
-    font-weight: 400;
-    font-size: 15px;
-    line-height: 1;
-    opacity: .95;
   }
   html.hs-omni-standalone #hsOmniTopbar .hs-omni-back-label-short { display: none; }
   html.hs-omni-standalone #hsOmniTopbar .hs-omni-back:hover { opacity: 1; }
-  html.hs-omni-standalone #hsOmniTopbar .hs-omni-brand {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    min-width: 0;
-    justify-self: end;
-    z-index: 1;
-  }
-  html.hs-omni-standalone #hsOmniTopbar .hs-omni-home {
-    justify-self: center;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    color: #fff;
-    text-decoration: none;
-    font-family: 'Raleway', system-ui, sans-serif;
-    white-space: nowrap;
-    padding: 11px 34px;
-    border: 1px solid rgba(255,255,255,.55);
-    border-radius: 999px;
-    background: transparent;
-    transition: background .18s ease, border-color .18s ease;
-  }
-  html.hs-omni-standalone #hsOmniTopbar .hs-omni-home:hover {
-    background: rgba(255,255,255,.06);
-    border-color: #fff;
-  }
-  html.hs-omni-standalone #hsOmniTopbar .hs-omni-home-logo,
-  html.hs-omni-standalone #hsOmniTopbar .hs-omni-brand-logo {
-    object-fit: contain;
-    flex-shrink: 0;
-    display: block;
-    background: transparent;
-    border: 0;
-    outline: none;
-    box-shadow: none;
-    border-radius: 0;
-    filter: brightness(0) invert(1);
-  }
-  html.hs-omni-standalone #hsOmniTopbar .hs-omni-home-logo {
-    width: 22px;
-    height: 22px;
-  }
-  html.hs-omni-standalone #hsOmniTopbar .hs-omni-brand-logo {
-    width: 28px;
-    height: 28px;
-  }
-  html.hs-omni-standalone #hsOmniTopbar .hs-omni-home-wordmark {
-    font-size: clamp(0.95rem, 1.8vw, 1.15rem);
-    font-weight: 400;
-    letter-spacing: 0;
-    line-height: 1;
-    color: #fff;
-  }
-  html.hs-omni-standalone #hsOmniTopbar .hs-omni-home-wordmark .hs-brand-hyper,
-  html.hs-omni-standalone #hsOmniTopbar .hs-omni-home-wordmark .hs-brand-sheets,
-  html.hs-omni-standalone #hsOmniTopbar .hs-omni-wordmark .hs-brand-hyper,
-  html.hs-omni-standalone #hsOmniTopbar .hs-omni-wordmark .hs-brand-sheets,
-  html.hs-omni-standalone #hsOmniTopbar .hs-omni-wordmark .hs-brand-omni {
-    color: #fff;
-    background: none;
-    -webkit-background-clip: unset;
-    background-clip: unset;
-    -webkit-text-fill-color: #fff;
-  }
-  html.hs-omni-standalone #hsOmniTopbar .hs-omni-home-wordmark .hs-brand-hyper,
-  html.hs-omni-standalone #hsOmniTopbar .hs-omni-wordmark .hs-brand-hyper {
-    font-style: normal;
-    font-weight: 600;
-  }
-  html.hs-omni-standalone #hsOmniTopbar .hs-omni-home-wordmark .hs-brand-sheets,
-  html.hs-omni-standalone #hsOmniTopbar .hs-omni-wordmark .hs-brand-sheets {
-    font-style: italic;
-    font-weight: 400;
-  }
-  html.hs-omni-standalone #hsOmniTopbar .hs-omni-wordmark {
-    font-family: 'Raleway', system-ui, sans-serif;
-    font-size: clamp(1.05rem, 2vw, 1.35rem);
-    font-weight: 400;
-    letter-spacing: 0;
-    line-height: 1;
-    white-space: nowrap;
-    color: #fff;
-  }
-  html.hs-omni-standalone #hsOmniTopbar .hs-omni-wordmark .hs-brand-omni {
-    font-style: normal;
-    font-weight: 700;
-    margin-left: 0.28em;
-  }
   @media (max-width: 720px) {
     html.hs-omni-standalone #hsOmniTopbar {
       padding: 12px 14px;
-      min-height: 64px;
       gap: 8px;
     }
-    html.hs-omni-standalone #hsOmniTopbar .hs-omni-home {
-      padding: 8px 16px;
-      gap: 8px;
+    html.hs-omni-standalone #hsOmniTopbar .hs-omni-wordmark {
+      font-size: 1.1rem;
     }
-    html.hs-omni-standalone #hsOmniTopbar .hs-omni-brand .hs-omni-wordmark {
-      font-size: 1rem;
+    html.hs-omni-standalone #hsOmniTopbar .hs-omni-brand-logo {
+      width: 28px;
+      height: 28px;
     }
     html.hs-omni-standalone #hsOmniTopbar .hs-omni-back-label-full { display: none; }
     html.hs-omni-standalone #hsOmniTopbar .hs-omni-back-label-short { display: inline; }
   }
-  @media (max-width: 520px) {
-    html.hs-omni-standalone #hsOmniTopbar .hs-omni-brand .hs-omni-wordmark {
+  @media (max-width: 420px) {
+    html.hs-omni-standalone #hsOmniTopbar .hs-omni-wordmark .hs-brand-hyper,
+    html.hs-omni-standalone #hsOmniTopbar .hs-omni-wordmark .hs-brand-sheets {
       display: none;
-    }
-    html.hs-omni-standalone #hsOmniTopbar .hs-omni-home-wordmark {
-      font-size: 0.95rem;
     }
   }
   html.hs-omni-standalone #page-variational > .section-h {
@@ -32618,22 +32567,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('hsOmniTopbar')) return;
     var bar = document.createElement('div');
     bar.id = 'hsOmniTopbar';
-    bar.innerHTML = '<a class="hs-omni-back" href="/" title="Retour à Hypersheets">'
-      + '<span class="hs-omni-back-label-full">Retour à Hypersheets</span>'
-      + '<span class="hs-omni-back-label-short">Retour</span>'
-      + '</a>'
-      + '<a class="hs-omni-home" href="/" title="Hypersheets" aria-label="Retour sur Hypersheets">'
-      + '<img class="hs-omni-home-logo" src="../img/hypersheets-logo.png" alt="" width="22" height="22" decoding="async">'
-      + '<span class="hs-brand-wordmark hs-omni-home-wordmark" aria-hidden="true">'
-      + '<span class="hs-brand-hyper">Hyper</span><span class="hs-brand-sheets">sheets</span>'
-      + '</span>'
-      + '</a>'
-      + '<span class="hs-omni-brand">'
-      + '<img class="hs-omni-brand-logo" src="../img/hypersheets-logo.png" alt="" width="28" height="28" decoding="async">'
+    bar.innerHTML = '<span class="hs-omni-brand">'
+      + '<img class="hs-omni-brand-logo" src="../img/hypersheets-logo.png" alt="" width="34" height="34" decoding="async">'
       + '<span class="hs-brand-wordmark hs-omni-wordmark" aria-label="Hypersheets Omni">'
       + '<span class="hs-brand-hyper">Hyper</span><span class="hs-brand-sheets">sheets</span><span class="hs-brand-omni">Omni</span>'
       + '</span>'
-      + '</span>';
+      + '</span>'
+      + '<a class="hs-omni-back" href="/" title="Retour à Hypersheets">'
+      + '<span class="hs-omni-back-label-full">Retour à Hypersheets</span>'
+      + '<span class="hs-omni-back-label-short">Retour</span>'
+      + '</a>';
     var main = document.getElementById('mainContent') || document.getElementById('appShell') || document.body;
     main.insertBefore(bar, main.firstChild);
   }
