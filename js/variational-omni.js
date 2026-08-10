@@ -112,7 +112,7 @@
   let _varStatsCache = null;
   let _varStatsTime = 0;
   let _varHlFunding = null;
-  let _varSub = 'live';
+  let _varSub = 'dashboard';
   let _varPointsView = 'points';
   let _varEpochExpanded = new Set();
   let _varEpochMarketsOpen = new Set();
@@ -2769,10 +2769,18 @@
 
   function varNormalizeSub(sub) {
     const s = String(sub || '');
-    if (s === 'activity' || s === 'hedge') return 'live';
+    if (s === 'activity' || s === 'hedge' || s === 'live' || s === 'farm') return 'dashboard';
     if (s === 'overview' || s === 'trading' || s === 'history') return 'dashboard';
+    if (s === 'rank' || s === 'ranking') return 'classement';
+    if (s === 'track' || s === 'tracking' || s === 'farm-suivi') return 'suivi';
+    if (s === 'ext' || s === 'install') return 'extension';
     if (s === 'labs') return 'lab';
-    return s || 'live';
+    return s || 'dashboard';
+  }
+
+  function varIsLiveDashTab(sub) {
+    const t = sub == null ? _varSub : sub;
+    return t === 'dashboard' || t === 'live';
   }
 
   function varIsPointsTab(sub) {
@@ -2780,12 +2788,31 @@
   }
 
   function varIsMoreTab(sub) {
-    return sub === 'dashboard' || sub === 'lab' || sub === 'airdrop' || sub === 'points' || sub === 'competition';
+    return false;
   }
 
   function varCloseMoreMenu() {
     const menu = document.getElementById('varMoreMenu');
     if (menu) menu.open = false;
+  }
+
+  function varEnsureFarmVariaFrame(tab) {
+    const id = tab === 'classement' ? 'varClassementFrame' : 'varSuiviFrame';
+    const hash = tab === 'classement' ? '#classement' : '#suivi';
+    const frame = document.getElementById(id);
+    if (!frame) return;
+    const want = 'farm-varia.html?embed=1' + hash;
+    try {
+      const cur = String(frame.getAttribute('src') || '');
+      if (!cur.includes(hash.replace('#', '')) || !cur.includes('embed=1')) {
+        frame.src = want;
+      } else if (frame.contentWindow && frame.contentWindow.location) {
+        const h = String(frame.contentWindow.location.hash || '');
+        if (h !== hash) frame.contentWindow.location.hash = hash.slice(1) ? hash : hash;
+      }
+    } catch (_) {
+      frame.src = want;
+    }
   }
 
   function varSetSub(sub, el) {
@@ -2796,9 +2823,8 @@
     else if (tab === 'competition') _varPointsView = 'competition';
     else if (tab === 'points') _varPointsView = 'points';
 
-    // Farm is the only top-level tab; Tools uses #varMoreMenu.is-active
-    document.querySelectorAll('#page-variational .var-dash-nav .var-sub-tab[data-varsub="live"]').forEach(t => {
-      t.classList.toggle('active', tab === 'live');
+    document.querySelectorAll('#page-variational .var-dash-nav .var-sub-tab[data-varsub]').forEach(t => {
+      t.classList.toggle('active', t.dataset.varsub === tab);
     });
     const more = document.getElementById('varMoreMenu');
     if (more) {
@@ -2813,7 +2839,11 @@
     const radar = document.querySelector('#page-variational .var-sub-panel[data-varpanel="radar"]');
     const hedge = document.querySelector('#page-variational .var-sub-panel[data-varpanel="hedge"]');
     const overview = document.getElementById('varSecOverviewPanel');
+    const suivi = document.getElementById('varSecSuivi');
+    const classement = document.getElementById('varSecClassement');
+    const extension = document.getElementById('varSecExtension');
     const onboard = document.getElementById('varActivityOnboard');
+    const dashCta = document.getElementById('varDashExtCta');
     const actTable = document.getElementById('varActivityTable');
     const actKpiGrid = document.getElementById('varActVol') && document.getElementById('varActVol').closest('.grid');
     const pointsInner = document.querySelector('#page-variational .var-points-inner');
@@ -2824,13 +2854,16 @@
       if (pts) pts.style.display = 'none';
       if (radar) radar.style.display = 'none';
       if (hedge) hedge.style.display = 'none';
+      if (suivi) suivi.style.display = 'none';
+      if (classement) classement.style.display = 'none';
+      if (extension) extension.style.display = 'none';
     };
     hideAll();
 
     if (actTable) actTable.style.display = 'none';
     if (actKpiGrid) actKpiGrid.style.display = 'none';
 
-    if (tab === 'live') {
+    if (tab === 'dashboard' || tab === 'live') {
       if (act) act.style.display = 'block';
       if (hedge) hedge.style.display = 'none';
       const liveHead = act && act.querySelector(':scope > .border-b');
@@ -2839,23 +2872,36 @@
       try { varBindJsonDrop(); } catch (_) {}
       try { varUpdateOmniExtUi(); } catch (_) {}
       setTimeout(() => {
-        if (_varSub !== 'live') return;
+        if (_varSub !== 'dashboard') return;
         try { renderVarActivity(); } catch (_) {}
         varRefreshHlPositionsLight().then(() => {
-          if (_varSub === 'live') {
+          if (_varSub === 'dashboard') {
             try { varRenderLiveDashboard(); } catch (_) {}
           }
         }).catch(() => {});
       }, 0);
-    } else if (tab === 'dashboard') {
+    } else if (tab === 'suivi') {
+      if (suivi) suivi.style.display = 'block';
+      varStopHedgeLivePoll();
+      varEnsureFarmVariaFrame('suivi');
+    } else if (tab === 'classement') {
+      if (classement) classement.style.display = 'block';
+      varStopHedgeLivePoll();
+      varEnsureFarmVariaFrame('classement');
+    } else if (tab === 'extension') {
+      if (extension) extension.style.display = 'block';
+      if (onboard) onboard.style.display = '';
+      varStopHedgeLivePoll();
+      try { varUpdateOmniExtUi(); } catch (_) {}
+    } else if (tab === 'history' || tab === 'overview') {
       if (overview) overview.style.display = 'block';
       if (hedge) hedge.style.display = 'none';
       if (onboard) onboard.style.display = 'none';
+      if (dashCta) dashCta.style.display = 'none';
       const ready = document.getElementById('varLiveReady');
       if (ready) { ready.style.display = 'none'; ready.hidden = true; }
       const dashEl = document.getElementById('varDash');
       if (dashEl) dashEl.style.display = '';
-      // Hide redundant overview hero KPIs — Live already shows trading KPIs.
       const hero = document.getElementById('varUserHeroKpis');
       if (hero) hero.style.display = 'none';
       const overviewLead = document.querySelector('#varSecOverview .var-overview-lead');
@@ -2870,7 +2916,6 @@
       const ready = document.getElementById('varLiveReady');
       if (ready) { ready.style.display = 'none'; ready.hidden = true; }
       if (pointsInner) {
-        // Inner pills only for Points ↔ Competition; Lab/Airdrop stay under More.
         const showInner = tab === 'points' || tab === 'competition';
         pointsInner.hidden = !showInner;
         pointsInner.style.display = showInner ? '' : 'none';
@@ -2886,13 +2931,17 @@
 
     try {
       const hashMap = {
+        dashboard: '#var-omni-live',
         live: '#var-omni-live',
+        suivi: '#var-suivi',
+        classement: '#var-classement',
+        extension: '#var-extension',
         points: '#var-points',
         lab: '#var-lab',
         competition: '#var-competition',
         airdrop: '#var-airdrop',
         radar: '#var-radar',
-        dashboard: '#var-history',
+        history: '#var-history',
       };
       const nextHash = hashMap[tab];
       if (nextHash && location.hash !== nextHash) {
@@ -6160,10 +6209,10 @@
   function renderVarActivity() {
     varBindJsonDrop();
     varUpdateOmniExtUi();
-    // Omni Live: paint extension/onboard chrome first; rebuild slots + KPIs next tick.
-    if (_varSub === 'live') {
+    // Omni Live dashboard: paint extension/onboard chrome first; rebuild slots + KPIs next tick.
+    if (varIsLiveDashTab()) {
       setTimeout(() => {
-        if (_varSub !== 'live') return;
+        if (!varIsLiveDashTab()) return;
         try { varRenderOmniSlotsUi(); } catch (_) {}
         try { varRenderLiveDashboard(); } catch (_) {}
       }, 0);
@@ -6175,7 +6224,6 @@
     try { varRenderLiveDashboard(); } catch (_) {}
     varRenderCsvImportStatus(bundle);
     varRenderJsonMeta(points);
-    if (_varSub === 'dashboard') renderVarDash();
     try { renderVarUserHeroKpis(); } catch (_) {}
 
     const agg = bundle ? aggregateVarCsv(bundle) : null;
@@ -6387,10 +6435,10 @@
         switchPage('variational', tab || undefined);
       }
     } catch (_) {}
-    try { varSetSub('live', null); } catch (_) {}
+    try { varSetSub('dashboard', null); } catch (_) {}
     try { renderVarActivity(); } catch (_) {}
     try {
-      if (_varSub === 'live') varRenderLiveDashboard();
+      if (varIsLiveDashTab()) varRenderLiveDashboard();
     } catch (_) {}
   }
 
@@ -6469,8 +6517,8 @@
         const pts = varPointsLoad();
         if (pts && (pts.points_summary || pts.competition)) {
           // Keep Omni Live after sync/import — do not bounce to #var-dashboard.
-          const tab = document.querySelector('#page-variational .var-sub-tab[data-varsub="live"]');
-          varSetSub('live', tab || null);
+          const tab = document.querySelector('#page-variational .var-sub-tab[data-varsub="dashboard"]');
+          varSetSub('dashboard', tab || null);
         }
       } catch (_) {}
     } else if (typeof toast === 'function') {
@@ -6621,7 +6669,7 @@
       window.__hsVarLiveMarkKick = 1;
       varRefreshOmniMarksOnly().then((ok) => {
         window.__hsVarLiveMarkKick = 0;
-        if (ok && _varSub === 'live') {
+        if (ok && varIsLiveDashTab()) {
           try { varRenderLiveDashboard(); } catch (_) {}
         }
       }).catch(() => { window.__hsVarLiveMarkKick = 0; });
@@ -6852,7 +6900,7 @@
         clearTimeout(_varOmniExtPongTimer);
         _varOmniExtPongTimer = setTimeout(() => {
           varUpdateOmniExtUi();
-          if (changed && _varSub === 'live' && _varOmniExtInstalled) {
+          if (changed && varIsLiveDashTab() && _varOmniExtInstalled) {
             try { varRenderLiveDashboard(); } catch (_) {}
           }
         }, 60);
@@ -6929,11 +6977,15 @@
     if (status) status.textContent = statusText;
     if (statusGuide) statusGuide.textContent = statusText;
 
-    // Guide when extension is missing AND no CSV/JSON yet; otherwise show Live dashboard.
-    const onLive = _varSub === 'live';
+    // Guide CTA on Dashboard when extension is missing AND no CSV/JSON yet; otherwise show Live dashboard.
+    const onLive = varIsLiveDashTab();
     const hasImport = varHasAnyOmniCsv();
+    const dashCta = document.getElementById('varDashExtCta');
+    if (dashCta) {
+      dashCta.style.display = onLive && !_varOmniExtInstalled && !hasImport ? '' : 'none';
+    }
     if (onboard) {
-      onboard.style.display = onLive && !_varOmniExtInstalled && !hasImport ? '' : 'none';
+      onboard.style.display = _varSub === 'extension' ? '' : 'none';
     }
     if (ready) {
       const showReady = onLive && (_varOmniExtInstalled || hasImport);
@@ -6943,7 +6995,7 @@
   }
 
   function varFocusOmniImport() {
-    try { varSetSub('live', null); } catch (_) {}
+    try { varSetSub('dashboard', null); } catch (_) {}
     varUpdateOmniExtUi();
     const hasImport = varHasAnyOmniCsv();
     const target = (_varOmniExtInstalled || hasImport)
@@ -7603,8 +7655,12 @@
         '#var-competition': 'competition',
         '#var-airdrop': 'airdrop',
         '#var-lab': 'lab',
-        '#var-omni-live': 'live',
-        '#var-omni-import': 'live',
+        '#var-omni-live': 'dashboard',
+        '#var-omni-import': 'dashboard',
+        '#var-suivi': 'suivi',
+        '#var-classement': 'classement',
+        '#classement': 'classement',
+        '#var-extension': 'extension',
         '#var-radar': 'radar',
       })[h];
       if (hashTab) {
@@ -7623,7 +7679,7 @@
     varBindLegForm();
     varInitLegTickerPicker();
     varBindJsonDrop();
-    const bootSub = varNormalizeSub(_varSub || 'live');
+    const bootSub = varNormalizeSub(_varSub || 'dashboard');
     varSetSub(bootSub, null);
 
     if (_varInitInFlight && !force) return _varInitInFlight;

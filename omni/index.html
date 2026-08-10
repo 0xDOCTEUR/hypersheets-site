@@ -10496,17 +10496,10 @@ try {
     <div class="surface overflow-hidden mb-6" id="varDashboard">
       <div class="px-5 py-3 border-b flex items-center justify-between flex-wrap gap-3 var-dash-sticky-nav" style="border-color:var(--border);position:sticky;top:0;z-index:20;background:var(--surface, #0b0d14)">
         <div class="var-dash-nav" role="navigation" aria-label="Variational">
-          <span class="var-sub-tab active" data-varsub="live" onclick="varSetSub('live',this)" data-i18n="var.subFarm">Farm</span>
-          <details class="var-more-menu" id="varMoreMenu">
-            <summary class="var-sub-tab" data-i18n="var.subTools">Outils</summary>
-            <div class="var-more-menu-panel" role="menu">
-              <button type="button" role="menuitem" data-varsub="points" onclick="varSetSub('points',this);varCloseMoreMenu()" data-i18n="var.subPoints">Points</button>
-              <button type="button" role="menuitem" data-varsub="competition" onclick="varSetSub('competition',this);varCloseMoreMenu()" data-i18n="var.subCompetition">Competition</button>
-              <button type="button" role="menuitem" data-varsub="dashboard" onclick="varSetSub('dashboard',this);varCloseMoreMenu()" data-i18n="var.subHistory">History</button>
-              <button type="button" role="menuitem" data-varsub="lab" onclick="varSetSub('lab',this);varCloseMoreMenu()" data-i18n="var.subLab">Lab</button>
-              <button type="button" role="menuitem" data-varsub="airdrop" onclick="varSetSub('airdrop',this);varCloseMoreMenu()" data-i18n="var.subAirdrop">Airdrop</button>
-            </div>
-          </details>
+          <span class="var-sub-tab active" data-varsub="dashboard" onclick="varSetSub('dashboard',this)" data-i18n="var.subDashboard">Dashboard</span>
+          <span class="var-sub-tab" data-varsub="suivi" onclick="varSetSub('suivi',this)" data-i18n="var.subSuivi">Suivi</span>
+          <span class="var-sub-tab" data-varsub="classement" onclick="varSetSub('classement',this)" data-i18n="var.subClassement">Classement</span>
+          <span class="var-sub-tab" data-varsub="extension" onclick="varSetSub('extension',this)" data-i18n="var.subExtension">Extension</span>
         </div>
       </div>
 
@@ -10688,10 +10681,20 @@ try {
         </div>
       </div>
 
-<div class="var-sub-panel" data-varpanel="activity" id="varSecLive" style="order:1;display:none;border-top:1px solid var(--border)">
-        <div class="px-5 py-4 border-b" style="border-color:var(--border)">
-          <div class="section-h mb-2"><span class="bar" style="background:var(--accent)"></span><span data-i18n="var.farmTitle">Farm overview</span></div>
-          <p class="var-farm-lead" data-i18n="var.farmLead">Points, volume, PnL et positions Omni ↔ HL — une seule vue pour ton farming.</p>
+<div class="var-sub-panel" data-varpanel="suivi" id="varSecSuivi" style="order:2;display:none;border-top:1px solid var(--border)">
+        <div class="px-2 py-2" style="min-height:70vh">
+          <iframe id="varSuiviFrame" title="Suivi farming Variational" src="farm-varia.html?embed=1#suivi" style="width:100%;min-height:78vh;border:0;border-radius:12px;background:transparent" loading="lazy"></iframe>
+        </div>
+      </div>
+      <div class="var-sub-panel" data-varpanel="classement" id="varSecClassement" style="order:3;display:none;border-top:1px solid var(--border)">
+        <div class="px-2 py-2" style="min-height:70vh">
+          <iframe id="varClassementFrame" title="Classement points Variational" src="farm-varia.html?embed=1#classement" style="width:100%;min-height:78vh;border:0;border-radius:12px;background:transparent" loading="lazy"></iframe>
+        </div>
+      </div>
+      <div class="var-sub-panel" data-varpanel="extension" id="varSecExtension" style="order:4;display:none;border-top:1px solid var(--border)">
+        <div class="px-5 py-5">
+          <div class="section-h mb-2"><span class="bar" style="background:var(--accent)"></span><span data-i18n="var.subExtension">Extension</span></div>
+          <p class="var-farm-lead" data-i18n="var.onboardBodyShort">Installe → collecte sur Omni → sync ici. Les données restent locales.</p>
           <div class="var-onboard" id="varActivityOnboard">
             <div class="var-onboard-compact">
               <div class="var-onboard-copy">
@@ -10699,12 +10702,12 @@ try {
                 <p data-i18n="var.onboardBodyShort">Installe → collecte sur Omni → sync ici. Les données restent locales.</p>
               </div>
               <div class="var-onboard-actions">
-                <a class="btn btn-ac" href="downloads/Hypersheets%20Omni%20Live.zip" download="Hypersheets Omni Live.zip" data-i18n="var.extDownload">Télécharger</a>
+                <a class="btn btn-ac" href="../downloads/Hypersheets%20Omni%20Live.zip" download="Hypersheets Omni Live.zip" data-i18n="var.extDownload">Télécharger</a>
                 <a class="btn btn-ghost" href="https://omni.variational.io/?ref=OMNILGUPC6GM" target="_blank" rel="noopener noreferrer" data-i18n="var.onboardLink">Omni ↗</a>
                 <button type="button" class="btn btn-ghost" id="varOmniPosBtnGuide" onclick="varRefreshOmniFromLocal()" data-i18n="var.extSyncPositions">Rafraîchir</button>
               </div>
             </div>
-            <details class="var-onboard-details" id="varOnboardDetails">
+            <details class="var-onboard-details" id="varOnboardDetails" open>
               <summary data-i18n="var.onboardHow">Comment installer ?</summary>
               <ol class="var-guide-steps" style="margin-top:10px">
                 <li class="var-guide-step">
@@ -10723,6 +10726,25 @@ try {
               </ol>
             </details>
             <p class="var-guide-credit" style="margin-top:8px" data-i18n="var.onboardCredit">Not affiliated with Variational Protocol. Live marks use the public /metadata/stats API only.</p>
+          </div>
+        </div>
+      </div>
+
+<div class="var-sub-panel" data-varpanel="activity" id="varSecLive" style="order:1;display:none;border-top:1px solid var(--border)">
+        <div class="px-5 py-4 border-b" style="border-color:var(--border)">
+          <div class="section-h mb-2"><span class="bar" style="background:var(--accent)"></span><span data-i18n="var.farmTitle">Farm overview</span></div>
+          <p class="var-farm-lead" data-i18n="var.farmLead">Points, volume, PnL et positions Omni ↔ HL — une seule vue pour ton farming.</p>
+          <div class="var-onboard var-onboard-dash-cta" id="varDashExtCta" style="display:none">
+            <div class="var-onboard-compact">
+              <div class="var-onboard-copy">
+                <strong data-i18n="var.onboardTitle">Extension Chrome requise</strong>
+                <p data-i18n="var.onboardBodyShort">Installe → collecte sur Omni → sync ici. Les données restent locales.</p>
+              </div>
+              <div class="var-onboard-actions">
+                <button type="button" class="btn btn-ac" onclick="varSetSub('extension',null)" data-i18n="var.subExtension">Extension</button>
+                <a class="btn btn-ghost" href="https://omni.variational.io/?ref=OMNILGUPC6GM" target="_blank" rel="noopener noreferrer" data-i18n="var.onboardLink">Omni ↗</a>
+              </div>
+            </div>
           </div>
 
           <div id="varLiveReady" class="var-live-ready" style="display:none" hidden>
@@ -11684,7 +11706,10 @@ const I18N = {
     'var.subHedge': 'Delta-neutral',
     'var.subActivity': 'Live',
     'var.subLive': 'Live',
-    'var.subDashboard': 'History',
+    'var.subDashboard': 'Dashboard',
+    'var.subSuivi': 'Tracking',
+    'var.subClassement': 'Leaderboard',
+    'var.subExtension': 'Extension',
     'var.subHistory': 'History',
     'var.subMore': 'More',
     'var.subOverview': 'Overview',
@@ -12803,7 +12828,10 @@ const I18N = {
     'var.subHedge': 'Delta-neutral',
     'var.subActivity': 'Live',
     'var.subLive': 'Live',
-    'var.subDashboard': 'Historique',
+    'var.subDashboard': 'Dashboard',
+    'var.subSuivi': 'Suivi',
+    'var.subClassement': 'Classement',
+    'var.subExtension': 'Extension',
     'var.subHistory': 'Historique',
     'var.subMore': 'Plus',
     'var.subOverview': 'Overview',
@@ -32440,7 +32468,7 @@ document.addEventListener('DOMContentLoaded', () => {
   </div>
 </div>
 <script src="../js/variational-omni-collector.js"></script>
-<script src="../js/variational-omni.js?v=20260807a"></script>
+<script src="../js/variational-omni.js?v=20260810tabs"></script>
 <script>
 (function hsLoadCfWebAnalytics() {
   var token = (typeof HS_CONFIG !== 'undefined' && HS_CONFIG.cfWebAnalyticsToken) || '';
