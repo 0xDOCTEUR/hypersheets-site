@@ -2770,13 +2770,22 @@
   function varNormalizeSub(sub) {
     const s = String(sub || '');
     if (s === 'activity' || s === 'hedge') return 'live';
-    if (s === 'overview' || s === 'trading') return 'dashboard';
+    if (s === 'overview' || s === 'trading' || s === 'history') return 'dashboard';
     if (s === 'labs') return 'lab';
     return s || 'live';
   }
 
   function varIsPointsTab(sub) {
     return sub === 'points' || sub === 'lab' || sub === 'competition' || sub === 'airdrop';
+  }
+
+  function varIsMoreTab(sub) {
+    return sub === 'dashboard' || sub === 'lab' || sub === 'airdrop' || sub === 'points' || sub === 'competition';
+  }
+
+  function varCloseMoreMenu() {
+    const menu = document.getElementById('varMoreMenu');
+    if (menu) menu.open = false;
   }
 
   function varSetSub(sub, el) {
@@ -2787,10 +2796,17 @@
     else if (tab === 'competition') _varPointsView = 'competition';
     else if (tab === 'points') _varPointsView = 'points';
 
-    document.querySelectorAll('#page-variational .var-dash-nav .var-sub-tab').forEach(t => {
-      const on = t.dataset.varsub === tab;
-      t.classList.toggle('active', on);
+    // Farm is the only top-level tab; Tools uses #varMoreMenu.is-active
+    document.querySelectorAll('#page-variational .var-dash-nav .var-sub-tab[data-varsub="live"]').forEach(t => {
+      t.classList.toggle('active', tab === 'live');
     });
+    const more = document.getElementById('varMoreMenu');
+    if (more) {
+      more.classList.toggle('is-active', varIsMoreTab(tab));
+      more.querySelectorAll('[data-varsub]').forEach(btn => {
+        btn.classList.toggle('is-on', btn.dataset.varsub === tab);
+      });
+    }
 
     const act = document.querySelector('#page-variational .var-sub-panel[data-varpanel="activity"]');
     const pts = document.querySelector('#page-variational .var-sub-panel[data-varpanel="points"]');
@@ -2798,9 +2814,9 @@
     const hedge = document.querySelector('#page-variational .var-sub-panel[data-varpanel="hedge"]');
     const overview = document.getElementById('varSecOverviewPanel');
     const onboard = document.getElementById('varActivityOnboard');
-    const dash = document.getElementById('varDash');
     const actTable = document.getElementById('varActivityTable');
     const actKpiGrid = document.getElementById('varActVol') && document.getElementById('varActVol').closest('.grid');
+    const pointsInner = document.querySelector('#page-variational .var-points-inner');
 
     const hideAll = () => {
       if (overview) overview.style.display = 'none';
@@ -2820,7 +2836,6 @@
       const liveHead = act && act.querySelector(':scope > .border-b');
       if (liveHead) liveHead.style.display = '';
       varStopHedgeLivePoll();
-      // Cheap chrome first — defer CSV analytics / book rebuild off the click path.
       try { varBindJsonDrop(); } catch (_) {}
       try { varUpdateOmniExtUi(); } catch (_) {}
       setTimeout(() => {
@@ -2840,17 +2855,26 @@
       if (ready) { ready.style.display = 'none'; ready.hidden = true; }
       const dashEl = document.getElementById('varDash');
       if (dashEl) dashEl.style.display = '';
+      // Hide redundant overview hero KPIs — Live already shows trading KPIs.
+      const hero = document.getElementById('varUserHeroKpis');
+      if (hero) hero.style.display = 'none';
+      const overviewLead = document.querySelector('#varSecOverview .var-overview-lead');
+      if (overviewLead) overviewLead.style.display = 'none';
       varStopHedgeLivePoll();
-      // Defer full OI/chart rebuild so tab switch stays responsive.
       setTimeout(() => {
         try { renderVarDash(); } catch (_) {}
-        try { renderVarUserHeroKpis(); } catch (_) {}
       }, 0);
     } else if (varIsPointsTab(tab)) {
       if (pts) pts.style.display = 'block';
       if (onboard) onboard.style.display = 'none';
       const ready = document.getElementById('varLiveReady');
       if (ready) { ready.style.display = 'none'; ready.hidden = true; }
+      if (pointsInner) {
+        // Inner pills only for Points ↔ Competition; Lab/Airdrop stay under More.
+        const showInner = tab === 'points' || tab === 'competition';
+        pointsInner.hidden = !showInner;
+        pointsInner.style.display = showInner ? '' : 'none';
+      }
       renderVarPoints();
       if (tab === 'airdrop') {
         try { renderVarAirdrop(); } catch (_) {}
@@ -2868,17 +2892,11 @@
         competition: '#var-competition',
         airdrop: '#var-airdrop',
         radar: '#var-radar',
+        dashboard: '#var-history',
       };
-      if (tab === 'dashboard') {
-        // Never keep #var-dashboard in the address bar (it stuck on HL / XYZ too).
-        if (String(location.hash || '').startsWith('#var-')) {
-          history.replaceState(null, '', location.pathname + location.search);
-        }
-      } else {
-        const nextHash = hashMap[tab];
-        if (nextHash && location.hash !== nextHash) {
-          history.replaceState(null, '', nextHash);
-        }
+      const nextHash = hashMap[tab];
+      if (nextHash && location.hash !== nextHash) {
+        history.replaceState(null, '', nextHash);
       }
     } catch (_) {}
 
@@ -4403,6 +4421,104 @@
       const scoreSub = document.getElementById('varCompScoreSub');
       if (scoreSub) scoreSub.textContent = '';
     }
+    try { varRenderFarmScore(points); } catch (_) {}
+  }
+
+  /** Farm overview score strip (self / rank / ref / competition). */
+  function varRenderFarmScore(points) {
+    if (!document.getElementById('varFarmScore')) return;
+    const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+    const pts = points || varPointsLoad();
+    const sum = pts?.points_summary;
+    const self = pts?.competition && !Array.isArray(pts.competition)
+      ? pts.competition.self
+      : null;
+    if (!sum) {
+      set('varFarmSelfPts', '—');
+      set('varFarmRank', '—');
+      set('varFarmRefPts', '—');
+      set('varFarmCompPlace', '—');
+      set('varFarmSelfPtsSub', '');
+      set('varFarmRankSub', '');
+      set('varFarmCompPlaceSub', '');
+    } else {
+      set('varFarmSelfPts', varFmtPoints(sum.self_points));
+      set('varFarmRank', sum.rank != null ? '#' + Number(sum.rank).toLocaleString(varLoc()) : '—');
+      set('varFarmRefPts', varFmtPoints(sum.referral_points));
+      const hist = pts.points_history || [];
+      set('varFarmSelfPtsSub', hist.length
+        ? varT('var.farmEpochsCount').replace('{n}', String(hist.length))
+        : '');
+      set('varFarmRankSub', sum.total_points != null
+        ? varT('var.farmTotalPts').replace('{n}', varFmtPoints(sum.total_points))
+        : '');
+    }
+    if (self) {
+      const place = self.place != null ? self.place : self.rank;
+      set('varFarmCompPlace', place != null ? '#' + Number(place).toLocaleString(varLoc()) : '—');
+      const score = parseFloat(self.score);
+      set('varFarmCompPlaceSub', isFinite(score)
+        ? varT('var.kpiCompSub').replace('{score}', varFmtCompScore(score))
+        : (self.name || ''));
+    } else {
+      set('varFarmCompPlace', '—');
+      set('varFarmCompPlaceSub', '');
+    }
+  }
+
+  /** Compact recent epochs on Farm overview. */
+  function varRenderFarmEpochMini() {
+    const el = document.getElementById('varFarmEpochMini');
+    const panel = document.getElementById('varFarmEpochsPanel');
+    if (!el) return;
+    const points = varPointsLoad();
+    const bundle = varCsvLoadForView();
+    const hasPts = !!(points?.points_summary || (points?.points_history && points.points_history.length));
+    const hasTrades = !!(bundle?.trades && bundle.trades.length);
+    if (!hasPts && !hasTrades) {
+      el.innerHTML = `<div class="var-pos-empty">${varEsc(varT('var.farmEpochsEmpty'))}</div>`;
+      if (panel) panel.style.display = '';
+      return;
+    }
+    let rows = [];
+    try { rows = varBuildEpochRows(points, bundle).slice(0, 5); } catch (_) { rows = []; }
+    if (!rows.length) {
+      el.innerHTML = `<div class="var-pos-empty">${varEsc(varT('var.farmEpochsEmpty'))}</div>`;
+      return;
+    }
+    el.innerHTML = `<div class="var-farm-epoch-mini">${rows.map((r) => {
+      const label = varEpochRangeLabel(r.start, r.end);
+      let badge = '';
+      if (r.inProgress) badge = varT('var.epochInProgress');
+      else if (r.finalising) {
+        const left = r.finalisingUntil != null ? varFmtCountdown(r.finalisingUntil - Date.now()) : '';
+        badge = left
+          ? varT('var.epochFinalising').replace('{time}', left)
+          : varT('var.epochInProgress');
+      } else if (r.estimated) badge = '~';
+      const stats = varEpochWindowSummary(bundle, r.start, r.end);
+      const vol = stats.volume > 0 ? varFmtCompactUsd(stats.volume) : '—';
+      const ptsCls = r.self > 0 ? '' : 'muted';
+      return `<div class="var-farm-epoch-row">
+        <div>
+          <strong>${varEsc(label)}</strong>
+          ${badge ? `<div class="muted">${varEsc(badge)}</div>` : ''}
+        </div>
+        <div class="text-right mono ${ptsCls}">
+          <strong>${varFmtPoints(r.self)}</strong>
+          <div class="muted">${varEsc(varT('var.epochSelf'))}</div>
+        </div>
+        <div class="text-right mono">
+          ${vol}
+          <div class="muted">${varEsc(varT('var.epochVolume'))}</div>
+        </div>
+      </div>`;
+    }).join('')}</div>`;
+  }
+
+  function varRenderFarmOverview() {
+    try { varRenderFarmScore(varPointsLoad()); } catch (_) {}
+    try { varRenderFarmEpochMini(); } catch (_) {}
   }
 
   function varEpochDateShort(ts) {
@@ -6207,7 +6323,7 @@
   function varCollectorHref() {
     let logo = 'https://hypersheets.xyz/img/hypersheets-logo.png';
     try { logo = new URL('img/hypersheets-logo.png', location.href).href; } catch (_) {}
-    let appUrl = 'https://hypersheets.xyz/#var-omni-import';
+    let appUrl = 'https://hypersheets.xyz/omni/#var-omni-import';
     try {
       const u = new URL(location.href);
       u.hash = 'var-omni-import';
@@ -6715,6 +6831,8 @@
         </tr></thead><tbody>${body}</tbody></table>`;
       }
     }
+
+    try { varRenderFarmOverview(); } catch (_) {}
   }
 
   function varInitOmniExtBridge() {
@@ -7460,7 +7578,7 @@
       .replace('{fdv}', varFmtCompactUsd(metrics.fdv))
       .replace('{share}', inputs.sharePct.toFixed(1))
       .replace('{total}', varFmtPtsMillions(inputs.totalPtsM));
-    const url = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(text + ' https://hypersheets.xyz');
+    const url = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(text + ' https://hypersheets.xyz/omni');
     window.open(url, '_blank', 'noopener,noreferrer');
   }
 
@@ -7479,6 +7597,7 @@
       const h = String(location.hash || '');
       const hashTab = ({
         '#var-dashboard': 'dashboard',
+        '#var-history': 'dashboard',
         '#var-overview': 'dashboard',
         '#var-points': 'points',
         '#var-competition': 'competition',
@@ -7544,6 +7663,7 @@
   window.varRadarOpenHedge = varRadarOpenHedge;
   window.varHedgeUseLiveOmni = varHedgeUseLiveOmni;
   window.varSetSub = varSetSub;
+  window.varCloseMoreMenu = varCloseMoreMenu;
   window.renderVarRadar = renderVarRadar;
   window.renderVarHedge = renderVarHedge;
   window.renderVarActivity = renderVarActivity;
