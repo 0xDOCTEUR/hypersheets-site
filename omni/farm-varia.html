@@ -3,20 +3,15 @@
 <script>
 (function(){
   try {
-    var t = localStorage.getItem('farm-varia-theme') || 'light';
-    document.documentElement.setAttribute('data-theme', t === 'dark' ? 'dark' : 'light');
-  } catch (e) {}
-})();
-</script>
-<head>
-<!-- hs-fv-embed -->
-<script>
-(function(){
-  try {
     var q = new URLSearchParams(location.search||'');
-    if (q.get('embed') === '1' || window.parent !== window) {
+    var embed = q.get('embed') === '1' || window.parent !== window;
+    if (embed) {
       document.documentElement.classList.add('hs-fv-embed');
       document.documentElement.setAttribute('data-theme', 'dark');
+      try { localStorage.setItem('farm-varia-theme', 'dark'); } catch (e2) {}
+    } else {
+      var t = localStorage.getItem('farm-varia-theme') || 'light';
+      document.documentElement.setAttribute('data-theme', t === 'dark' ? 'dark' : 'light');
     }
   } catch (e) {
     document.documentElement.classList.add('hs-fv-embed');
@@ -24,8 +19,41 @@
   }
 })();
 </script>
+<head>
 <style>
-  /* Embed: no blue logo frame — logo sits clean on the page chrome */
+  /* Embed: force opaque dark shell — never transparent (iframe paints white) */
+  html.hs-fv-embed,
+  html.hs-fv-embed[data-theme="dark"],
+  html.hs-fv-embed[data-theme="light"] {
+    --bg0: #0b1220 !important;
+    --bg1: #0f1624 !important;
+    --glow-a: rgba(76, 154, 248, 0.12) !important;
+    --glow-b: rgba(37, 99, 235, 0.08) !important;
+    --ink: #e8eef7 !important;
+    --muted: #9aa8bc !important;
+    --line: rgba(232, 238, 247, 0.14) !important;
+    --card: #161e2c !important;
+    --card-soft: #121a28 !important;
+    --accent: #4c9af8 !important;
+    --accent-2: #6eb0ff !important;
+    --accent-soft: rgba(76, 154, 248, 0.16) !important;
+    --accent-text: #0b1220 !important;
+    --bad: #f07167 !important;
+    --good: #4c9af8 !important;
+    --w0f: #6db4f0 !important;
+    --wc6: #e0a06a !important;
+    --whl: #b39ddb !important;
+    --th-bg: #121a28 !important;
+    --row-total: rgba(76, 154, 248, 0.14) !important;
+    --shadow: none !important;
+    --radius: 14px !important;
+    --chart-grid: rgba(232, 238, 247, 0.12) !important;
+    --chart-pos: #4c9af8 !important;
+    --chart-neg: #f07167 !important;
+    --chart-label: #9aa8bc !important;
+    color-scheme: dark;
+    background: #0b1220 !important;
+  }
   html.hs-fv-embed .brand-logo {
     border: 0 !important;
     background: transparent !important;
@@ -35,138 +63,110 @@
   html.hs-fv-embed header,
   html.hs-fv-embed .page-nav { display: none !important; }
   html.hs-fv-embed .brand-lockup { display: none !important; }
-  html.hs-fv-embed body { background: transparent !important; }
-  html.hs-fv-embed .wrap { max-width: none; padding: 4px 2px 20px; }
-  html.hs-fv-embed .setup { margin-top: 0; }
-
-  /* Embed polish — align with Omni shell */
-  html.hs-fv-embed {
-    --bg0: transparent;
-    --bg1: transparent;
-    --card: rgba(255,255,255,.035);
-    --card-soft: rgba(255,255,255,.025);
-    --line: rgba(255,255,255,.1);
-    --ink: #e8eef7;
-    --muted: rgba(232,238,247,.62);
-    --accent: #4c9af8;
-    --accent-2: #6eb0ff;
-    --accent-soft: rgba(76,154,248,.14);
-    --th-bg: rgba(0,0,0,.28);
-    --shadow: none;
-    --radius: 14px;
+  html.hs-fv-embed,
+  html.hs-fv-embed body {
+    background: #0b1220 !important;
+    color: #e8eef7 !important;
   }
+  html.hs-fv-embed body {
+    background:
+      radial-gradient(900px 420px at 10% -10%, rgba(76,154,248,.1), transparent 55%),
+      #0b1220 !important;
+  }
+  html.hs-fv-embed .wrap { max-width: none; padding: 8px 6px 28px; }
+  html.hs-fv-embed .setup { margin-top: 0; }
   html.hs-fv-embed .hero,
   html.hs-fv-embed .lede { display: none !important; }
-  html.hs-fv-embed .panel,
+
+  html.hs-fv-embed .kpi,
   html.hs-fv-embed .card,
   html.hs-fv-embed .table-wrap,
-  html.hs-fv-embed .lb-card,
-  html.hs-fv-embed .kpi-grid .kpi {
-    border-radius: var(--radius);
-    border-color: var(--line);
-    background: var(--card);
-    box-shadow: none;
+  html.hs-fv-embed .wallet,
+  html.hs-fv-embed .setup,
+  html.hs-fv-embed .drop,
+  html.hs-fv-embed .rank-board .rb-kpi {
+    background: #161e2c !important;
+    border: 1px solid rgba(232,238,247,.12) !important;
+    border-radius: 14px !important;
+    box-shadow: none !important;
+    color: #e8eef7 !important;
   }
-  html.hs-fv-embed .kpi-grid {
-    display: grid;
-    gap: 10px;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  html.hs-fv-embed .kpi .label,
+  html.hs-fv-embed .wallet .pts,
+  html.hs-fv-embed .muted,
+  html.hs-fv-embed .section-head h2,
+  html.hs-fv-embed .card h2 {
+    color: #9aa8bc !important;
   }
-  html.hs-fv-embed .kpi {
-    padding: 14px 16px;
-    transition: border-color .15s, background .15s;
+  html.hs-fv-embed .kpi .value,
+  html.hs-fv-embed .wallet .pnl,
+  html.hs-fv-embed .wallet .tag {
+    color: #e8eef7 !important;
   }
-  html.hs-fv-embed .kpi:hover {
-    border-color: rgba(76,154,248,.35);
-    background: rgba(76,154,248,.07);
+  html.hs-fv-embed .kpi.accent,
+  html.hs-fv-embed .rank-board .rb-kpi.accent {
+    background: linear-gradient(160deg, rgba(76,154,248,.2), #161e2c) !important;
+    border-color: rgba(76,154,248,.45) !important;
   }
-  html.hs-fv-embed .kpi.accent {
-    background: linear-gradient(160deg, rgba(76,154,248,.16), rgba(255,255,255,.02));
-    border-color: rgba(76,154,248,.4);
-  }
-  html.hs-fv-embed .tabs {
+  html.hs-fv-embed .neg { color: #f07167 !important; }
+  html.hs-fv-embed .pos { color: #6eb0ff !important; }
+
+  html.hs-fv-embed .tabs,
+  html.hs-fv-embed .rank-board .rb-fdv-tabs {
+    display: inline-flex;
+    flex-wrap: wrap;
     gap: 4px;
     padding: 3px;
     border-radius: 10px;
     background: rgba(255,255,255,.04);
-    border: 1px solid rgba(255,255,255,.08);
-    display: inline-flex;
-    flex-wrap: wrap;
+    border: 1px solid rgba(255,255,255,.1);
   }
-  html.hs-fv-embed .tabs button {
-    border-radius: 7px;
-    border: 0;
-    background: transparent;
-    color: rgba(255,255,255,.55);
+  html.hs-fv-embed .tabs button,
+  html.hs-fv-embed .rank-board .rb-fdv-tabs button {
+    border: 0 !important;
+    border-radius: 7px !important;
+    background: transparent !important;
+    color: #9aa8bc !important;
     font-weight: 600;
     font-size: .78rem;
     padding: 7px 12px;
   }
-  html.hs-fv-embed .tabs button.active {
-    background: rgba(76,154,248,.22);
-    color: #fff;
+  html.hs-fv-embed .tabs button.active,
+  html.hs-fv-embed .rank-board .rb-fdv-tabs button.active {
+    background: rgba(76,154,248,.28) !important;
+    color: #fff !important;
   }
-  html.hs-fv-embed table {
-    border-collapse: separate;
-    border-spacing: 0;
-  }
+
   html.hs-fv-embed thead th {
-    background: var(--th-bg);
-    font-size: .72rem;
-    letter-spacing: .04em;
-    text-transform: uppercase;
-    color: rgba(232,238,247,.55);
-    border-bottom: 1px solid rgba(255,255,255,.08);
-    padding: 10px 12px;
+    background: #121a28 !important;
+    color: #9aa8bc !important;
+    border-bottom: 1px solid rgba(255,255,255,.1) !important;
   }
   html.hs-fv-embed tbody td {
-    padding: 10px 12px;
-    border-bottom: 1px solid rgba(255,255,255,.05);
-    font-size: .86rem;
+    color: #e8eef7 !important;
+    border-bottom: 1px solid rgba(255,255,255,.06) !important;
+    background: transparent !important;
   }
   html.hs-fv-embed tbody tr:hover td {
-    background: rgba(76,154,248,.05);
+    background: rgba(76,154,248,.07) !important;
   }
-  html.hs-fv-embed .setup {
-    border: 1px solid rgba(255,255,255,.08);
-    border-radius: 14px;
-    background: rgba(255,255,255,.02);
-    padding: 4px 14px 12px;
-    margin-bottom: 14px;
+  html.hs-fv-embed tbody tr.total td,
+  html.hs-fv-embed .rank-board tr.me td {
+    background: rgba(76,154,248,.12) !important;
   }
-  html.hs-fv-embed .setup > summary {
-    cursor: pointer;
-    font-weight: 650;
-    padding: 10px 0;
-    color: #fff;
-  }
-  html.hs-fv-embed .section-title,
-  html.hs-fv-embed h2 {
-    font-size: 1.05rem;
-    letter-spacing: -0.02em;
-    margin: 0 0 10px;
-  }
-  html.hs-fv-embed .pill {
-    border-radius: 8px;
-  }
+  html.hs-fv-embed .setup > summary { color: #fff !important; font-weight: 650; }
   html.hs-fv-embed input,
-  html.hs-fv-embed select,
-  html.hs-fv-embed .field input {
+  html.hs-fv-embed select {
+    background: #0b1220 !important;
+    color: #e8eef7 !important;
+    border: 1px solid rgba(255,255,255,.14) !important;
     border-radius: 10px !important;
-    background: rgba(0,0,0,.28) !important;
-    border-color: rgba(255,255,255,.1) !important;
   }
-  html.hs-fv-embed #classement .lb-row,
-  html.hs-fv-embed .lb-row {
-    border-radius: 10px;
-    border: 1px solid rgba(255,255,255,.07);
-    background: rgba(255,255,255,.025);
-    padding: 10px 12px;
-    margin-bottom: 6px;
-  }
-  html.hs-fv-embed .lb-row:hover {
-    border-color: rgba(76,154,248,.3);
-    background: rgba(76,154,248,.06);
+  html.hs-fv-embed .banner {
+    background: rgba(76,154,248,.1) !important;
+    border: 1px solid rgba(76,154,248,.35) !important;
+    color: #e8eef7 !important;
+    border-radius: 12px;
   }
 </style>
 
@@ -600,111 +600,6 @@
   .page { display: none; }
   .page.active { display: block; }
 
-  /* Embed tokens after theme so they win */
-  html.hs-fv-embed,
-  html.hs-fv-embed[data-theme="dark"] {
-    --bg0: transparent;
-    --bg1: transparent;
-    --card: rgba(255,255,255,.035);
-    --card-soft: rgba(255,255,255,.025);
-    --line: rgba(255,255,255,.1);
-    --ink: #e8eef7;
-    --muted: rgba(232,238,247,.62);
-    --accent: #4c9af8;
-    --accent-2: #6eb0ff;
-    --accent-soft: rgba(76,154,248,.14);
-    --th-bg: rgba(0,0,0,.28);
-    --row-total: rgba(76,154,248,.1);
-    --shadow: none;
-    --radius: 14px;
-  }
-  html.hs-fv-embed .kpis {
-    gap: 10px;
-    margin-bottom: 16px;
-  }
-  html.hs-fv-embed .kpis .kpi {
-    border-radius: 12px;
-    padding: 14px 16px;
-    background: rgba(255,255,255,.03);
-    border: 1px solid rgba(255,255,255,.08);
-  }
-  html.hs-fv-embed .kpis .kpi.accent {
-    background: linear-gradient(160deg, rgba(76,154,248,.16), rgba(255,255,255,.02));
-    border-color: rgba(76,154,248,.4);
-  }
-  html.hs-fv-embed .grid-2 { gap: 12px; margin-bottom: 16px; }
-  html.hs-fv-embed .card {
-    border-radius: 14px;
-    background: rgba(255,255,255,.03);
-    border: 1px solid rgba(255,255,255,.08);
-    box-shadow: none;
-  }
-  html.hs-fv-embed .table-wrap {
-    border-radius: 14px;
-    border: 1px solid rgba(255,255,255,.08);
-    background: rgba(255,255,255,.02);
-    overflow: auto;
-  }
-  html.hs-fv-embed .section-head {
-    margin: 18px 0 10px;
-    align-items: center;
-  }
-  html.hs-fv-embed .rank-board {
-    margin-top: 4px;
-  }
-  html.hs-fv-embed .rank-board .card {
-    overflow: hidden;
-  }
-  html.hs-fv-embed .rank-board .rb-kpis {
-    gap: 10px;
-  }
-  html.hs-fv-embed .rank-board .rb-kpi {
-    border-radius: 12px;
-    background: rgba(255,255,255,.03);
-    border: 1px solid rgba(255,255,255,.08);
-    padding: 12px 14px;
-  }
-  html.hs-fv-embed .rank-board .rb-kpi.accent {
-    background: linear-gradient(160deg, rgba(76,154,248,.16), rgba(255,255,255,.02));
-    border-color: rgba(76,154,248,.4);
-  }
-  html.hs-fv-embed .rank-board .rb-fdv-tabs {
-    gap: 4px;
-    padding: 3px;
-    border-radius: 10px;
-    background: rgba(255,255,255,.04);
-    border: 1px solid rgba(255,255,255,.08);
-    display: inline-flex;
-    flex-wrap: wrap;
-  }
-  html.hs-fv-embed .rank-board .rb-fdv-tabs button {
-    border: 0;
-    border-radius: 7px;
-    background: transparent;
-    color: rgba(255,255,255,.55);
-    font-weight: 600;
-    font-size: .78rem;
-    padding: 7px 12px;
-  }
-  html.hs-fv-embed .rank-board .rb-fdv-tabs button.active {
-    background: rgba(76,154,248,.22);
-    color: #fff;
-  }
-  html.hs-fv-embed .rank-board tr.me td {
-    background: rgba(76,154,248,.12);
-  }
-  html.hs-fv-embed .banner {
-    border-radius: 12px;
-    border-color: rgba(76,154,248,.35);
-    background: rgba(76,154,248,.08);
-  }
-  html.hs-fv-embed .wallets .wallet,
-  html.hs-fv-embed .wallet-card {
-    border-radius: 12px;
-    border: 1px solid rgba(255,255,255,.08);
-    background: rgba(0,0,0,.2);
-  }
-
 </style>
 </head>
 <body>
@@ -918,6 +813,9 @@ function getTheme() {
   return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
 }
 function setTheme(theme) {
+  if (document.documentElement.classList.contains('hs-fv-embed')) {
+    theme = 'dark';
+  }
   const t = theme === 'dark' ? 'dark' : 'light';
   document.documentElement.setAttribute('data-theme', t);
   try { localStorage.setItem(THEME_KEY, t); } catch (_) {}
