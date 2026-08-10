@@ -9899,7 +9899,44 @@ try {
     }
   }
   html.hs-omni-standalone #page-variational > .section-h {
-    display: none !important;
+    display: flex !important;
+    justify-content: center;
+    align-items: center;
+    margin: 10px 0 6px !important;
+    padding: 0 16px;
+  }
+  html.hs-omni-standalone #page-variational > .section-h .hs-dapp-title-link {
+    color: #4c9af8;
+    background: rgba(76, 154, 248, .08);
+    border: 1px solid rgba(76, 154, 248, .22);
+    border-radius: 999px;
+    margin: 0;
+    padding: 6px 12px 6px 8px;
+    gap: 8px;
+  }
+  html.hs-omni-standalone #page-variational > .section-h .hs-dapp-title-link:hover {
+    color: #6eb0ff;
+    background: rgba(76, 154, 248, .14);
+    border-color: rgba(76, 154, 248, .4);
+  }
+  html.hs-omni-standalone #page-variational > .section-h .hs-section-logo {
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    object-fit: cover;
+  }
+  html.hs-omni-standalone #page-variational > .section-h .hs-dapp-title-link .text-lg {
+    font-size: 0.95rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+  html.hs-omni-standalone #page-variational > .section-h .hs-dapp-title-ext {
+    opacity: 0.7;
+    color: rgba(255,255,255,.55);
+    font-size: 0.78rem;
+  }
+  html.hs-omni-standalone #page-variational > .section-h .hs-dapp-title-link:hover .hs-dapp-title-ext {
+    opacity: 1;
   }
 </style>
 <script>
@@ -10599,7 +10636,7 @@ try {
   <!-- ═══════════════════════════════════════════════════════════════ -->
   <section id="page-variational" class="page">
     <div class="section-h mb-4" style="align-items:center;gap:8px;margin-top:0">
-      <a class="hs-dapp-title-link" href="https://omni.variational.io/" target="_blank" rel="noopener noreferrer" data-i18n-title="dapp.open.var">
+      <a class="hs-dapp-title-link" href="https://omni.variational.io/?ref=OMNILD9IBR89" target="_blank" rel="noopener noreferrer" data-i18n-title="dapp.open.var" title="Ouvrir Omni / Variational">
         <img class="hs-section-logo" src="../img/variational-logo.png" alt="" width="24" height="24" decoding="async" />
         <span class="text-lg font-semibold" data-i18n="tab.variational">Variational</span>
         <span class="hs-dapp-title-ext" aria-hidden="true">↗</span>
