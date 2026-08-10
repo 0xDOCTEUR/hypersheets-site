@@ -9766,9 +9766,9 @@ try {
     padding-top: 0 !important;
   }
   html.hs-omni-standalone #hsOmniTopbar {
-    display: grid !important;
-    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    display: flex !important;
     align-items: center;
+    justify-content: flex-end;
     gap: 12px;
     padding: 16px 22px;
     border-bottom: 1px solid rgba(255,255,255,.08);
@@ -9778,13 +9778,19 @@ try {
     z-index: 40;
   }
   html.hs-omni-standalone #hsOmniTopbar .hs-omni-brand {
-    grid-column: 2;
-    justify-self: center;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
     display: inline-flex;
     align-items: center;
     gap: 12px;
     min-width: 0;
     color: #fff;
+    background: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
   }
   html.hs-omni-standalone #hsOmniTopbar .hs-omni-brand-logo {
     width: 34px;
@@ -9829,8 +9835,8 @@ try {
     margin-left: 0.28em;
   }
   html.hs-omni-standalone #hsOmniTopbar .hs-omni-back {
-    grid-column: 3;
-    justify-self: end;
+    position: relative;
+    z-index: 1;
     display: inline-flex;
     align-items: center;
     gap: 8px;
@@ -9844,9 +9850,33 @@ try {
     white-space: nowrap;
     opacity: .92;
     transition: opacity .15s ease;
+    background: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
   }
   html.hs-omni-standalone #hsOmniTopbar .hs-omni-back-label-short { display: none; }
   html.hs-omni-standalone #hsOmniTopbar .hs-omni-back:hover { opacity: 1; }
+  /* No content capsule on Omni standalone */
+  html.hs-omni-standalone #varDashboard.surface {
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+  }
+  html.hs-omni-standalone #varDashboard .var-dash-nav {
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    gap: 8px;
+  }
+  html.hs-omni-standalone #varDashboard .var-dash-sticky-nav {
+    background: transparent !important;
+    border-bottom-color: rgba(255,255,255,.08) !important;
+  }
   @media (max-width: 720px) {
     html.hs-omni-standalone #hsOmniTopbar {
       padding: 12px 14px;
