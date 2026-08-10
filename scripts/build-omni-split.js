@@ -93,8 +93,8 @@ try {
     display: inline-flex; align-items: center; gap: 12px; min-width: 0;
   }
   html.hs-omni-standalone #hsOmniTopbar .hs-omni-brand-logo {
-    width: 36px; height: 36px; border-radius: 10px; object-fit: contain;
-    flex-shrink: 0; display: block; background: transparent; border: 0; outline: none; box-shadow: none;
+    width: 44px; height: 44px; border-radius: 12px; object-fit: cover; object-position: center top;
+    flex-shrink: 0; display: block; background: #fff; border: 0; outline: none; box-shadow: none;
   }
   html.hs-omni-standalone #hsOmniTopbar .hs-omni-wordmark {
     font-family: 'Raleway', system-ui, sans-serif;
@@ -132,7 +132,7 @@ const omniRouter = `
     bar.id = 'hsOmniTopbar';
     bar.innerHTML = '<a class="hs-omni-back" href="/">← Hypersheets</a>'
       + '<span class="hs-omni-brand">'
-      + '<img class="hs-omni-brand-logo" src="../img/hypersheets-logo.png" alt="" width="36" height="36" decoding="async">'
+      + '<img class="hs-omni-brand-logo" src="../img/hypersheets-omni-mascot.png" alt="" width="44" height="44" decoding="async">'
       + '<span class="hs-brand-wordmark hs-omni-wordmark" aria-label="Hypersheets Omni">'
       + '<span class="hs-brand-hyper">Hyper</span><span class="hs-brand-sheets">sheets</span><span class="hs-brand-omni">Omni</span>'
       + '</span>'
