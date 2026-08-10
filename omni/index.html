@@ -3965,12 +3965,19 @@ const HS_CONFIG = {
       margin-top: 0;
       pointer-events: none;
       overflow: hidden;
-      background: transparent;
-      border-radius: 2px;
+      /* Opaque track so page/chrome text never shows through the 3px bar */
+      background: color-mix(in srgb, var(--bg, #07090f) 92%, #000);
+      border-radius: 0;
       flex-shrink: 0;
       z-index: 1300;
     }
     body.hs-loading #globalLoadStrip { display: block; }
+    html.hs-omni-standalone #globalLoadStrip,
+    body.hs-omni-only #globalLoadStrip {
+      left: 0 !important;
+      width: 100% !important;
+      z-index: 5000;
+    }
     @media (max-width: 768px) {
       #globalLoadStrip {
         left: 0;
