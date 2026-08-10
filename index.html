@@ -13676,6 +13676,69 @@ let currentPeriod = 'all';
 let dataIsAllTime = false;
 let currentPage = 'dashboard';
 let currentUnitSub = 'bridge';
+let _dataScopeState = { periodKey: null, meta: false, hl: false, xyz: false, unit: false, funding: false, portfolio: false };
+
+/** Which API scopes each page needs (wallet trading data). */
+function pageDataScopes(page) {
+  const p = page || currentPage || (document.body && document.body.dataset.page) || 'dashboard';
+  if (p === 'signals' || p === 'analyse' || p === 'marketradar' || p === 'leaderboard') {
+    return { meta: false, hl: false, xyz: false, unit: false, funding: false, portfolio: false };
+  }
+  if (p === 'wallet') {
+    return { meta: true, hl: false, xyz: false, unit: false, funding: false, portfolio: true };
+  }
+  if (p === 'hyperliquid') {
+    return { meta: true, hl: true, xyz: false, unit: false, funding: true, portfolio: true };
+  }
+  if (p === 'tradexyz') {
+    return { meta: true, hl: false, xyz: true, unit: false, funding: false, portfolio: true };
+  }
+  if (p === 'hyperunit') {
+    return { meta: true, hl: false, xyz: false, unit: true, funding: false, portfolio: true };
+  }
+  // dashboard + farming: full picture for KPIs / goals
+  return { meta: true, hl: true, xyz: true, unit: true, funding: true, portfolio: true };
+}
+
+function dataPeriodKey() {
+  return currentPeriod === 'all' ? 'all' : String(currentPeriod);
+}
+
+function invalidatePeriodSensitiveScopes() {
+  _dataScopeState.hl = false;
+  _dataScopeState.xyz = false;
+  _dataScopeState.unit = false;
+  _dataScopeState.funding = false;
+  _dataScopeState.periodKey = null;
+}
+
+function resolveLoadScopes(opts) {
+  const want = opts.scopes
+    ? { meta: false, hl: false, xyz: false, unit: false, funding: false, portfolio: false, ...opts.scopes }
+    : pageDataScopes(opts.page || currentPage);
+  const periodChanged = _dataScopeState.periodKey != null && _dataScopeState.periodKey !== dataPeriodKey();
+  if (periodChanged) invalidatePeriodSensitiveScopes();
+  const need = {};
+  for (const k of ['meta', 'hl', 'xyz', 'unit', 'funding', 'portfolio']) {
+    if (!want[k]) { need[k] = false; continue; }
+    if (opts.force) { need[k] = true; continue; }
+    need[k] = !_dataScopeState[k];
+  }
+  // Funding only useful with HL history
+  if (need.funding && !want.hl && !need.hl && !_dataScopeState.hl) need.funding = false;
+  return { want, need, any: Object.values(need).some(Boolean) };
+}
+
+async function ensurePageData(page) {
+  if (isDemoWalletMode()) return;
+  if (!wallets.length) return;
+  const resolved = resolveLoadScopes({ page });
+  if (!resolved.any) return;
+  // merge: keep already-loaded scopes (e.g. HL fills) when fetching XYZ later
+  await loadData({ page, merge: true });
+}
+
+
 let charts = {};
 let refreshTimer = null;
 
@@ -16032,6 +16095,13 @@ async function loadData(opts = {}) {
     openWalletsModal();
     return;
   }
+  const _scopePlan = resolveLoadScopes(opts);
+  if (!_scopePlan.any) {
+    if (typeof renderAll === 'function') renderAll();
+    return;
+  }
+  const _need = _scopePlan.need;
+  const _merge = !!opts.merge;
   if (_loadDataRunning) {
     _loadDataPending = true;
     return;
@@ -16059,13 +16129,23 @@ async function loadData(opts = {}) {
     const startTime = isAll ? ALL_TIME_START : Date.now() - 31 * 86400000;
 
     glpSetProgress(8);
-    // Metadata commune chargée 1 fois
-    const [spotBundleRes, outcomeMetaRes, midsRes, xyzMetaRes] = await Promise.allSettled([
-      hlPost({ type: 'spotMetaAndAssetCtxs' }),
-      hlPost({ type: 'outcomeMeta' }),
-      hlPost({ type: 'allMids' }),
-      hlPost({ type: 'meta', dex: 'xyz' }),
-    ]);
+    // Metadata only when needed for this page scope
+    let spotBundleRes, outcomeMetaRes, midsRes, xyzMetaRes;
+    if (_need.meta || !_dataScopeState.meta) {
+      [spotBundleRes, outcomeMetaRes, midsRes, xyzMetaRes] = await Promise.allSettled([
+        hlPost({ type: 'spotMetaAndAssetCtxs' }),
+        hlPost({ type: 'outcomeMeta' }),
+        hlPost({ type: 'allMids' }),
+        (_need.xyz || _need.unit || pageDataScopes(currentPage).xyz || pageDataScopes(currentPage).hl)
+          ? hlPost({ type: 'meta', dex: 'xyz' })
+          : Promise.resolve(null),
+      ]);
+    } else {
+      spotBundleRes = { status: 'rejected' };
+      outcomeMetaRes = { status: 'rejected' };
+      midsRes = { status: 'rejected' };
+      xyzMetaRes = { status: 'rejected' };
+    }
 
     // Spot meta (univers complet + libellés ctx.coin, ex. PURR/USDC au lieu de @132)
     spotMetaMap = {};
@@ -16123,16 +16203,30 @@ async function loadData(opts = {}) {
     // Les fills sont ensuite partitionnés par leur format coin:
     //   - "xyz:NAME" → xyzFills (vrais HIP-3 / Trade XYZ)
     //   - autre     → allFills (perp + spot Hypercore + UNIT)
-    // Reset ALL data — prevents accumulation on reload
-    allFills = [];
-    xyzFills = [];
-    bridgeOps = [];
-    fundingEvents = [];
-    allPositions = [];
-    accountValues = {};
-    walletPortfolio = {};
-    _walletCgAttempted = new Set();
-    fillsByWallet = {};
+    // Reset only scopes being refreshed (keep other pages' data)
+    if (!_merge || _need.hl) allFills = [];
+    if (!_merge || _need.xyz) xyzFills = [];
+    if (!_merge || _need.unit) bridgeOps = [];
+    if (!_merge || _need.funding) fundingEvents = [];
+    if (!_merge || _need.portfolio) {
+      allPositions = [];
+      accountValues = {};
+      walletPortfolio = {};
+      _walletCgAttempted = new Set();
+    }
+    if (!_merge || _need.hl || _need.xyz || _need.unit || _need.funding || _need.portfolio) {
+      if (!_merge) fillsByWallet = {};
+      else {
+        for (const w of wallets) {
+          if (!fillsByWallet[w]) fillsByWallet[w] = { hl: [], xyz: [], bridge: [], funding: [], positions: [] };
+          if (_need.hl) fillsByWallet[w].hl = [];
+          if (_need.xyz) fillsByWallet[w].xyz = [];
+          if (_need.unit) fillsByWallet[w].bridge = [];
+          if (_need.funding) fillsByWallet[w].funding = [];
+          if (_need.portfolio) fillsByWallet[w].positions = [];
+        }
+      }
+    }
     const seenFills = new Set();
     const pushFillUnique = (target, f, w) => {
       const twapId = f?._twapId != null && f._twapId !== '' ? f._twapId : f?.twapId;
@@ -16172,30 +16266,37 @@ async function loadData(opts = {}) {
       for (let i = 0; i < wallets.length; i++) {
         const w = wallets[i]
         const tag = `[${i+1}/${wallets.length} ${truncAddr(w)}]`;
-        const [twapW, fundingRes, bridgeRes, posRes, spotRes, posXyzRes] = await Promise.allSettled([
-          fetchTwapSliceFills(w, startTime, tag, i),
-          fetchAllFunding(w, startTime, maxPages, tag, i),
-          fetch(`${UNIT_API}/${w}`).then(r => r.ok ? r.json() : null).catch(() => null),
-          hlPost({ type: 'clearinghouseState', user: w }, { label: `clearinghouseState ${truncAddr(w)}` }),
-          hlPost({ type: 'spotClearinghouseState', user: w }, { label: `spotClearinghouseState ${truncAddr(w)}` }),
-          hlPost({ type: 'clearinghouseState', user: w, dex: 'xyz' }, { label: `clearinghouseState xyz ${truncAddr(w)}` }),
+                const [twapW, fundingRes, bridgeRes, posRes, spotRes, posXyzRes] = await Promise.allSettled([
+          _need.hl ? fetchTwapSliceFills(w, startTime, tag, i) : Promise.resolve([]),
+          _need.funding ? fetchAllFunding(w, startTime, maxPages, tag, i) : Promise.resolve([]),
+          _need.unit ? fetch(`${UNIT_API}/${w}`).then(r => r.ok ? r.json() : null).catch(() => null) : Promise.resolve(null),
+          _need.portfolio ? hlPost({ type: 'clearinghouseState', user: w }, { label: `clearinghouseState ${truncAddr(w)}` }) : Promise.resolve(null),
+          _need.portfolio || _need.unit ? hlPost({ type: 'spotClearinghouseState', user: w }, { label: `spotClearinghouseState ${truncAddr(w)}` }) : Promise.resolve(null),
+          _need.portfolio
+            ? hlPost({ type: 'clearinghouseState', user: w, dex: 'xyz' }, { label: `clearinghouseState xyz ${truncAddr(w)}` })
+            : Promise.resolve(null),
         ]);
-        let hlW, xyzW;
-        try {
-          const hlR = await fetchAllFills(w, startTime, null, maxPages, tag, i);
-          hlW = { status: 'fulfilled', value: hlR };
-          if (hlR.incomplete) fillFetchIncomplete = true;
-        } catch (e) {
-          hlW = { status: 'rejected', reason: e };
-          fillFetchIncomplete = true;
+        let hlW = { status: 'fulfilled', value: { fills: [], incomplete: false } };
+        let xyzW = { status: 'fulfilled', value: { fills: [], incomplete: false } };
+        if (_need.hl) {
+          try {
+            const hlR = await fetchAllFills(w, startTime, null, maxPages, tag, i);
+            hlW = { status: 'fulfilled', value: hlR };
+            if (hlR.incomplete) fillFetchIncomplete = true;
+          } catch (e) {
+            hlW = { status: 'rejected', reason: e };
+            fillFetchIncomplete = true;
+          }
         }
-        try {
-          const xyzR = await fetchAllFills(w, startTime, 'xyz', maxPages, tag, i);
-          xyzW = { status: 'fulfilled', value: xyzR };
-          if (xyzR.incomplete) fillFetchIncomplete = true;
-        } catch (e) {
-          xyzW = { status: 'rejected', reason: e };
-          fillFetchIncomplete = true;
+        if (_need.xyz) {
+          try {
+            const xyzR = await fetchAllFills(w, startTime, 'xyz', maxPages, tag, i);
+            xyzW = { status: 'fulfilled', value: xyzR };
+            if (xyzR.incomplete) fillFetchIncomplete = true;
+          } catch (e) {
+            xyzW = { status: 'rejected', reason: e };
+            fillFetchIncomplete = true;
+          }
         }
         walletBundles.push({ w, hlW, xyzW, twapW, fundingRes, bridgeRes, posRes, spotRes, posXyzRes });
       }
@@ -16262,17 +16363,36 @@ async function loadData(opts = {}) {
     glpSetProgress(84);
 
     dataIsAllTime = isAll;
+    if (_need.meta || !_dataScopeState.meta) _dataScopeState.meta = true;
+    if (_need.hl) _dataScopeState.hl = true;
+    if (_need.xyz) _dataScopeState.xyz = true;
+    if (_need.unit) _dataScopeState.unit = true;
+    if (_need.funding) _dataScopeState.funding = true;
+    if (_need.portfolio) _dataScopeState.portfolio = true;
+    _dataScopeState.periodKey = dataPeriodKey();
+    console.log('[loadData] scopes', Object.keys(_need).filter(k => _need[k]).join(',') || '(none)');
 
     if (!allFills.length && !xyzFills.length && !bridgeOps.length) {
+      const wasReveal = _pendingDashboardReveal;
       _pendingDashboardReveal = false;
       hsLaunchHide();
-      // Portefeuille HL peut être non vide même sans fills — toujours peindre la page wallet.
-      if (typeof isWalletPageActive === 'function' && isWalletPageActive() && typeof renderWalletPage === 'function') {
-        renderWalletPage();
-      } else {
+      if (typeof renderWalletPage === 'function') renderWalletPage();
+      if (typeof renderAll === 'function') renderAll();
+      // Portfolio-only / deferred sections: not an error
+      if (_need.portfolio && !_need.hl && !_need.xyz && !_need.unit) {
+        if (wasReveal) await launchDashboardReveal();
+        return;
+      }
+      if (typeof isWalletPageActive === 'function' && isWalletPageActive()) {
+        if (wasReveal) await launchDashboardReveal();
+        return;
+      }
+      // Still missing trading history for a page that asked for it
+      if (_need.hl || _need.xyz || _need.unit) {
         showError(t('noActivity'));
         toast(t('noActivity'), true);
       }
+      if (wasReveal) await launchDashboardReveal();
       return;
     }
 
@@ -16381,8 +16501,9 @@ function selectPeriod(el, mode) {
     renderAll();
     return;
   }
-  // 1J/7J/30J ou première fois sur "All" → auto-refresh
-  loadData();
+  if (typeof invalidatePeriodSensitiveScopes === 'function') invalidatePeriodSensitiveScopes();
+  // Refetch only scopes for the active page
+  loadData({ page: currentPage, force: true });
 }
 
 function hsDockTopPx() {
@@ -16636,6 +16757,9 @@ function switchPage(name, el) {
   }
   if (name === 'wallet') renderWalletPage();
   if (name === 'variational' && typeof initVarPage === 'function') initVarPage(false);
+  if (wallets.length && typeof ensurePageData === 'function') {
+    ensurePageData(name).catch(err => console.warn('[ensurePageData]', err));
+  }
   if(name==='leaderboard') {
     if (typeof applyLeaderboardImportUi === 'function') applyLeaderboardImportUi()
     setTimeout(() => { if (typeof loadHip3Leaderboard === 'function') loadHip3Leaderboard(false) }, 200)
