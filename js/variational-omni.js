@@ -2949,14 +2949,24 @@
     const hash = tab === 'classement' ? '#classement' : '#suivi';
     const frame = document.getElementById(id);
     if (!frame) return;
-    const want = 'farm-varia.html?embed=1' + hash;
+    const want = frame.getAttribute('data-fv-src') || ('farm-varia.html?embed=1' + hash);
+    const cur = String(frame.getAttribute('src') || '');
+    let emptyDoc = false;
     try {
-      const cur = String(frame.getAttribute('src') || '');
-      if (!cur.includes(hash.replace('#', '')) || !cur.includes('embed=1')) {
-        frame.src = want;
-      } else if (frame.contentWindow && frame.contentWindow.location) {
+      const doc = frame.contentDocument;
+      emptyDoc = !doc || !doc.body || doc.body.children.length < 1 || (doc.documentElement.outerHTML || '').length < 200;
+    } catch (_) {
+      emptyDoc = true;
+    }
+    // Hidden+lazy iframes often never load — force a real navigation when blank.
+    if (emptyDoc || !cur || cur === 'about:blank' || cur.indexOf('farm-varia') < 0) {
+      frame.src = want;
+      return;
+    }
+    try {
+      if (frame.contentWindow && frame.contentWindow.location) {
         const h = String(frame.contentWindow.location.hash || '');
-        if (h !== hash) frame.contentWindow.location.hash = hash.slice(1) ? hash : hash;
+        if (h !== hash) frame.contentWindow.location.hash = hash;
       }
     } catch (_) {
       frame.src = want;
