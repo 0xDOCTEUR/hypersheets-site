@@ -403,6 +403,43 @@
       border: 1px solid var(--border); border-radius: 12px;
       background: var(--panel); margin-bottom: 8px; overflow: hidden;
     }
+    .group-binds {
+      padding: 8px 12px 10px;
+      border-bottom: 1px solid rgba(255,255,255,.06);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .group.is-closed .group-binds { display: none; }
+    .csv-picks {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .csv-picks-label {
+      font-size: 10px;
+      color: var(--muted);
+      font-weight: 600;
+      letter-spacing: .02em;
+    }
+    .csv-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.02);
+      font-size: 11px;
+      cursor: pointer;
+    }
+    .csv-chip.is-on {
+      border-color: rgba(110,231,255,.35);
+      background: rgba(110,231,255,.08);
+    }
+    .csv-chip input { margin: 0; }
+    .csv-chip span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .csv-chip em { font-style: normal; color: var(--muted); font-size: 10px; }
     .group-hd {
       display: flex; align-items: center; gap: 6px;
       padding: 8px 10px; border-bottom: 1px solid var(--border);
@@ -423,6 +460,20 @@
       border: 1px solid transparent; background: transparent;
       color: var(--text); font: 700 12px/1.2 inherit;
       padding: 3px 4px; border-radius: 6px;
+    }
+    .group-title {
+      flex: 1; min-width: 0;
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .group-title input { width: 100%; }
+    .group-sub {
+      font-size: 9px; color: var(--muted); font-weight: 600;
+      line-height: 1.25; padding: 0 4px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .leg-id {
+      margin: 0 0 6px; font-size: 10px; color: var(--muted);
+      line-height: 1.35; word-break: break-word;
     }
     .group-hd input:focus {
       outline: none; border-color: rgba(110,231,255,.35);
@@ -446,6 +497,48 @@
     .group-hd .del:hover { background: rgba(248,113,113,.18); }
     .group-empty {
       padding: 10px; font-size: 11px; color: var(--muted); text-align: center;
+    }
+    .hl-book {
+      margin-top: 10px;
+      border-color: rgba(230,168,23,.22);
+    }
+    .hl-book-hd {
+      padding: 10px 12px 8px;
+      border-bottom: 1px solid rgba(255,255,255,.05);
+    }
+    .hl-book-title {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .02em;
+      color: var(--xyz);
+    }
+    .hl-book-sub {
+      margin-top: 3px;
+      font-size: 10px;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+    .hl-book-row .main {
+      display: flex; flex-wrap: wrap; gap: 5px; align-items: center;
+    }
+    .hl-badge {
+      font-size: 9px;
+      font-weight: 800;
+      padding: 1px 6px;
+      border-radius: 999px;
+      letter-spacing: .02em;
+      text-transform: uppercase;
+    }
+    .hl-badge.is-linked {
+      background: rgba(62,207,142,.14);
+      color: var(--ok);
+    }
+    .hl-badge.is-free {
+      background: rgba(230,168,23,.16);
+      color: var(--xyz);
+    }
+    .hl-book-row.is-free {
+      background: rgba(230,168,23,.04);
     }
 
     .row {
@@ -769,7 +862,7 @@
   <div class="wrap">
     <div class="top">
       <div class="top-row">
-        <a class="brand" href="https://hypersheets.xyz/" target="_blank" rel="noopener noreferrer" title="Ouvrir Hypersheets">
+        <a class="brand" href="https://hypersheets.xyz/omni/" target="_blank" rel="noopener noreferrer" title="Ouvrir Hypersheets Omni">
           <img src="icons/logo.png" alt="" width="22" height="22" decoding="async" />
           <span><span class="a">Hyper</span><span class="b">sheets</span></span>
         </a>
@@ -1017,6 +1110,6 @@
 
     <div class="foot" id="foot">Positions · Collecte</div>
   </div>
-  <script src="widget-app.js?v=2.9.22"></script>
+  <script src="widget-app.js?v=2.9.36"></script>
 </body>
 </html>

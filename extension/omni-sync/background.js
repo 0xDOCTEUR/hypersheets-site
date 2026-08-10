@@ -37,12 +37,169 @@ function emptyCsv() {
   return { trades: [], funding: [], realizedPnl: [], transfers: [], files: {} };
 }
 
+const MAX_CSV_LIBRARY = 24;
+
+function newCsvId() {
+  return 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+function tradeDedupeKey(t) {
+  if (!t || typeof t !== 'object') return '';
+  if (t.id != null && t.id !== '') return 'id:' + String(t.id);
+  if (t.trade_id != null && t.trade_id !== '') return 'tid:' + String(t.trade_id);
+  const u = String(t.underlying || (t.instrument && t.instrument.underlying) || '');
+  const ts = String(t.created_at || t.timestamp || '');
+  const px = String(t.price || t.mark_price || '');
+  const qty = String(t.qty || '');
+  const side = String(t.side || '');
+  return [u, ts, px, qty, side].join('|');
+}
+
+function rowDedupeKey(row, kind) {
+  if (!row || typeof row !== 'object') return '';
+  if (row.id != null && row.id !== '') return kind + ':id:' + String(row.id);
+  return kind + ':' + JSON.stringify(row).slice(0, 240);
+}
+
+function mergeCsvBundles(bundles) {
+  const out = emptyCsv();
+  const seen = { trades: new Set(), funding: new Set(), realizedPnl: new Set(), transfers: new Set() };
+  for (const b of bundles || []) {
+    if (!b || typeof b !== 'object') continue;
+    for (const t of b.trades || []) {
+      const k = tradeDedupeKey(t);
+      if (k && seen.trades.has(k)) continue;
+      if (k) seen.trades.add(k);
+      out.trades.push(t);
+    }
+    for (const kind of ['funding', 'realizedPnl', 'transfers']) {
+      for (const row of b[kind] || []) {
+        const k = rowDedupeKey(row, kind);
+        if (k && seen[kind].has(k)) continue;
+        if (k) seen[kind].add(k);
+        out[kind].push(row);
+      }
+    }
+    if (b.files && typeof b.files === 'object') {
+      out.files = Object.assign({}, out.files, b.files);
+    }
+  }
+  return out;
+}
+
+function normalizeCsvLibrary(raw) {
+  if (!Array.isArray(raw)) return [];
+  const out = [];
+  for (const e of raw) {
+    if (!e || typeof e !== 'object') continue;
+    const id = e.id ? String(e.id) : newCsvId();
+    const bundle = e.bundle && typeof e.bundle === 'object'
+      ? {
+          trades: Array.isArray(e.bundle.trades) ? e.bundle.trades : [],
+          funding: Array.isArray(e.bundle.funding) ? e.bundle.funding : [],
+          realizedPnl: Array.isArray(e.bundle.realizedPnl) ? e.bundle.realizedPnl : [],
+          transfers: Array.isArray(e.bundle.transfers) ? e.bundle.transfers : [],
+          files: e.bundle.files && typeof e.bundle.files === 'object' ? e.bundle.files : {},
+        }
+      : emptyCsv();
+    out.push({
+      id,
+      label: typeof e.label === 'string' ? e.label.slice(0, 48) : '',
+      omniAddress: typeof e.omniAddress === 'string' ? e.omniAddress.toLowerCase() : '',
+      importedAt: Number(e.importedAt) || Date.now(),
+      tradeCount: Array.isArray(bundle.trades) ? bundle.trades.length : (Number(e.tradeCount) || 0),
+      marketsHint: typeof e.marketsHint === 'string' ? e.marketsHint : '',
+      bundle,
+    });
+    if (out.length >= MAX_CSV_LIBRARY) break;
+  }
+  return out;
+}
+
+function csvEntryLabel(bundle, meta) {
+  if (meta && meta.label) return String(meta.label).slice(0, 48);
+  const hint = marketsHintFromCsv(bundle);
+  if (hint) return hint.slice(0, 48);
+  const n = (bundle && bundle.trades && bundle.trades.length) || 0;
+  const addr = meta && meta.omniAddress ? shortOmniAddr(meta.omniAddress) : '';
+  if (addr && n) return addr + ' · ' + n + ' trades';
+  if (addr) return addr;
+  return n ? n + ' trades' : 'CSV';
+}
+
+function upsertCsvLibraryEntry(library, bundle, meta) {
+  const list = Array.isArray(library) ? library : [];
+  const opts = meta || {};
+  const addr = opts.omniAddress ? String(opts.omniAddress).toLowerCase() : '';
+  const marketsHint = marketsHintFromCsv(bundle);
+  const tradeCount = (bundle && bundle.trades && bundle.trades.length) || 0;
+  const label = csvEntryLabel(bundle, opts);
+
+  // Collect same Omni wallet → refresh that library entry (keeps dropdown id stable)
+  // File "Ajouter CSV" always creates a new dropdown option (forceNew)
+  if (!opts.forceNew && addr) {
+    const hit = list.find((e) => e.omniAddress && e.omniAddress === addr);
+    if (hit) {
+      hit.bundle = bundle || emptyCsv();
+      hit.tradeCount = tradeCount;
+      hit.marketsHint = marketsHint;
+      hit.importedAt = Date.now();
+      hit.label = label;
+      hit.omniAddress = addr;
+      return hit;
+    }
+  }
+
+  const entry = {
+    id: newCsvId(),
+    label,
+    omniAddress: addr,
+    importedAt: Date.now(),
+    tradeCount,
+    marketsHint,
+    bundle: bundle || emptyCsv(),
+  };
+  list.unshift(entry);
+  while (list.length > MAX_CSV_LIBRARY) list.pop();
+  return entry;
+}
+
+function rebuildSlotCsvFromIds(slot, library) {
+  const ids = Array.isArray(slot.csvIds) ? slot.csvIds.map(String) : [];
+  const byId = {};
+  (library || []).forEach((e) => { byId[e.id] = e; });
+  const bundles = [];
+  const validIds = [];
+  for (const id of ids) {
+    if (byId[id] && byId[id].bundle) {
+      bundles.push(byId[id].bundle);
+      validIds.push(id);
+    }
+  }
+  // Legacy: no ids but csv present
+  if (!validIds.length && slot.csv && ((slot.csv.trades && slot.csv.trades.length) || (slot.csv.transfers && slot.csv.transfers.length))) {
+    return { csv: slot.csv, csvIds: [] };
+  }
+  const csv = bundles.length ? mergeCsvBundles(bundles) : emptyCsv();
+  return { csv, csvIds: validIds };
+}
+
 function defaultAccounts() {
   return {
     slotOrder: ['a'],
     activeImportSlot: 'a',
     slots: {
-      a: { id: 'a', label: '', csv: null, points: null, hlWallet: '', importedAt: null },
+      a: {
+        id: 'a',
+        label: '',
+        csv: null,
+        csvIds: [],
+        points: null,
+        hlWallet: '',
+        omniAddress: '',
+        marketsHint: '',
+        importedAt: null,
+      },
     },
   };
 }
@@ -57,14 +214,21 @@ function normalizeAccounts(raw) {
   if (!order.length) return base;
   order = order.slice(0, MAX_LEGS);
   const slots = {};
-  order.forEach((id, index) => {
+  order.forEach((id) => {
     const s = slotsIn[id] || {};
+    let marketsHint = typeof s.marketsHint === 'string' ? s.marketsHint : '';
+    const csvIds = Array.isArray(s.csvIds)
+      ? s.csvIds.map(String).filter(Boolean).slice(0, MAX_CSV_LIBRARY)
+      : [];
     slots[id] = {
       id,
       label: typeof s.label === 'string' ? s.label : '',
       csv: s.csv || null,
+      csvIds,
       points: s.points || null,
       hlWallet: '',
+      omniAddress: typeof s.omniAddress === 'string' ? s.omniAddress.toLowerCase() : '',
+      marketsHint,
       importedAt: s.importedAt || null,
     };
     if (typeof s.hlWallet === 'string' && isHlWallet(s.hlWallet)) {
@@ -116,7 +280,10 @@ async function loadSyncState() {
 async function persistSyncState(next) {
   synced = next;
   await chrome.storage.local.set({ hsWidgetSync: synced });
-  await refreshWidgetSnapshot();
+  // Never block Collecte / mutate on HL+marks network — refresh in background.
+  try {
+    void refreshWidgetSnapshot();
+  } catch (_) {}
   return synced;
 }
 
@@ -225,12 +392,59 @@ function mergeAccountsFromHypersheets(localRaw, remoteRaw, guardRaw) {
   };
 }
 
+/**
+ * Ensure csvLibrary exists and migrate legacy slot.csv → library entries.
+ */
+function hydrateCsvLibrary(state) {
+  const library = normalizeCsvLibrary(state.csvLibrary);
+  const accounts = normalizeAccounts(state.accounts);
+  const known = new Set(library.map((e) => e.id));
+
+  for (const id of omniSlotIds(accounts)) {
+    const slot = accounts.slots[id];
+    if (!slot) continue;
+    let ids = Array.isArray(slot.csvIds) ? slot.csvIds.map(String) : [];
+
+    // Legacy jambe with csv but no library link → promote into library
+    if (
+      (!ids.length) &&
+      slot.csv &&
+      ((slot.csv.trades && slot.csv.trades.length) ||
+        (slot.csv.transfers && slot.csv.transfers.length) ||
+        (slot.csv.funding && slot.csv.funding.length))
+    ) {
+      const entry = upsertCsvLibraryEntry(library, slot.csv, {
+        label: slot.label || '',
+        omniAddress: slot.omniAddress || '',
+      });
+      if (!known.has(entry.id)) known.add(entry.id);
+      ids = [entry.id];
+    }
+
+    ids = ids.filter((cid) => known.has(cid) || library.some((e) => e.id === cid));
+    const rebuilt = rebuildSlotCsvFromIds(
+      Object.assign({}, slot, { csvIds: ids }),
+      library
+    );
+    slot.csvIds = rebuilt.csvIds.length ? rebuilt.csvIds : ids;
+    if (rebuilt.csvIds.length) {
+      slot.csv = rebuilt.csv;
+      slot.marketsHint = marketsHintFromCsv(rebuilt.csv) || slot.marketsHint || '';
+    }
+  }
+
+  state.csvLibrary = library;
+  state.accounts = accounts;
+  return state;
+}
+
 async function ensureSyncAccounts() {
   const prev = await loadSyncState();
   if (!prev) {
     const fresh = {
       accounts: defaultAccounts(),
       wallets: [],
+      csvLibrary: [],
       legacyCsv: null,
       pairOverrides: {},
       accountsGuard: defaultAccountsGuard(),
@@ -245,15 +459,18 @@ async function ensureSyncAccounts() {
   }
   const accounts = normalizeAccounts(prev.accounts);
   const wallets = mergeWalletsList(accounts, prev.wallets);
-  return {
+  const state = {
     accounts,
     wallets,
+    csvLibrary: normalizeCsvLibrary(prev.csvLibrary),
     legacyCsv: prev.legacyCsv || null,
     pairOverrides: prev.pairOverrides && typeof prev.pairOverrides === 'object' ? prev.pairOverrides : {},
     accountsGuard: normalizeAccountsGuard(prev.accountsGuard),
     syncedAt: prev.syncedAt || Date.now(),
     origin: prev.origin || 'extension-local',
   };
+  hydrateCsvLibrary(state);
+  return state;
 }
 
 function nextSlotId(order) {
@@ -270,6 +487,7 @@ async function getWidgetState() {
     ok: true,
     accounts: state.accounts,
     wallets: state.wallets,
+    csvLibrary: state.csvLibrary || [],
     activeImportSlot: state.accounts.activeImportSlot,
   };
 }
@@ -285,6 +503,7 @@ async function mutateAccounts(mutator) {
   mutator(accounts, state);
   state.accounts = normalizeAccounts(accounts);
   state.wallets = mergeWalletsList(state.accounts, state.wallets);
+  state.csvLibrary = normalizeCsvLibrary(state.csvLibrary);
   if (!state.pairOverrides || typeof state.pairOverrides !== 'object') state.pairOverrides = {};
   state.accountsGuard = normalizeAccountsGuard(state.accountsGuard);
   state.syncedAt = Date.now();
@@ -525,6 +744,11 @@ function forceOmniLiveHash(tabId) {
           target: { tabId },
           func: () => {
             try {
+              var onOmni = /\/omni\/?$/.test(location.pathname) || location.pathname.indexOf('/omni/') === 0;
+              if (!onOmni) {
+                location.replace('/omni/#var-omni-live');
+                return;
+              }
               if (location.hash !== '#var-omni-live') {
                 history.replaceState(null, '', '#var-omni-live');
               }
@@ -568,7 +792,7 @@ async function syncToHypersheets() {
   if (!n) {
     const tabId = await new Promise((resolve) => {
       chrome.tabs.create(
-        { url: 'https://hypersheets.xyz/#var-omni-live', active: true },
+        { url: 'https://hypersheets.xyz/omni/#var-omni-live', active: true },
         (tab) => resolve(tab && tab.id != null ? tab.id : null)
       );
     });
@@ -581,7 +805,7 @@ async function syncToHypersheets() {
     ok: n > 0,
     hsTabs: n,
     counts: payload.counts || null,
-    error: n > 0 ? null : 'Hypersheets tab not ready — open hypersheets.xyz and retry',
+    error: n > 0 ? null : 'Hypersheets tab not ready — open hypersheets.xyz/omni and retry',
   };
 }
 
@@ -608,52 +832,133 @@ function sendCollect(tabId) {
   });
 }
 
+function slotHasTrades(slot) {
+  return !!(slot && slot.csv && Array.isArray(slot.csv.trades) && slot.csv.trades.length);
+}
+
+function emptySlotTemplate(id, label) {
+  return {
+    id,
+    label: label || '',
+    csv: null,
+    csvIds: [],
+    points: null,
+    hlWallet: '',
+    omniAddress: '',
+    marketsHint: '',
+    importedAt: null,
+  };
+}
+
+/**
+ * Pick which jambe receives an Omni collect/import.
+ * - Same Omni address → refresh that jambe (never wipe another wallet)
+ * - Empty jambe → fill it
+ * - Active jambe already filled by another Omni wallet → create a new jambe
+ */
 async function ensureTargetImportSlot(opts) {
   const options = opts || {};
   const state = await ensureSyncAccounts();
   const accounts = normalizeAccounts(state.accounts);
   const requestedLabel = typeof options.label === 'string' ? options.label.trim().slice(0, 32) : '';
   let targetSlotId = options.slotId ? String(options.slotId) : '';
+  const omniAddress = typeof options.omniAddress === 'string'
+    ? options.omniAddress.toLowerCase().trim()
+    : '';
   const activeId = accounts.activeImportSlot || accounts.slotOrder[0] || 'a';
   const activeSlot = accounts.slots[activeId];
-  const activeHasTrades = !!(
-    activeSlot &&
-    activeSlot.csv &&
-    Array.isArray(activeSlot.csv.trades) &&
-    activeSlot.csv.trades.length
-  );
+  const activeHasTrades = slotHasTrades(activeSlot);
+  const activeOmni = activeSlot && activeSlot.omniAddress
+    ? String(activeSlot.omniAddress).toLowerCase()
+    : '';
 
-  // Only create a jambe when explicitly requested (newLeg / autoNewLeg === true).
-  // Default Collect overwrites the active jambe — auto-cloning caused identical position cards.
-  const wantNewLeg = !!(
-    options.newLeg ||
-    (options.autoNewLeg === true && !targetSlotId && activeHasTrades)
-  );
+  // Explicit slot (user clicked Cible / drop target)
+  if (targetSlotId && accounts.slots[targetSlotId]) {
+    accounts.activeImportSlot = targetSlotId;
+    state.accounts = normalizeAccounts(accounts);
+    state.syncedAt = Date.now();
+    await persistSyncState(state);
+    return { slotId: targetSlotId, newLeg: false, matchedBy: 'explicit' };
+  }
+  targetSlotId = '';
 
-  if (wantNewLeg && accounts.slotOrder.length < MAX_LEGS) {
-    const id = nextSlotId(accounts.slotOrder);
-    if (id) {
-      const n = accounts.slotOrder.length + 1;
-      accounts.slots[id] = {
-        id,
-        label: requestedLabel || '',
-        csv: null,
-        points: null,
-        hlWallet: '',
-        importedAt: null,
-      };
-      accounts.slotOrder.push(id);
-      accounts.activeImportSlot = id;
-      targetSlotId = id;
-      state.accounts = normalizeAccounts(accounts);
-      state.syncedAt = Date.now();
-      await persistSyncState(state);
-      return { slotId: targetSlotId, newLeg: true };
+  // Same Omni wallet already collected → always refresh THAT jambe
+  if (omniAddress) {
+    for (const id of accounts.slotOrder) {
+      const s = accounts.slots[id];
+      if (s && s.omniAddress && String(s.omniAddress).toLowerCase() === omniAddress) {
+        accounts.activeImportSlot = id;
+        state.accounts = normalizeAccounts(accounts);
+        state.syncedAt = Date.now();
+        await persistSyncState(state);
+        return { slotId: id, newLeg: false, matchedBy: 'omniAddress' };
+      }
     }
   }
 
-  if (!targetSlotId) targetSlotId = activeId;
-  return { slotId: targetSlotId, newLeg: false };
+  const filledCount = accounts.slotOrder.filter((id) => slotHasTrades(accounts.slots[id])).length;
+  // Protect existing jambes: never wipe wallet A when collecting wallet B.
+  // If the only filled jambe has no Omni address yet, bind/refresh it once.
+  const otherWalletOnActive =
+    activeHasTrades &&
+    options.protectFilled !== false &&
+    (
+      (!!omniAddress && !!activeOmni && activeOmni !== omniAddress) ||
+      (!omniAddress && filledCount >= 1) ||
+      (!!omniAddress && !activeOmni && filledCount > 1)
+    );
+
+  // New jambe: explicit flag, or auto when active is occupied by another / unknown Omni wallet
+  const wantNewLeg = !!(
+    options.newLeg ||
+    (options.autoNewLeg === true && activeHasTrades) ||
+    otherWalletOnActive
+  );
+
+  if (!wantNewLeg) {
+    // Prefer empty active, else first empty jambe
+    if (!activeHasTrades) {
+      return { slotId: activeId, newLeg: false, matchedBy: 'active-empty' };
+    }
+    const emptyId = accounts.slotOrder.find((id) => !slotHasTrades(accounts.slots[id]));
+    if (emptyId) {
+      accounts.activeImportSlot = emptyId;
+      state.accounts = normalizeAccounts(accounts);
+      state.syncedAt = Date.now();
+      await persistSyncState(state);
+      return { slotId: emptyId, newLeg: false, matchedBy: 'empty' };
+    }
+    return { slotId: activeId, newLeg: false, matchedBy: 'active-overwrite' };
+  }
+
+  // Reuse an empty jambe before creating one
+  const emptyId = accounts.slotOrder.find((id) => !slotHasTrades(accounts.slots[id]));
+  if (emptyId) {
+    accounts.activeImportSlot = emptyId;
+    if (requestedLabel && accounts.slots[emptyId] && !String(accounts.slots[emptyId].label || '').trim()) {
+      accounts.slots[emptyId].label = requestedLabel;
+    }
+    state.accounts = normalizeAccounts(accounts);
+    state.syncedAt = Date.now();
+    await persistSyncState(state);
+    return { slotId: emptyId, newLeg: false, matchedBy: 'empty' };
+  }
+
+  if (accounts.slotOrder.length < MAX_LEGS) {
+    const id = nextSlotId(accounts.slotOrder);
+    if (id) {
+      accounts.slots[id] = emptySlotTemplate(id, requestedLabel);
+      accounts.slotOrder.push(id);
+      accounts.activeImportSlot = id;
+      state.accounts = normalizeAccounts(accounts);
+      state.syncedAt = Date.now();
+      await persistSyncState(state);
+      return { slotId: id, newLeg: true, matchedBy: 'created' };
+    }
+  }
+
+  // Max legs reached — last resort overwrite active
+  return { slotId: activeId, newLeg: false, matchedBy: 'active-overwrite-max' };
 }
 
 async function runOmniCollect(preferredLabel) {
@@ -675,35 +980,82 @@ async function runOmniCollect(preferredLabel) {
   if (!result || !result.ok || !result.payload) return result;
 
   try {
+    // Keep a slim last-export (competition board can be huge and block storage)
+    const slim = slimPayloadForStorage(result.payload);
     await chrome.storage.local.set({
       hsOmniLastExport: {
         at: Date.now(),
         counts: result.counts || null,
-        payload: result.payload,
+        payload: slim,
       },
     });
   } catch (_) {}
 
-  // Refresh the active jambe in place. Explicit "new leg" is the only way to clone.
-  const target = await ensureTargetImportSlot({ autoNewLeg: false, label: preferredLabel });
+  // Route by Omni wallet address so a 2nd collect never wipes the 1st wallet.
+  const omniAddress = extractOmniAddress(result.payload);
+  const target = await ensureTargetImportSlot({
+    label: preferredLabel,
+    omniAddress,
+    protectFilled: true,
+  });
 
   let applied = null;
   try {
     applied = await applyLocalOmniPayload(result.payload, 'omni-collect', target.slotId, preferredLabel);
+  } catch (e) {
+    return {
+      ok: false,
+      error: 'Collecte OK Omni mais sync locale echouee: ' + String(e && e.message || e),
+      counts: result.counts,
+    };
+  }
+
+  if (!applied || !applied.ok) {
+    return {
+      ok: false,
+      error: (applied && applied.error) || 'Sync locale echouee',
+      counts: result.counts,
+    };
+  }
+
+  // Broadcast to Hypersheets tabs in background — never block the Collecte UI
+  try {
+    void broadcastExportToHypersheets(slimPayloadForStorage(result.payload));
   } catch (_) {}
 
-  const hsTabs = await broadcastExportToHypersheets(result.payload);
   return {
     ok: true,
     counts: result.counts,
     mb: result.mb,
     warnings: result.warnings || result.payload.warnings || [],
-    hsTabs,
+    hsTabs: null,
     widgetSynced: true,
     newLeg: !!(target && target.newLeg),
-    slotId: applied && applied.slotId,
-    slotLabel: applied && applied.slotLabel,
+    matchedBy: target && target.matchedBy,
+    slotId: applied.slotId,
+    slotLabel: applied.slotLabel,
+    marketsHint: applied.marketsHint,
+    omniAddress: applied.omniAddress || omniAddress,
+    duplicateSlot: applied.duplicateSlot,
+    duplicateLabel: applied.duplicateLabel,
   };
+}
+
+/** Drop bulky competition board entries — keep self for Omni address identity. */
+function slimPayloadForStorage(payload) {
+  if (!payload || typeof payload !== 'object') return payload;
+  const out = Object.assign({}, payload);
+  if (out.competition && typeof out.competition === 'object') {
+    out.competition = {
+      pulled_at: out.competition.pulled_at || null,
+      ranking: out.competition.ranking || 'score',
+      self: out.competition.self || null,
+      entries: Array.isArray(out.competition.entries)
+        ? out.competition.entries.slice(0, 20)
+        : [],
+    };
+  }
+  return out;
 }
 
 function normalizeTradeRow(t) {
@@ -729,44 +1081,96 @@ function payloadToCsvBundle(payload) {
   };
 }
 
-async function applyLocalOmniBundle(bundle, origin, points, preferredSlotId, preferredLabel) {
+async function applyLocalOmniBundle(bundle, origin, points, preferredSlotId, preferredLabel, omniMeta, applyOpts) {
+  const options = applyOpts || {};
+  const replace = options.replace === true;
   const state = await ensureSyncAccounts();
   const accounts = normalizeAccounts(state.accounts);
+  const library = normalizeCsvLibrary(state.csvLibrary);
   const requestedLabel = typeof preferredLabel === 'string' ? preferredLabel.trim().slice(0, 32) : '';
   let active = preferredSlotId && accounts.slots[preferredSlotId]
     ? preferredSlotId
     : (accounts.activeImportSlot || accounts.slotOrder[0] || 'a');
   if (!accounts.slots[active]) {
-    accounts.slots[active] = {
-      id: active,
-      label: '',
-      csv: null,
-      points: null,
-      hlWallet: '',
-      importedAt: null,
-    };
+    accounts.slots[active] = emptySlotTemplate(active, '');
     if (!accounts.slotOrder.includes(active)) accounts.slotOrder.push(active);
   }
   accounts.activeImportSlot = active;
-  const csv = bundle || emptyCsv();
+  const incoming = bundle || emptyCsv();
   const prevSlot = accounts.slots[active];
   const nextPoints = mergePointsPreferRich(prevSlot.points || null, points);
+  const omniAddress = (omniMeta && omniMeta.omniAddress) || '';
+  // File imports always add a new dropdown option. Omni collect updates same-address entry.
+  const forceNew =
+    options.forceNew === true ||
+    (!!origin && /drop|import/i.test(String(origin)));
+  const entry = upsertCsvLibraryEntry(library, incoming, {
+    label: requestedLabel || (options.fileName ? String(options.fileName).slice(0, 48) : '') || prevSlot.label || '',
+    omniAddress: omniAddress || '',
+    forceNew,
+  });
+
+  // One CSV linked per position (dropdown) — joining adds to library then selects it
+  const csvIds = [entry.id];
+
+  const rebuilt = rebuildSlotCsvFromIds({ csvIds, csv: null }, library);
+  const csv = rebuilt.csv;
+  const marketsHint = marketsHintFromCsv(csv);
+  const autoLabel = suggestLabelFromCsv(csv);
+  const label = (prevSlot.label && String(prevSlot.label).trim())
+    ? prevSlot.label
+    : (requestedLabel || autoLabel || '');
+
+  // Prefer address from this import, else from selected source, else previous
+  let resolvedOmni = omniAddress || '';
+  if (!resolvedOmni) {
+    const e = library.find((x) => x.id === entry.id);
+    if (e && e.omniAddress) resolvedOmni = e.omniAddress;
+  }
+  if (!resolvedOmni) resolvedOmni = prevSlot.omniAddress || '';
+
+  // Warn if this Omni wallet was already collected into another jambe
+  let duplicateSlot = null;
+  if (resolvedOmni) {
+    for (const id of accounts.slotOrder) {
+      if (id === active) continue;
+      const other = accounts.slots[id];
+      if (other && other.omniAddress && other.omniAddress === resolvedOmni) {
+        duplicateSlot = id;
+        break;
+      }
+    }
+  }
+
   accounts.slots[active] = {
     id: active,
-    // Keep an existing label; only fill empty slots from the collecte name field.
-    label: (prevSlot.label && String(prevSlot.label).trim())
-      ? prevSlot.label
-      : (requestedLabel || ''),
+    label,
     csv,
+    csvIds: rebuilt.csvIds,
     points: nextPoints != null ? nextPoints : (prevSlot.points || null),
     hlWallet: prevSlot.hlWallet || '',
+    omniAddress: resolvedOmni || '',
+    marketsHint,
     importedAt: Date.now(),
   };
+
+  // Any other jambe that joins this CSV source must refresh its merged open positions
+  for (const sid of accounts.slotOrder) {
+    if (sid === active) continue;
+    const s = accounts.slots[sid];
+    if (!s || !Array.isArray(s.csvIds) || !s.csvIds.includes(entry.id)) continue;
+    const other = rebuildSlotCsvFromIds(s, library);
+    s.csvIds = other.csvIds;
+    s.csv = other.csv;
+    s.marketsHint = marketsHintFromCsv(other.csv) || s.marketsHint || '';
+  }
+
   const guard = normalizeAccountsGuard(state.accountsGuard);
   if (guard.deletedSlots[active]) delete guard.deletedSlots[active];
   if (guard.clearedSlots[active]) delete guard.clearedSlots[active];
   state.accountsGuard = guard;
   state.accounts = normalizeAccounts(accounts);
+  state.csvLibrary = library;
   // legacyCsv mirrors active jambe only — other jambes keep their own csv
   state.legacyCsv = csv;
   state.wallets = mergeWalletsList(state.accounts, state.wallets);
@@ -779,8 +1183,18 @@ async function applyLocalOmniBundle(bundle, origin, points, preferredSlotId, pre
   return {
     ok: true,
     tradeCount: (csv.trades || []).length,
+    csvId: entry.id,
+    csvIds: rebuilt.csvIds,
+    merged: forceNew,
+    libraryCount: library.length,
     slotId: active,
-    slotLabel: accounts.slots[active].label,
+    slotLabel: label || active,
+    marketsHint,
+    omniAddress: resolvedOmni,
+    duplicateSlot,
+    duplicateLabel: duplicateSlot
+      ? ((state.accounts.slots[duplicateSlot] && state.accounts.slots[duplicateSlot].label) || duplicateSlot)
+      : null,
     hasPoints: !!(points && (points.points_summary || (points.points_history && points.points_history.length))),
   };
 }
@@ -793,11 +1207,21 @@ function pointsFromPayload(payload) {
     hist.length ||
     payload.competition;
   if (!has) return null;
+  let competition = payload.competition || null;
+  if (competition && typeof competition === 'object') {
+    competition = {
+      pulled_at: competition.pulled_at || null,
+      ranking: competition.ranking || 'score',
+      self: competition.self || null,
+      // Keep a tiny slice — full leaderboard blows chrome.storage and freezes Collecte
+      entries: Array.isArray(competition.entries) ? competition.entries.slice(0, 20) : [],
+    };
+  }
   return {
     v: 1,
     points_summary: payload.points_summary || null,
     points_history: hist,
-    competition: payload.competition || null,
+    competition,
     exported_at: payload.exported_at || null,
     sourceFile: 'omni-collect',
     importedAt: Date.now(),
@@ -825,13 +1249,15 @@ function mergePointsPreferRich(prev, next) {
   };
 }
 
-async function applyLocalOmniPayload(payload, origin, preferredSlotId, preferredLabel) {
+async function applyLocalOmniPayload(payload, origin, preferredSlotId, preferredLabel, applyOpts) {
   return applyLocalOmniBundle(
     payloadToCsvBundle(payload),
     origin || 'omni-payload',
     pointsFromPayload(payload),
     preferredSlotId,
-    preferredLabel
+    preferredLabel,
+    { omniAddress: extractOmniAddress(payload) },
+    applyOpts
   );
 }
 
@@ -1091,6 +1517,39 @@ function rebuildOpenFromTrades(bundle) {
   }).filter((p) => p.qty > 0);
 }
 
+function marketsHintFromCsv(bundle) {
+  const open = rebuildOpenFromTrades(bundle);
+  if (!open.length) return '';
+  open.sort((a, b) => (b.notional || 0) - (a.notional || 0));
+  return open
+    .slice(0, 4)
+    .map((p) => p.market + ' ' + p.side)
+    .join(' · ');
+}
+
+function suggestLabelFromCsv(bundle) {
+  const open = rebuildOpenFromTrades(bundle);
+  if (!open.length) return '';
+  open.sort((a, b) => (b.notional || 0) - (a.notional || 0));
+  if (open.length === 1) return open[0].market;
+  return open.slice(0, 2).map((p) => p.market).join('+');
+}
+
+function extractOmniAddress(payload) {
+  const self = payload && payload.competition && payload.competition.self;
+  if (self && self.address) return String(self.address).toLowerCase();
+  const sum = payload && payload.points_summary;
+  if (sum && sum.address) return String(sum.address).toLowerCase();
+  if (sum && sum.user && sum.user.address) return String(sum.user.address).toLowerCase();
+  return '';
+}
+
+function shortOmniAddr(addr) {
+  const a = String(addr || '');
+  if (!/^0x[a-fA-F0-9]{40}$/i.test(a)) return '';
+  return a.slice(0, 6) + '…' + a.slice(-4);
+}
+
 function quoteMid(listing) {
   // Prefer live quote mid — public mark_price is often sticky for minutes.
   // Same rule as Hypersheets dashboard / earlier extension builds.
@@ -1104,22 +1563,29 @@ function quoteMid(listing) {
 
 async function fetchMarksMap() {
   const url = VAR_STATS + '?_hs=' + Date.now();
-  const res = await fetch(url, {
-    cache: 'no-store',
-    headers: { accept: 'application/json', 'cache-control': 'no-cache' },
-  });
-  if (!res.ok) throw new Error('stats ' + res.status);
-  const data = await res.json();
-  const map = Object.create(null);
-  for (const L of data.listings || []) {
-    const tick = normalizeMarket(L.ticker);
-    const mid = quoteMid(L);
-    if (tick && mid > 0) map[tick] = mid;
-    // Also index by raw ticker variants Omni may use
-    const raw = String(L.ticker || '').toUpperCase();
-    if (raw && mid > 0) map[raw] = mid;
+  const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = ctrl ? setTimeout(() => ctrl.abort(), 12000) : null;
+  try {
+    const res = await fetch(url, {
+      cache: 'no-store',
+      headers: { accept: 'application/json', 'cache-control': 'no-cache' },
+      signal: ctrl ? ctrl.signal : undefined,
+    });
+    if (!res.ok) throw new Error('stats ' + res.status);
+    const data = await res.json();
+    const map = Object.create(null);
+    for (const L of data.listings || []) {
+      const tick = normalizeMarket(L.ticker);
+      const mid = quoteMid(L);
+      if (tick && mid > 0) map[tick] = mid;
+      // Also index by raw ticker variants Omni may use
+      const raw = String(L.ticker || '').toUpperCase();
+      if (raw && mid > 0) map[raw] = mid;
+    }
+    return map;
+  } finally {
+    if (timer) clearTimeout(timer);
   }
-  return map;
 }
 
 async function hlPost(body) {
@@ -1705,19 +2171,154 @@ function pairOverrideKey(accountId, market) {
   return String(accountId || 'a') + '::' + normalizeMarket(market);
 }
 
+function hedgePosKey(h) {
+  if (!h) return '';
+  return [
+    String(h.wallet || '').toLowerCase(),
+    String(h.dex || 'HL').toUpperCase(),
+    normalizeMarket(h.market || h.coin),
+  ].join('|');
+}
+
+function parseHedgeOverride(ovr) {
+  if (ovr == null || ovr === 'auto') return { mode: 'auto' };
+  if (ovr === '__none__' || ovr === '') return { mode: 'none' };
+  const s = String(ovr);
+  if (s.indexOf('|') >= 0) {
+    const parts = s.split('|');
+    return {
+      mode: 'key',
+      wallet: String(parts[0] || '').toLowerCase(),
+      dex: String(parts[1] || 'HL').toUpperCase(),
+      market: normalizeMarket(parts[2] || ''),
+      raw: s,
+    };
+  }
+  return { mode: 'market', market: normalizeMarket(s), raw: s };
+}
+
+function marketAliases(tick) {
+  const t = normalizeMarket(tick);
+  const aliases = [t];
+  if (t === 'XAU') aliases.push('GOLD');
+  if (t === 'GOLD') aliases.push('XAU');
+  if (t === 'XAG') aliases.push('SILVER');
+  if (t === 'SILVER') aliases.push('XAG');
+  return aliases;
+}
+
+function hedgeMarketMatch(h, aliases) {
+  const m = normalizeMarket(h.market || h.coin);
+  const short = String(h.coin || '').replace(/^xyz:/i, '').toUpperCase();
+  return aliases.includes(m) || aliases.includes(short);
+}
+
+function oppositeHedgeSide(omniSide, hlSide) {
+  return (
+    (omniSide === 'long' && hlSide === 'short') ||
+    (omniSide === 'short' && hlSide === 'long')
+  );
+}
+
+function scoreHedgeCandidate(omni, h, preferWallet) {
+  let score = 0;
+  const opp = oppositeHedgeSide(omni.side, h.side);
+  if (opp) score += 20000;
+  else score -= 40000;
+
+  const oN = Number(omni.notional) || 0;
+  const hN = Number(h.notionalUsd) || 0;
+  if (oN > 0 && hN > 0) {
+    const gap = Math.abs(hN - oN) / Math.max(oN, hN);
+    score -= gap * 8000;
+    // Prefer hedges that can cover at least ~50% of Omni size
+    if (hN < oN * 0.45) score -= 3000;
+  }
+
+  if (String(h.dex || '').toUpperCase() === 'XYZ') score += 800;
+  const pref = preferWallet ? String(preferWallet).toLowerCase() : '';
+  if (pref && String(h.wallet || '').toLowerCase() === pref) score += 2500;
+
+  return score;
+}
+
+/**
+ * Pick a HL/XYZ hedge for one Omni leg.
+ * - Exclusive: skips keys already in `claimed`
+ * - Override key: wallet|DEX|MARKET
+ * - Override legacy: market ticker only
+ * - Auto: opposite side + size + prefer slot wallet + prefer XYZ
+ */
+function pickHedgeForOmni(omni, hlPositions, claimed, override, preferWallet) {
+  const parsed = parseHedgeOverride(override);
+  if (parsed.mode === 'none') return null;
+
+  const claimedSet = claimed instanceof Set ? claimed : new Set();
+  const aliases = marketAliases(omni.market);
+
+  if (parsed.mode === 'key') {
+    // Manual key wins over auto claim (uPnL still de-duped in buildSnapshot)
+    return (
+      (hlPositions || []).find((h) => {
+        return (
+          String(h.wallet || '').toLowerCase() === parsed.wallet &&
+          String(h.dex || 'HL').toUpperCase() === parsed.dex &&
+          normalizeMarket(h.market || h.coin) === parsed.market
+        );
+      }) || null
+    );
+  }
+
+  let candidates = (hlPositions || []).filter((h) => {
+    const key = hedgePosKey(h);
+    if (claimedSet.has(key)) return false;
+    return hedgeMarketMatch(h, aliases);
+  });
+
+  if (parsed.mode === 'market') {
+    candidates = candidates.filter((h) => {
+      const m = normalizeMarket(h.market || h.coin);
+      return m === parsed.market || marketAliases(parsed.market).includes(m);
+    });
+  }
+
+  if (!candidates.length) return null;
+
+  let best = null;
+  let bestScore = -Infinity;
+  for (const h of candidates) {
+    const s = scoreHedgeCandidate(omni, h, preferWallet);
+    // Auto: require opposite side. Manual market override: still prefer opposite but allow fallback.
+    if (parsed.mode === 'auto' && !oppositeHedgeSide(omni.side, h.side)) continue;
+    if (s > bestScore) {
+      bestScore = s;
+      best = h;
+    }
+  }
+
+  // Legacy/manual market override: if nothing opposite, take best same-ticker anyway
+  if (!best && parsed.mode === 'market') {
+    for (const h of candidates) {
+      const s = scoreHedgeCandidate(omni, h, preferWallet) + 50000; // neutralize side penalty for display
+      if (s > bestScore) {
+        bestScore = s;
+        best = h;
+      }
+    }
+  }
+
+  return best;
+}
+
+/** @deprecated — use pickHedgeForOmni */
 function findHlForMarket(hlPositions, market, wallet, overrideMarket) {
-  if (overrideMarket === '__none__' || overrideMarket === '') return null;
-  const tick = normalizeMarket(overrideMarket || market);
-  const aliases = [tick];
-  if (tick === 'XAU') aliases.push('GOLD');
-  if (tick === 'GOLD') aliases.push('XAU');
-  const want = wallet ? String(wallet).toLowerCase() : '';
-  return hlPositions.find((h) => {
-    if (want && String(h.wallet || '').toLowerCase() !== want) return false;
-    const m = normalizeMarket(h.market || h.coin);
-    const short = String(h.coin || '').replace(/^xyz:/i, '').toUpperCase();
-    return aliases.includes(m) || aliases.includes(short);
-  }) || null;
+  return pickHedgeForOmni(
+    { market, side: 'long', notional: 0 },
+    hlPositions,
+    new Set(),
+    overrideMarket == null ? 'auto' : overrideMarket,
+    wallet
+  );
 }
 
 function buildSnapshot(omniLegs, hlPositions, marks, hlAccounts, pairOverrides) {
@@ -1726,8 +2327,17 @@ function buildSnapshot(omniLegs, hlPositions, marks, hlAccounts, pairOverrides) 
   let netDeltaUsd = 0;
   const omniByAccount = {};
   const overrides = pairOverrides && typeof pairOverrides === 'object' ? pairOverrides : {};
+  const claimed = new Set();
+  const hlUpnlClaimed = new Set(); // avoid double-counting hedge uPnL in net
 
-  for (const o of omniLegs) {
+  // Largest Omni notionals claim hedges first
+  const ordered = (omniLegs || []).slice().sort((a, b) => {
+    const na = Math.abs((a.qty || 0) * (a.entry || 0));
+    const nb = Math.abs((b.qty || 0) * (b.entry || 0));
+    return nb - na;
+  });
+
+  for (const o of ordered) {
     const mark = marks[o.market] || o.entry || 0;
     const notional = o.qty * (mark || o.entry || 0);
     let omniUpnl = null;
@@ -1737,8 +2347,23 @@ function buildSnapshot(omniLegs, hlPositions, marks, hlAccounts, pairOverrides) 
     const oKey = pairOverrideKey(o.accountId, o.market);
     const hasOvr = Object.prototype.hasOwnProperty.call(overrides, oKey);
     const ovr = hasOvr ? overrides[oKey] : undefined;
-    const hl = findHlForMarket(hlPositions, o.market, o.hlWallet, hasOvr ? ovr : undefined);
+    const hl = pickHedgeForOmni(
+      { market: o.market, side: o.side, notional, qty: o.qty },
+      hlPositions,
+      claimed,
+      hasOvr ? ovr : 'auto',
+      o.hlWallet || ''
+    );
+    const hlKey = hl ? hedgePosKey(hl) : '';
+    if (hlKey) claimed.add(hlKey);
+
     let hlUpnl = hl?.upnl ?? null;
+    let hlUpnlInNet = 0;
+    if (hlKey && hlUpnl != null && isFinite(hlUpnl) && !hlUpnlClaimed.has(hlKey)) {
+      hlUpnlClaimed.add(hlKey);
+      hlUpnlInNet = Number(hlUpnl) || 0;
+    }
+
     let deltaUsd = 0;
     if (hl) {
       const hlNotional = hl.notionalUsd || 0;
@@ -1748,13 +2373,13 @@ function buildSnapshot(omniLegs, hlPositions, marks, hlAccounts, pairOverrides) 
     } else {
       deltaUsd = o.side === 'short' ? -notional : notional;
     }
-    const pairUpnl = (Number(omniUpnl) || 0) + (Number(hlUpnl) || 0);
+    const pairUpnl = (Number(omniUpnl) || 0) + hlUpnlInNet;
     netUpnl += pairUpnl;
     netDeltaUsd += deltaUsd;
     pairs.push({
       accountId: o.accountId,
       accountLabel: o.accountLabel,
-      hlWallet: o.hlWallet || '',
+      hlWallet: hl?.wallet || o.hlWallet || '',
       market: o.market,
       omniSide: o.side,
       omniQty: o.qty,
@@ -1765,10 +2390,12 @@ function buildSnapshot(omniLegs, hlPositions, marks, hlAccounts, pairOverrides) 
       hlSide: hl?.side || null,
       hlDex: hl?.dex || null,
       hlMarket: hl?.market || null,
+      hlKey: hlKey || null,
       hlQty: hl?.qty || null,
       hlNotional: hl?.notionalUsd || null,
       hlUpnl,
       hlLeverage: hl?.leverage || null,
+      hlOpposite: hl ? oppositeHedgeSide(o.side, hl.side) : false,
       mark,
       deltaUsd,
       deltaNotional: hl
@@ -1778,6 +2405,7 @@ function buildSnapshot(omniLegs, hlPositions, marks, hlAccounts, pairOverrides) 
       paired: !!hl,
       pairOverride: hasOvr ? ovr : null,
       pairAuto: !hasOvr,
+      hlConflict: false,
     });
 
     const aid = o.accountId || 'a';
@@ -1804,6 +2432,18 @@ function buildSnapshot(omniLegs, hlPositions, marks, hlAccounts, pairOverrides) 
     });
   }
 
+  // Flag duplicate hedge claims (manual override can steal from auto)
+  {
+    const keyCounts = {};
+    for (const p of pairs) {
+      if (!p.hlKey) continue;
+      keyCounts[p.hlKey] = (keyCounts[p.hlKey] || 0) + 1;
+    }
+    for (const p of pairs) {
+      if (p.hlKey && keyCounts[p.hlKey] > 1) p.hlConflict = true;
+    }
+  }
+
   pairs.sort((a, b) => Math.abs(b.omniNotional || 0) - Math.abs(a.omniNotional || 0));
 
   const omniAccounts = Object.values(omniByAccount);
@@ -1813,27 +2453,14 @@ function buildSnapshot(omniLegs, hlPositions, marks, hlAccounts, pairOverrides) 
   const hlEquity = hlAccs.reduce((s, a) => s + (a.equity || 0), 0);
   const hlUpnlTotal = hlAccs.reduce((s, a) => s + (a.upnl || 0), 0);
 
-  // Flag HL markets claimed by multiple Omni legs (same wallet)
-  const claim = Object.create(null);
-  for (const p of pairs) {
-    if (!p.paired || !p.hlMarket) continue;
-    const k = String(p.hlWallet || '').toLowerCase() + '::' + normalizeMarket(p.hlMarket);
-    claim[k] = (claim[k] || 0) + 1;
-  }
-  for (const p of pairs) {
-    if (!p.paired || !p.hlMarket) {
-      p.hlConflict = false;
-      continue;
-    }
-    const k = String(p.hlWallet || '').toLowerCase() + '::' + normalizeMarket(p.hlMarket);
-    p.hlConflict = (claim[k] || 0) > 1;
-  }
-
   const hlByWallet = {};
-  for (const h of hlPositions) {
+  const hlOpen = [];
+  const unpairedHl = [];
+  for (const h of hlPositions || []) {
     const w = String(h.wallet || '').toLowerCase();
     if (!hlByWallet[w]) hlByWallet[w] = [];
-    hlByWallet[w].push({
+    const key = hedgePosKey(h);
+    const row = {
       market: h.market,
       side: h.side,
       dex: h.dex,
@@ -1841,8 +2468,27 @@ function buildSnapshot(omniLegs, hlPositions, marks, hlAccounts, pairOverrides) 
       notionalUsd: h.notionalUsd,
       qty: h.qty,
       leverage: h.leverage,
-    });
+      entry: h.entry,
+      mark: h.mark,
+      wallet: h.wallet,
+      coin: h.coin,
+      key,
+    };
+    hlByWallet[w].push(row);
+    const paired = claimed.has(key);
+    const openRow = Object.assign({}, row, { paired });
+    hlOpen.push(openRow);
+    if (!paired) unpairedHl.push(openRow);
   }
+
+  // XYZ first, then HL · largest notional
+  hlOpen.sort((a, b) => {
+    const da = String(a.dex || '').toUpperCase() === 'XYZ' ? 0 : 1;
+    const db = String(b.dex || '').toUpperCase() === 'XYZ' ? 0 : 1;
+    if (da !== db) return da - db;
+    return Math.abs(b.notionalUsd || 0) - Math.abs(a.notionalUsd || 0);
+  });
+  unpairedHl.sort((a, b) => Math.abs(b.notionalUsd || 0) - Math.abs(a.notionalUsd || 0));
 
   return {
     ok: true,
@@ -1850,9 +2496,11 @@ function buildSnapshot(omniLegs, hlPositions, marks, hlAccounts, pairOverrides) 
     pairs,
     netUpnl,
     netDeltaUsd,
-    omniCount: omniLegs.length,
-    hlCount: hlPositions.length,
+    omniCount: (omniLegs || []).length,
+    hlCount: (hlPositions || []).length,
     hlByWallet,
+    hlOpen,
+    unpairedHl,
     portfolio: {
       hlEquity,
       hlUpnl: hlUpnlTotal,
@@ -2356,23 +3004,41 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
   if (msg.type === 'HS_WIDGET_IMPORT_LOCAL') {
     (async () => {
+      const omniAddress = msg.payload ? extractOmniAddress(msg.payload) : '';
       const target = await ensureTargetImportSlot({
         slotId: msg.slotId ? String(msg.slotId) : '',
         newLeg: !!msg.newLeg,
         autoNewLeg: msg.autoNewLeg === true,
         label: msg.label || '',
+        omniAddress,
+        protectFilled: msg.slotId ? false : true,
       });
       const targetSlotId = target.slotId;
+      const applyOpts = {
+        replace: msg.replace === true,
+        forceNew: msg.forceNew !== false,
+        fileName: msg.fileName ? String(msg.fileName).slice(0, 48) : '',
+      };
 
       const apply = msg.payload
-        ? applyLocalOmniPayload(msg.payload, msg.origin || 'extension-drop', targetSlotId, msg.label || '')
-        : applyLocalOmniBundle(msg.legacyCsv || null, msg.origin || 'extension-drop', null, targetSlotId, msg.label || '');
+        ? applyLocalOmniPayload(msg.payload, msg.origin || 'extension-drop', targetSlotId, msg.label || '', applyOpts)
+        : applyLocalOmniBundle(
+            msg.legacyCsv || null,
+            msg.origin || 'extension-drop',
+            null,
+            targetSlotId,
+            msg.label || '',
+            { omniAddress },
+            applyOpts
+          );
       let res = await apply;
       if (msg.payload && msg.broadcast) {
-        const n = await broadcastExportToHypersheets(msg.payload);
-        res = Object.assign({}, res, { hsTabs: n });
+        try {
+          void broadcastExportToHypersheets(slimPayloadForStorage(msg.payload));
+        } catch (_) {}
       }
       if (target.newLeg) res = Object.assign({}, res, { newLeg: true });
+      if (target.matchedBy) res = Object.assign({}, res, { matchedBy: target.matchedBy });
       return res;
     })()
       .then((res) => sendResponse(res))
@@ -2491,6 +3157,67 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     return true;
   }
 
+  if (msg.type === 'HS_WIDGET_SET_SLOT_CSVS') {
+    const id = String(msg.slotId || '');
+    const want = Array.isArray(msg.csvIds) ? msg.csvIds.map(String) : [];
+    mutateAccounts((accounts, state) => {
+      if (!accounts.slots[id]) return;
+      const library = normalizeCsvLibrary(state.csvLibrary);
+      state.csvLibrary = library;
+      const known = new Set(library.map((e) => e.id));
+      const csvIds = want.filter((cid) => known.has(cid)).slice(0, MAX_CSV_LIBRARY);
+      const rebuilt = rebuildSlotCsvFromIds({ csvIds, csv: null }, library);
+      accounts.slots[id].csvIds = rebuilt.csvIds;
+      accounts.slots[id].csv = rebuilt.csvIds.length ? rebuilt.csv : null;
+      accounts.slots[id].marketsHint = rebuilt.csvIds.length
+        ? marketsHintFromCsv(rebuilt.csv)
+        : '';
+      accounts.slots[id].importedAt = rebuilt.csvIds.length ? Date.now() : null;
+      // Address from first selected source that has one
+      let addr = accounts.slots[id].omniAddress || '';
+      for (const cid of rebuilt.csvIds) {
+        const e = library.find((x) => x.id === cid);
+        if (e && e.omniAddress) {
+          addr = e.omniAddress;
+          break;
+        }
+      }
+      if (rebuilt.csvIds.length) accounts.slots[id].omniAddress = addr || '';
+      else accounts.slots[id].omniAddress = '';
+    })
+      .then((res) => {
+        refreshWidgetSnapshot().then(() => sendResponse(res)).catch(() => sendResponse(res));
+      })
+      .catch((e) => sendResponse({ ok: false, error: String(e && e.message || e) }));
+    return true;
+  }
+
+  if (msg.type === 'HS_WIDGET_REMOVE_CSV') {
+    const csvId = String(msg.csvId || '');
+    if (!csvId) {
+      sendResponse({ ok: false, error: 'CSV id manquant' });
+      return false;
+    }
+    mutateAccounts((accounts, state) => {
+      const library = normalizeCsvLibrary(state.csvLibrary).filter((e) => e.id !== csvId);
+      state.csvLibrary = library;
+      for (const sid of omniSlotIds(accounts)) {
+        const slot = accounts.slots[sid];
+        if (!slot) continue;
+        const ids = (Array.isArray(slot.csvIds) ? slot.csvIds : []).filter((x) => x !== csvId);
+        const rebuilt = rebuildSlotCsvFromIds({ csvIds: ids, csv: null }, library);
+        slot.csvIds = rebuilt.csvIds;
+        slot.csv = rebuilt.csvIds.length ? rebuilt.csv : null;
+        slot.marketsHint = rebuilt.csvIds.length ? marketsHintFromCsv(rebuilt.csv) : '';
+      }
+    })
+      .then((res) => {
+        refreshWidgetSnapshot().then(() => sendResponse(res)).catch(() => sendResponse(res));
+      })
+      .catch((e) => sendResponse({ ok: false, error: String(e && e.message || e) }));
+    return true;
+  }
+
   if (msg.type === 'HS_WIDGET_ADD_SLOT') {
     mutateAccounts((accounts) => {
       if (accounts.slotOrder.length >= MAX_LEGS) return;
@@ -2557,8 +3284,11 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     const accountId = String(msg.accountId || 'a');
     const market = normalizeMarket(msg.market || '');
     let hlMarket = msg.hlMarket;
-    if (hlMarket != null && hlMarket !== '__none__' && hlMarket !== '') {
-      hlMarket = normalizeMarket(hlMarket);
+    // Keep full keys wallet|DEX|MARKET; only normalize bare tickers
+    if (hlMarket != null && hlMarket !== '__none__' && hlMarket !== '' && hlMarket !== 'auto') {
+      const s = String(hlMarket);
+      if (s.indexOf('|') < 0) hlMarket = normalizeMarket(s);
+      else hlMarket = s;
     }
     if (!market) {
       sendResponse({ ok: false, error: 'Market manquant' });
@@ -2607,7 +3337,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     mutateAccounts((accounts, state) => {
       if (!accounts.slots[id]) return;
       accounts.slots[id].csv = null;
+      accounts.slots[id].csvIds = [];
       accounts.slots[id].points = null;
+      accounts.slots[id].marketsHint = '';
+      accounts.slots[id].omniAddress = '';
       accounts.slots[id].importedAt = null;
       if (accounts.activeImportSlot === id) state.legacyCsv = null;
       const guard = normalizeAccountsGuard(state.accountsGuard);
@@ -2747,6 +3480,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       synced = {
         accounts,
         wallets: nextWallets,
+        csvLibrary: normalizeCsvLibrary(prev && prev.csvLibrary),
         legacyCsv: nextLegacy,
         pairOverrides: nextPair,
         accountsGuard,

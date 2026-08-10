@@ -7,7 +7,7 @@
   const HOST = 'omni.variational.io';
   const VERSION = 3;
   const cfg = (typeof window !== 'undefined' && window.__HS_OMNI_COLLECTOR__) || {};
-  const HS_APP = cfg.appUrl || 'https://hypersheets.xyz/#var-omni-import';
+  const HS_APP = cfg.appUrl || 'https://hypersheets.xyz/omni/#var-omni-import';
   const HS_LOGO = cfg.logo || 'https://hypersheets.xyz/img/hypersheets-logo.png';
 
   if (!location.hostname.endsWith('variational.io')) {

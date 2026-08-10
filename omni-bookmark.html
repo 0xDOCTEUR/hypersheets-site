@@ -95,7 +95,7 @@
     <div>
       <button type="button" class="btn" id="btnCopy">Copier le code collecteur</button>
       <a class="btn btn-ghost" href="https://omni.variational.io/?ref=OMNILGUPC6GM" target="_blank" rel="noopener">Ouvrir Omni ↗</a>
-      <a class="btn btn-ghost" href="index.html#var-omni-import">Retour Hypersheets</a>
+      <a class="btn btn-ghost" href="omni/#var-omni-import">Retour Hypersheets Omni</a>
     </div>
     <p class="ok" id="copyOk">Code copié — colle-le dans l’URL du favori.</p>
     <p class="note">
@@ -119,11 +119,11 @@
       }
       function appUrl() {
         try {
-          const u = new URL('index.html', location.href);
+          const u = new URL('omni/', location.href);
           u.hash = 'var-omni-import';
           return u.toString();
         } catch (_) {
-          return 'https://hypersheets.xyz/#var-omni-import';
+          return 'https://hypersheets.xyz/omni/#var-omni-import';
         }
       }
       function scriptUrl() {

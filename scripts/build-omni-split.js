@@ -139,6 +139,10 @@ const omniRouter = `
     var welcome = document.getElementById('welcomeScreen');
     if (welcome) welcome.style.display = 'none';
     ensureTopbar();
+    var kill=["welcomeScreen","sidebar","mobileNav","navTabs","navTabsSig","walletsRow","filterRow","sigWatchBanner","supportTopBanner","referralBanner","hsFooterBar"];
+    kill.forEach(function(id){ var n=document.getElementById(id); if(n) n.remove(); });
+    document.querySelectorAll(".page").forEach(function(pg){ if(pg.id!=="page-variational") pg.remove(); });
+    var hdr=document.querySelector("#mainContent > header"); if(hdr) hdr.remove();
     document.querySelectorAll('.page').forEach(function (p) {
       p.classList.toggle('active', p.id === 'page-variational');
     });
