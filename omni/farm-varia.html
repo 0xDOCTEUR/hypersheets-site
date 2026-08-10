@@ -671,30 +671,6 @@ Omni ne publie pas le board points officiel.">Classement approx. (points)</h2>
           <tbody id="rbBoardBody"></tbody>
         </table>
       </div>
-      <details class="setup" id="rbObsPanel">
-        <summary>Ajouter un calage</summary>
-        <div class="setup-body">
-          <p class="rb-hint" style="margin:0">Colle un rang Omni + total points (screenshot / ami / nouvel export).</p>
-          <div class="rb-row" style="margin-bottom:0">
-            <div class="rb-field">
-              <label>Points</label>
-              <input id="rbObsPts" type="number" min="0" step="0.01" />
-            </div>
-            <div class="rb-field">
-              <label>Rang</label>
-              <input id="rbObsRank" type="number" min="1" step="1" />
-            </div>
-            <div class="rb-field grow">
-              <label>Nom</label>
-              <input id="rbObsNote" type="text" maxlength="32" placeholder="ex. SEWIL" />
-            </div>
-          </div>
-          <div class="rb-row" style="margin-bottom:0">
-            <button class="btn primary" type="button" id="rbAddObs">Ajouter</button>
-            <button class="btn ghost" type="button" id="rbResetObs">Reset calages manuels</button>
-          </div>
-        </div>
-      </details>
     </section>
     </div>
 
@@ -2498,7 +2474,7 @@ function renderRankBoard() {
         '<td class="left"><span class="src-pill ' + r.source + '">' + srcLabel + '</span>' +
         (r.source === 'custom' ? ' <button class="btn sm ghost" type="button" data-del-rb="' + escHtml(r.id) + '">×</button>' : '') +
         '</td></tr>';
-    }).join('') : '<tr><td colspan="6" class="empty">Importe des JSON ou ajoute un calage</td></tr>';
+    }).join('') : '<tr><td colspan="6" class="empty">Importe des JSON pour peupler le classement</td></tr>';
   }
 
   const thBody = $('rbThreshBody');
