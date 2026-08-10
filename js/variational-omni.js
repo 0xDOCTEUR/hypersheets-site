@@ -1112,14 +1112,15 @@
     varAccountsScheduleActivityRefresh();
   }
 
-  function varAccountsAddSlot() {
+  function varAccountsAddSlot(opts) {
+    const silent = !!(opts && opts.silent);
     const acc = varAccountsLoad();
     const ids = varOmniSlotIds(acc);
     if (ids.length >= VAR_OMNI_MAX_SLOTS) {
-      if (typeof toast === 'function') {
+      if (!silent && typeof toast === 'function') {
         toast(varT('var.slotMax').replace('{n}', String(VAR_OMNI_MAX_SLOTS)), true);
       }
-      return;
+      return null;
     }
     const id = varOmniNextSlotId(ids);
     acc.slots[id] = varOmniMakeSlot(id, varOmniLabelForIndex(ids.length));
@@ -1127,10 +1128,36 @@
     varOmniRenumberLabels(acc);
     acc.activeImportSlot = id;
     varAccountsSave(acc);
-    if (typeof toast === 'function') {
+    if (!silent && typeof toast === 'function') {
       toast(varT('var.slotAdded').replace('{label}', acc.slots[id].label));
     }
     varAccountsScheduleActivityRefresh();
+    return id;
+  }
+
+  /** Prefer an empty Omni jambe for a new JSON; create one if needed (max 8). */
+  function varAccountsPickSlotForNewImport() {
+    const acc = varAccountsLoad();
+    const ids = varOmniSlotIds(acc);
+    const isEmpty = (id) => {
+      const b = acc.slots[id]?.csv;
+      return !(b && (
+        (b.trades && b.trades.length)
+        || (b.funding && b.funding.length)
+        || (b.realizedPnl && b.realizedPnl.length)
+        || (b.transfers && b.transfers.length)
+      ));
+    };
+    const emptyId = ids.find(isEmpty);
+    if (emptyId) {
+      if (acc.activeImportSlot !== emptyId) {
+        acc.activeImportSlot = emptyId;
+        varAccountsSave(acc);
+        try { varAccountsPaintActiveSlot(emptyId); } catch (_) {}
+      }
+      return emptyId;
+    }
+    return varAccountsAddSlot({ silent: true });
   }
 
   function varAccountsRemoveSlot(id) {
@@ -6317,11 +6344,21 @@
   }
 
   async function varImportJsonFiles(input) {
-    const files = input?.files;
-    if (!files?.length) return;
+    const files = [...(input?.files || [])];
+    if (!files.length) return;
     let ok = 0;
     let bad = 0;
-    for (const file of files) {
+    let skipped = 0;
+    const multi = files.length > 1;
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (multi) {
+        const slotId = varAccountsPickSlotForNewImport();
+        if (!slotId) {
+          skipped = files.length - i;
+          break;
+        }
+      }
       try {
         await varReadJsonFile(file);
         ok++;
@@ -6329,9 +6366,20 @@
         bad++;
       }
     }
+    if (multi && ok > 0) {
+      try { varSetCsvScope('all'); } catch (_) {}
+    }
     if (typeof toast === 'function') {
-      if (ok) toast(varT('var.jsonImported'));
-      if (bad && !ok) toast(varT('var.jsonUnknown'), true);
+      if (ok && multi) {
+        toast(varT('var.jsonImportedMulti').replace('{n}', String(ok)));
+      } else if (ok) {
+        toast(varT('var.jsonImported'));
+      }
+      if (skipped) {
+        toast(varT('var.slotMax').replace('{n}', String(VAR_OMNI_MAX_SLOTS)), true);
+      } else if (bad && !ok) {
+        toast(varT('var.jsonUnknown'), true);
+      }
     }
     renderVarActivity();
     const ptsEl = document.getElementById('varAirPoints');
