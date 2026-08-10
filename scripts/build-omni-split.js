@@ -43,16 +43,61 @@ const omniBoot = `
 <script>
 window.__HS_OMNI_PAGE__ = true;
 document.documentElement.classList.add('hs-omni-standalone');
+try {
+  document.body.classList.remove('hs-welcome-mode');
+  document.body.classList.add('hs-omni-only');
+  document.body.dataset.page = 'variational';
+  sessionStorage.setItem('hs-dash-session-launched', '1');
+  localStorage.setItem('hs-dashboard-unlocked', '1');
+} catch (_) {}
 </script>
 <style>
-  html.hs-omni-standalone body .page:not(#page-variational) { display: none !important; }
-  html.hs-omni-standalone body #page-variational.page { display: block !important; }
-  html.hs-omni-standalone #filterRow { display: none !important; }
-  html.hs-omni-standalone .nav-tab[data-tab]:not([data-tab="variational"]) { opacity: .85; }
+  html.hs-omni-standalone #welcomeScreen,
+  html.hs-omni-standalone #sidebar,
+  html.hs-omni-standalone #mobileNav,
+  html.hs-omni-standalone #navTabs,
+  html.hs-omni-standalone #navTabsSig,
+  html.hs-omni-standalone #walletsRow,
+  html.hs-omni-standalone #filterRow,
+  html.hs-omni-standalone #sigWatchBanner,
+  html.hs-omni-standalone #supportTopBanner,
+  html.hs-omni-standalone #referralBanner,
+  html.hs-omni-standalone #hsFooterBar,
+  html.hs-omni-standalone #errorBox,
+  html.hs-omni-standalone .page:not(#page-variational),
+  html.hs-omni-standalone #mainContent > header,
+  html.hs-omni-standalone .page-data-credit,
+  html.hs-omni-standalone a[href*="0xDOCTEUR"][style*="position:fixed"] {
+    display: none !important;
+  }
+  html.hs-omni-standalone body.hs-welcome-mode #welcomeScreen { display: none !important; }
+  html.hs-omni-standalone body.hs-welcome-mode .page { display: none !important; }
+  html.hs-omni-standalone body #page-variational.page,
+  html.hs-omni-standalone body.hs-welcome-mode #page-variational.page {
+    display: block !important;
+  }
+  html.hs-omni-standalone #appShell { display: block !important; min-height: 100vh; }
+  html.hs-omni-standalone #mainContent {
+    margin-left: 0 !important; width: 100% !important; max-width: 100% !important; padding-top: 0 !important;
+  }
+  html.hs-omni-standalone #hsOmniTopbar {
+    display: flex !important; align-items: center; gap: 12px; padding: 14px 20px;
+    border-bottom: 1px solid rgba(255,255,255,.08); background: rgba(0,0,0,.25);
+    position: sticky; top: 0; z-index: 40;
+  }
+  html.hs-omni-standalone #hsOmniTopbar a { color: inherit; text-decoration: none; opacity: .85; font-size: 13px; }
+  html.hs-omni-standalone #hsOmniTopbar a:hover { opacity: 1; }
+  html.hs-omni-standalone #hsOmniTopbar .hs-omni-title { display: inline-flex; align-items: center; gap: 8px; font-weight: 650; }
+  html.hs-omni-standalone #hsOmniTopbar img { width: 20px; height: 20px; border-radius: 4px; object-fit: cover; }
 </style>
 `;
 
 if (omni.includes('<body')) {
+  omni = omni.replace(/<body([^>]*)class="([^"]*)"/, function (m, attrs, cls) {
+    var cleaned = cls.split(/\s+/).filter(Boolean).filter(function (c) { return c !== 'hs-welcome-mode'; }).concat(['hs-omni-only']).filter(function (c, i, a) { return a.indexOf(c) === i; }).join(' ');
+    return '<body' + attrs + 'class="' + cleaned + '"';
+  });
+  omni = omni.replace(/data-page="[^"]*"/, 'data-page="variational"');
   omni = omni.replace(/<body([^>]*)>/, '<body$1>\n' + omniBoot);
 } else {
   throw new Error('No <body> in index');
@@ -62,9 +107,17 @@ const omniRouter = `
 <script>
 (function () {
   if (!window.__HS_OMNI_PAGE__) return;
+  function ensureTopbar() {
+    if (document.getElementById('hsOmniTopbar')) return;
+    var bar = document.createElement('div');
+    bar.id = 'hsOmniTopbar';
+    bar.innerHTML = '<a href="/">← Hypersheets</a><span class="hs-omni-title"><img src="../img/variational-logo.png" alt="" width="20" height="20" decoding="async"><span>Omni</span><span class="nav-beta-badge">beta</span></span>';
+    var main = document.getElementById('mainContent') || document.getElementById('appShell') || document.body;
+    main.insertBefore(bar, main.firstChild);
+  }
   function goHome(page) {
     var q = page ? ('?page=' + encodeURIComponent(page)) : '';
-    location.href = '../' + q + (page ? '' : '');
+    location.href = '../' + q;
   }
   document.addEventListener('click', function (e) {
     var tab = e.target.closest && e.target.closest('.nav-tab[data-tab], .mob-nav-btn[data-mob]');
@@ -77,7 +130,15 @@ const omniRouter = `
   }, true);
   function bootOmni() {
     document.body.classList.remove('hs-welcome-mode');
+    document.body.classList.add('hs-omni-only');
     document.body.dataset.page = 'variational';
+    try {
+      sessionStorage.setItem('hs-dash-session-launched', '1');
+      localStorage.setItem('hs-dashboard-unlocked', '1');
+    } catch (_) {}
+    var welcome = document.getElementById('welcomeScreen');
+    if (welcome) welcome.style.display = 'none';
+    ensureTopbar();
     document.querySelectorAll('.page').forEach(function (p) {
       p.classList.toggle('active', p.id === 'page-variational');
     });
@@ -96,6 +157,7 @@ const omniRouter = `
   } else {
     setTimeout(bootOmni, 0);
   }
+  window.addEventListener('load', function () { setTimeout(bootOmni, 50); });
 })();
 </script>
 `;
