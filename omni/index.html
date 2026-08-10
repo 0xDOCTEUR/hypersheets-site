@@ -41,6 +41,7 @@ const HS_CONFIG = {
   /** Parrainages affichés dans la bulle info (bouton ✦) — active: false pour masquer */
   partnerReferrals: [
     { name: 'Hyperliquid', code: 'DOCTEUR', url: 'https://app.hyperliquid.xyz/join/DOCTEUR', descFr: 'Exchange perps & spot Hyperliquid.', descEn: 'Hyperliquid perps & spot exchange.', perksFr: '4 % de réduction sur les frais de trading pour les filleuls (programme officiel HL).', perksEn: '4% trading fee discount for referees (official HL referral program).', active: true },
+    { name: 'Variational', code: 'OMNILD9IBR89', url: 'https://omni.variational.io/?ref=OMNILD9IBR89', descFr: 'Omni / Variational — perps agrégés.', descEn: 'Omni / Variational — aggregated perps.', perksFr: 'Points Omni et avantages du programme de parrainage Variational.', perksEn: 'Omni points and Variational referral program perks.', active: true },
     { name: 'Hyperbrick', code: 'DOCTEUR', url: 'https://hyperbrick.xyz/point?ref=DOCTEUR', descFr: 'Points & récompenses Hyperbrick.', descEn: 'Hyperbrick points & rewards.', perksFr: 'Boost de points / accès au programme de récompenses via le lien parrain.', perksEn: 'Points boost / rewards program access via referral link.', active: true },
     { name: 'Project X', code: '@DOCTEUR', url: 'https://www.prjx.com/@DOCTEUR', descFr: 'DEX PRJX — trading on-chain.', descEn: 'PRJX DEX — on-chain trading.', perksFr: 'Points PRJX et avantages campagne selon les règles du protocole au moment de l’inscription.', perksEn: 'PRJX points and campaign perks per protocol rules at sign-up.', active: true },
     { name: 'Hyperlend', code: 'DOCTEUR', url: 'https://app.hyperlend.finance/?ref=DOCTEUR', descFr: 'Prêt & emprunt sur Hyperliquid.', descEn: 'Lending & borrowing on Hyperliquid.', perksFr: 'Points / incentives Hyperlend liés au parrainage (selon campagne active).', perksEn: 'Hyperlend referral points / incentives (per active campaign).', active: true },
@@ -10747,7 +10748,7 @@ try {
               </div>
               <div class="var-onboard-actions">
                 <a class="btn btn-ac" href="../downloads/Hypersheets%20Omni%20Live.zip" download="Hypersheets Omni Live.zip" data-i18n="var.extDownload">Télécharger</a>
-                <a class="btn btn-ghost" href="https://omni.variational.io/?ref=OMNILGUPC6GM" target="_blank" rel="noopener noreferrer" data-i18n="var.onboardLink">Omni ↗</a>
+                <a class="btn btn-ghost" href="https://omni.variational.io/?ref=OMNILD9IBR89" target="_blank" rel="noopener noreferrer" data-i18n="var.onboardLink">Omni ↗</a>
                 <button type="button" class="btn btn-ghost" id="varOmniPosBtnGuide" onclick="varRefreshOmniFromLocal()" data-i18n="var.extSyncPositions">Rafraîchir</button>
               </div>
             </div>
@@ -10786,7 +10787,7 @@ try {
               </div>
               <div class="var-onboard-actions">
                 <button type="button" class="btn btn-ac" onclick="varSetSub('extension',null)" data-i18n="var.subExtension">Extension</button>
-                <a class="btn btn-ghost" href="https://omni.variational.io/?ref=OMNILGUPC6GM" target="_blank" rel="noopener noreferrer" data-i18n="var.onboardLink">Omni ↗</a>
+                <a class="btn btn-ghost" href="https://omni.variational.io/?ref=OMNILD9IBR89" target="_blank" rel="noopener noreferrer" data-i18n="var.onboardLink">Omni ↗</a>
               </div>
             </div>
           </div>
@@ -10798,7 +10799,7 @@ try {
                 <p id="varOmniSyncStatus" class="var-guide-note" style="margin:4px 0 0"></p>
               </div>
               <div class="var-live-ready-actions">
-                <a class="btn btn-ghost text-xs" href="https://omni.variational.io/?ref=OMNILGUPC6GM" target="_blank" rel="noopener noreferrer" data-i18n="var.onboardLink">Omni ↗</a>
+                <a class="btn btn-ghost text-xs" href="https://omni.variational.io/?ref=OMNILD9IBR89" target="_blank" rel="noopener noreferrer" data-i18n="var.onboardLink">Omni ↗</a>
                 <button type="button" class="btn btn-ac text-xs" id="varOmniPosBtn" onclick="varRefreshOmniFromLocal()" data-i18n="var.extSyncPositions">Rafraîchir fills + marks</button>
               </div>
             </div>
