@@ -25,8 +25,16 @@
 })();
 </script>
 <style>
+  /* Embed: no blue logo frame — logo sits clean on the page chrome */
+  html.hs-fv-embed .brand-logo {
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    width: 40px; height: 40px; border-radius: 0;
+  }
   html.hs-fv-embed header,
-  html.hs-fv-embed .page-nav,
+  html.hs-fv-embed .page-nav { display: none !important; }
+  /* Keep brand visible only when not using parent Hypersheets topbar — parent hides .brand-lockup via page-nav hide; restore wordmark unused */
   html.hs-fv-embed .brand-lockup { display: none !important; }
   html.hs-fv-embed body { background: transparent !important; }
   html.hs-fv-embed .wrap { max-width: none; padding: 8px 4px 24px; }

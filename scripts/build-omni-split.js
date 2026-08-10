@@ -81,14 +81,33 @@ try {
     margin-left: 0 !important; width: 100% !important; max-width: 100% !important; padding-top: 0 !important;
   }
   html.hs-omni-standalone #hsOmniTopbar {
-    display: flex !important; align-items: center; gap: 12px; padding: 14px 20px;
+    display: flex !important; align-items: center; gap: 16px; padding: 14px 20px;
     border-bottom: 1px solid rgba(255,255,255,.08); background: rgba(0,0,0,.25);
     position: sticky; top: 0; z-index: 40;
   }
-  html.hs-omni-standalone #hsOmniTopbar a { color: inherit; text-decoration: none; opacity: .85; font-size: 13px; }
-  html.hs-omni-standalone #hsOmniTopbar a:hover { opacity: 1; }
-  html.hs-omni-standalone #hsOmniTopbar .hs-omni-title { display: inline-flex; align-items: center; gap: 8px; font-weight: 650; }
-  html.hs-omni-standalone #hsOmniTopbar img { width: 20px; height: 20px; border-radius: 4px; object-fit: cover; }
+  html.hs-omni-standalone #hsOmniTopbar .hs-omni-back {
+    color: inherit; text-decoration: none; opacity: .72; font-size: 13px; white-space: nowrap;
+  }
+  html.hs-omni-standalone #hsOmniTopbar .hs-omni-back:hover { opacity: 1; }
+  html.hs-omni-standalone #hsOmniTopbar .hs-omni-brand {
+    display: inline-flex; align-items: center; gap: 12px; min-width: 0;
+  }
+  html.hs-omni-standalone #hsOmniTopbar .hs-omni-brand-logo {
+    width: 36px; height: 36px; border-radius: 10px; object-fit: contain;
+    flex-shrink: 0; display: block; background: transparent; border: 0; outline: none; box-shadow: none;
+  }
+  html.hs-omni-standalone #hsOmniTopbar .hs-omni-wordmark {
+    font-family: 'Raleway', system-ui, sans-serif;
+    font-size: clamp(1.15rem, 2.2vw, 1.55rem);
+    font-weight: 400; letter-spacing: 0; line-height: 1; white-space: nowrap; color: #fff;
+  }
+  html.hs-omni-standalone #hsOmniTopbar .hs-omni-wordmark .hs-brand-hyper { font-style: normal; font-weight: 600; color: #fff; }
+  html.hs-omni-standalone #hsOmniTopbar .hs-omni-wordmark .hs-brand-sheets { font-style: italic; font-weight: 500; color: #fff; }
+  html.hs-omni-standalone #hsOmniTopbar .hs-omni-wordmark .hs-brand-omni {
+    font-style: normal; font-weight: 600; color: #4c9af8; margin-left: 0.28em;
+  }
+  html.hs-omni-standalone #hsOmniTopbar .nav-beta-badge { margin-left: 2px; }
+  html.hs-omni-standalone #page-variational > .section-h { display: none !important; }
 </style>
 `;
 
@@ -111,7 +130,14 @@ const omniRouter = `
     if (document.getElementById('hsOmniTopbar')) return;
     var bar = document.createElement('div');
     bar.id = 'hsOmniTopbar';
-    bar.innerHTML = '<a href="/">← Hypersheets</a><span class="hs-omni-title"><img src="../img/variational-logo.png" alt="" width="20" height="20" decoding="async"><span>Omni</span><span class="nav-beta-badge">beta</span></span>';
+    bar.innerHTML = '<a class="hs-omni-back" href="/">← Hypersheets</a>'
+      + '<span class="hs-omni-brand">'
+      + '<img class="hs-omni-brand-logo" src="../img/hypersheets-logo.png" alt="" width="36" height="36" decoding="async">'
+      + '<span class="hs-brand-wordmark hs-omni-wordmark" aria-label="Hypersheets Omni">'
+      + '<span class="hs-brand-hyper">Hyper</span><span class="hs-brand-sheets">sheets</span><span class="hs-brand-omni">Omni</span>'
+      + '</span>'
+      + '<span class="nav-beta-badge">beta</span>'
+      + '</span>';
     var main = document.getElementById('mainContent') || document.getElementById('appShell') || document.body;
     main.insertBefore(bar, main.firstChild);
   }
