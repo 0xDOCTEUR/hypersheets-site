@@ -1967,7 +1967,7 @@
         collectBusy = false;
         setCollectUi({ err: true }, t("collectOmni"), t("collectFailed") + " (timeout)");
         toast(t("collectFailed") + " · timeout", "err");
-      }, 180000);
+      }, 120000);
       setCollectUi({ busy: true }, t("collecting"), t("readingOmni"));
       chrome.runtime.sendMessage({ type: "HS_OMNI_COLLECT_RUN", label: newLegLabel, fileName: fileName }, function (res) {
         clearTimeout(collectWatchdog);

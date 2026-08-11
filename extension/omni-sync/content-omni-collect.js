@@ -4,7 +4,7 @@
  * PC file download is handled by the background service worker (chrome.downloads).
  */
 (function () {
-  const COLLECT_SCRIPT_VERSION = 9;
+  const COLLECT_SCRIPT_VERSION = 10;
   // Re-injects bump this so stale listeners from older injects ignore messages.
   window.__hsOmniCollectVersion = COLLECT_SCRIPT_VERSION;
   const VERSION = 3;
@@ -135,30 +135,53 @@
 
   async function pageAll(path, params, opts) {
     const limit = (opts && opts.limit) || 100;
-    const cap = (opts && opts.cap) || 40000;
-    const key = opts && opts.key;
-    const seen = key ? new Set() : null;
+    // Hard caps — 40k pages used to make Collecte look stuck for several minutes.
+    const cap = Math.min((opts && opts.cap) || 8000, 20000);
+    const maxPages = (opts && opts.maxPages) || Math.ceil(cap / limit) + 2;
+    const maxMs = (opts && opts.maxMs) || 75000;
+    const started = Date.now();
+    const keyFn = opts && opts.key
+      ? opts.key
+      : (row) => {
+          if (!row || typeof row !== 'object') return '';
+          if (row.id != null && row.id !== '') return 'id:' + String(row.id);
+          if (row.trade_id != null && row.trade_id !== '') return 'tid:' + String(row.trade_id);
+          return JSON.stringify(row).slice(0, 180);
+        };
+    const seen = new Set();
     const out = [];
     let offset = 0;
+    let pages = 0;
+    let stagnant = 0;
     const onProgress = opts && opts.onProgress;
-    while (out.length < cap) {
+    while (out.length < cap && pages < maxPages) {
+      if (Date.now() - started > maxMs) break;
       const data = await api(path, Object.assign({ limit, offset }, params));
-      const rows = Array.isArray(data) ? data : data.result || [];
+      pages += 1;
+      const rows = Array.isArray(data) ? data : (data && data.result) || [];
+      if (!rows.length) break;
       let added = 0;
       for (const row of rows) {
-        if (seen) {
-          const k = key(row);
+        const k = keyFn(row);
+        if (k) {
           if (seen.has(k)) continue;
           seen.add(k);
         }
         out.push(row);
         added++;
+        if (out.length >= cap) break;
       }
       if (typeof onProgress === 'function') onProgress(opts.label || path, out.length);
       if (rows.length < limit) break;
-      if (seen && added === 0) break;
+      if (added === 0) {
+        stagnant += 1;
+        // Offset ignored / overlapping pages → stop instead of counting forever.
+        if (stagnant >= 2) break;
+      } else {
+        stagnant = 0;
+      }
       offset += limit;
-      await sleep(70);
+      await sleep(40);
     }
     return out;
   }
@@ -172,6 +195,8 @@
       {
         limit: 20,
         cap: 500,
+        maxPages: 40,
+        maxMs: 20000,
         label: 'points',
         key: (e) =>
           e.start_window +
@@ -197,8 +222,8 @@
       const entries = [];
       const seenAddr = new Set();
       let selfRow = null;
-      // Cap leaderboard pull — we only need `self` for wallet identity; full board freezes Collecte
-      for (let offset = 0; offset < 500; offset += 100) {
+      // Only need `self` for wallet identity — stop once we have it + a thin slice.
+      for (let offset = 0; offset < 300; offset += 100) {
         const page = await api('/api/competition', {
           limit: 100,
           offset,
@@ -214,8 +239,9 @@
           entries.push(row);
         }
         progress('competition', entries.length);
+        if (selfRow && offset >= 100) break;
         if (rows.length < 100) break;
-        await sleep(70);
+        await sleep(40);
       }
       board = {
         pulled_at: new Date().toISOString(),
@@ -229,33 +255,59 @@
     const refundsRes = await softPageAll(
       '/api/loss_refund/history',
       { won_lottery: 'true' },
-      { limit: 20, cap: 2000, label: 'refunds', onProgress: (l, n) => progress(l, n) }
+      { limit: 20, cap: 500, maxPages: 30, maxMs: 15000, label: 'refunds', onProgress: (l, n) => progress(l, n) }
     );
     const refunds = refundsRes.rows;
+
     progress('trades', 0);
     const trades = await pageAll(
       '/api/trades',
       { order_by: 'created_at', order: 'desc' },
-      { label: 'trades', onProgress: (l, n) => progress(l, n) }
+      {
+        label: 'trades',
+        cap: 8000,
+        maxPages: 100,
+        maxMs: 60000,
+        onProgress: (l, n) => progress(l, n),
+      }
     );
+
     progress('transfers', 0);
-    // Transfers are required for Omni PnL (Suivi uses the same /api/transfers rows).
-    // Retry harder than softPageAll — a single 429 used to leave Hypersheets at $0 PnL.
-    let transfers = [];
-    let transfersSkipped = null;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      const transfersRes = await softPageAll(
+    // One bounded scrape (not 3× full re-paginations). API layer already retries 429s.
+    const transfersRes = await softPageAll(
+      '/api/transfers',
+      { order_by: 'created_at', order: 'desc' },
+      {
+        label: 'transfers',
+        cap: 12000,
+        maxPages: 140,
+        maxMs: 70000,
+        onProgress: (l, n) => progress(l, n),
+      }
+    );
+    let transfers = transfersRes.rows || [];
+    let transfersSkipped = transfersRes.skipped || null;
+    // Quick second try only if the first attempt hard-failed (not if wallet simply has 0 transfers).
+    if (!transfers.length && transfersSkipped) {
+      progress('transfers', 0);
+      await sleep(1200);
+      const retry = await softPageAll(
         '/api/transfers',
         { order_by: 'created_at', order: 'desc' },
-        { label: 'transfers', onProgress: (l, n) => progress(l, n) }
+        {
+          label: 'transfers',
+          cap: 8000,
+          maxPages: 90,
+          maxMs: 45000,
+          onProgress: (l, n) => progress(l, n),
+        }
       );
-      transfers = transfersRes.rows || [];
-      if (transfers.length) {
+      if (retry.rows && retry.rows.length) {
+        transfers = retry.rows;
         transfersSkipped = null;
-        break;
+      } else if (retry.skipped) {
+        transfersSkipped = retry.skipped;
       }
-      transfersSkipped = transfersRes.skipped || 'empty';
-      await sleep(1500 * (attempt + 1));
     }
     const warnings = [];
     if (refundsRes.skipped) warnings.push('refunds: ' + refundsRes.skipped);
