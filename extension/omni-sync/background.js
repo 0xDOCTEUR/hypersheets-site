@@ -1019,7 +1019,13 @@ async function runOmniCollect(preferredLabel, fileName) {
 
   let applied = null;
   try {
-    applied = await applyLocalOmniPayload(result.payload, 'omni-collect', target.slotId, preferredLabel);
+    applied = await applyLocalOmniPayload(
+      result.payload,
+      'omni-collect',
+      target.slotId,
+      preferredLabel,
+      { fileName: exportFileName, replace: true }
+    );
   } catch (e) {
     return {
       ok: false,
@@ -1138,7 +1144,13 @@ async function applyLocalOmniBundle(bundle, origin, points, preferredSlotId, pre
     options.forceNew === true ||
     (!!origin && /drop|import/i.test(String(origin)));
   const entry = upsertCsvLibraryEntry(library, incoming, {
-    label: requestedLabel || (options.fileName ? String(options.fileName).slice(0, 48) : '') || prevSlot.label || '',
+    // Library dropdown: prefer wallet suffix / keep prior — not "GOOGL" position/market name.
+    label: (omniAddress && omniAddress.length >= 2
+      ? String(omniAddress).slice(-2).toUpperCase()
+      : '')
+      || (options.fileName ? String(options.fileName).replace(/\.json$/i, '').slice(0, 48) : '')
+      || prevSlot.label
+      || '',
     omniAddress: omniAddress || '',
     forceNew,
   });
@@ -1150,9 +1162,6 @@ async function applyLocalOmniBundle(bundle, origin, points, preferredSlotId, pre
   const csv = rebuilt.csv;
   const marketsHint = marketsHintFromCsv(csv);
   const autoLabel = suggestLabelFromCsv(csv);
-  const label = (prevSlot.label && String(prevSlot.label).trim())
-    ? prevSlot.label
-    : (requestedLabel || autoLabel || '');
 
   // Prefer address from this import, else from selected source, else previous
   let resolvedOmni = omniAddress || '';
@@ -1161,6 +1170,20 @@ async function applyLocalOmniBundle(bundle, origin, points, preferredSlotId, pre
     if (e && e.omniAddress) resolvedOmni = e.omniAddress;
   }
   if (!resolvedOmni) resolvedOmni = prevSlot.omniAddress || '';
+
+  // Slot / chip label = last 2 chars of Omni wallet (C6, 0F…) — not position name
+  // or open-market ticker (GOOGL). Position name stays a widget-only hint.
+  const addrSuffix = resolvedOmni && resolvedOmni.length >= 2
+    ? String(resolvedOmni).slice(-2).toUpperCase()
+    : '';
+  const prevLabel = String(prevSlot.label || '').trim();
+  const looksLikeMarketTicker = /^[A-Z]{2,10}(\+[A-Z]{2,10})?$/i.test(prevLabel)
+    && !/^(Omni\s*\d+|0x)/i.test(prevLabel);
+  const label = addrSuffix
+    || (!looksLikeMarketTicker && prevLabel)
+    || autoLabel
+    || requestedLabel
+    || '';
 
   // Warn if this Omni wallet was already collected into another jambe
   let duplicateSlot = null;

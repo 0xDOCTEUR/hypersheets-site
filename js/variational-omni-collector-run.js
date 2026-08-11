@@ -134,17 +134,40 @@
     return false;
   }
 
+  function buildAutoFileName(payload) {
+    const stamp = new Date().toISOString().slice(0, 10);
+    let suffix = 'XX';
+    try {
+      const addr =
+        (payload && payload.competition && payload.competition.self && payload.competition.self.address) ||
+        (payload && payload.points_summary && payload.points_summary.address) ||
+        (payload && payload.points_summary && payload.points_summary.user && payload.points_summary.user.address) ||
+        '';
+      if (addr && addr.length >= 2) suffix = String(addr).slice(-2).toUpperCase();
+    } catch (_) {}
+    let trades = 0;
+    try {
+      trades = (payload && payload.counts && payload.counts.trades) || (payload && payload.trades && payload.trades.length) || 0;
+    } catch (_) {}
+    let pts = 0;
+    try {
+      const sum = payload && payload.points_summary;
+      pts = Math.round(parseFloat((sum && (sum.total_points || sum.self_points)) || 0)) || 0;
+    } catch (_) {}
+    return suffix + '_' + trades + 't_' + pts + 'pts_' + stamp + '.json';
+  }
+
   function downloadJson(payload) {
     const json = JSON.stringify(payload);
-    const stamp = new Date().toISOString().slice(0, 10);
+    const name = buildAutoFileName(payload);
     const blob = new Blob([json], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'variational-export-' + stamp + '.json';
+    a.download = name;
     document.body.appendChild(a);
     a.click();
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
-    return (json.length / 1048576).toFixed(2);
+    return { mb: (json.length / 1048576).toFixed(2), fileName: name };
   }
 
   (async () => {
@@ -212,11 +235,11 @@
       say('Importing into Hypersheets…', 90);
       const pushed = await pushToHs(payload);
       if (pushed) {
-        done('Imported into Hypersheets — ' + trades.length + ' trades, ' + transfers.length + ' transfers. JSON kept as backup download.', true);
-        downloadJson(payload);
+        const dl = downloadJson(payload);
+        done('Imported into Hypersheets — ' + trades.length + ' trades. Download: ' + dl.fileName, true);
       } else {
-        const mb = downloadJson(payload);
-        done('Auto-import blocked — downloaded ' + trades.length + ' trades / ' + transfers.length + ' transfers (' + mb + ' MB). Drop the file in Hypersheets → Variational → Activity.', true);
+        const dl = downloadJson(payload);
+        done('Auto-import blocked — downloaded ' + dl.fileName + ' (' + dl.mb + ' MB). Drop the file in Hypersheets → Variational → Activity.', true);
       }
     } catch (e) {
       done('Failed: ' + (e && e.message ? e.message : e), false);
