@@ -1039,6 +1039,7 @@
   let _varDashAnalyticsMemoTs = 0;
   let _varOmniBookMemo = null;
   let _varOmniBookMemoTs = 0;
+  let _varEpochSumCache = null;
 
   function varAccountsInvalidateMemo() {
     _varAccountsMemo = null;
@@ -1148,6 +1149,7 @@
     _varDashAnalyticsMemoTs = 0;
     _varOmniBookMemo = null;
     _varOmniBookMemoTs = 0;
+    _varEpochSumCache = null;
   }
 
   function varAccountsSetActiveImport(id) {
@@ -1479,7 +1481,11 @@
         if (isFinite(rf)) { refPts += rf; hasRef = true; }
         for (const row of (p.points_history || [])) {
           if (!row || typeof row !== 'object') continue;
-          const key = String(row.epoch_id ?? row.epoch ?? row.week ?? row.created_at ?? JSON.stringify(row));
+          const sw = String(row.start_window || '').slice(0, 19);
+          const ew = String(row.end_window || '').slice(0, 19);
+          const key = (sw && ew)
+            ? (sw + '|' + ew)
+            : String(row.epoch_id ?? row.epoch ?? row.week ?? row.created_at ?? JSON.stringify(row));
           const prev = histMap.get(key);
           if (!prev) {
             histMap.set(key, { ...row });
@@ -1497,6 +1503,7 @@
             points: add(prev.points, row.points),
             self_points: add(prev.self_points, row.self_points),
             referral_points: add(prev.referral_points, row.referral_points),
+            total_points: add(prev.total_points, row.total_points),
             volume: add(prev.volume, row.volume),
           });
         }
@@ -1725,6 +1732,7 @@
     const trades = bundle?.trades || [];
     if (!trades.length) return '';
     const ids = trades.map((t) => String(t.id || t.trade_id || '')).filter(Boolean).sort();
+    // Include count in the hash — sampling only first/mid/last collided across distinct wallets.
     if (ids.length >= 2) {
       return `id:${ids.length}:${ids[0]}:${ids[ids.length - 1]}:${ids[Math.floor(ids.length / 2)]}`;
     }
@@ -1732,6 +1740,16 @@
     const first = trades[0];
     const last = trades[trades.length - 1];
     return `n:${trades.length}:${first?.created_at || ''}:${last?.created_at || ''}:${first?.underlying || ''}`;
+  }
+
+  /** Cash amount on Omni transfer / funding / realized PnL rows. */
+  function varTransferQty(t) {
+    if (!t || typeof t !== 'object') return 0;
+    const raw = t.qty ?? t.amount ?? t.usdc_qty ?? t.value ?? t.pnl ?? t.quantity;
+    if (raw == null || raw === '') return 0;
+    if (typeof raw === 'number') return isFinite(raw) ? raw : 0;
+    const n = parseFloat(String(raw).replace(/,/g, '').trim());
+    return isFinite(n) ? n : 0;
   }
 
   /** Slot ids for the open-book view — respects Actif / Tous scope. */
@@ -4032,7 +4050,7 @@
       transfersAll.push({
         underlying: String(t.underlying || t.reference_instrument?.underlying || t.asset || '').toUpperCase(),
         ts,
-        qty: parseFloat(t.qty || 0),
+        qty: varTransferQty(t),
         type: forcedType || String(t.transfer_type || '').toLowerCase(),
       });
     };
@@ -4936,11 +4954,11 @@
     return 0;
   }
 
-  /** Omni jambes for Recent epochs (deduped by CSV fingerprint). */
+  /** Omni jambes for Recent epochs — one row per wallet (never drop a distinct slot). */
   function varFarmEpochWalletSources() {
     const acc = varAccountsLoad();
     const ids = varOmniSlotIds(acc);
-    const seenFp = new Set();
+    const seenKey = new Set();
     const out = [];
     ids.forEach((id, i) => {
       const slot = acc.slots[id];
@@ -4956,11 +4974,14 @@
       );
       const hasPts = varPointsHasData(points);
       if (!hasCsv && !hasPts) return;
-      if (hasCsv) {
-        const fp = varCsvTradeFingerprint(csv);
-        if (fp && seenFp.has(fp)) return;
-        if (fp) seenFp.add(fp);
-      }
+      const addr = String(slot.omniAddress || '').toLowerCase();
+      const csvId = Array.isArray(slot.csvIds) && slot.csvIds[0] ? String(slot.csvIds[0]) : '';
+      // Prefer wallet identity; fall back to slot id so C6/OF/D5 never collapse together.
+      const key = addr
+        ? ('addr:' + addr)
+        : (csvId ? ('csv:' + csvId) : ('slot:' + id));
+      if (seenKey.has(key)) return;
+      seenKey.add(key);
       out.push({
         id,
         label: varOmniSlotLabel(slot, id, i),
@@ -4971,6 +4992,79 @@
       });
     });
     return out;
+  }
+
+  /** Merge points_history across jambes for the Par-epoch calendar (dedupe by week window). */
+  function varPointsUnionFromWallets(wallets) {
+    const parts = (wallets || [])
+      .map((w) => w && w.points)
+      .filter(varPointsHasData)
+      .map(varPointsNormalizeRaw)
+      .filter(Boolean);
+    if (!parts.length) return null;
+    if (parts.length === 1) return parts[0];
+    let total = 0;
+    let selfPts = 0;
+    let refPts = 0;
+    let hasTotal = false;
+    let hasSelf = false;
+    let hasRef = false;
+    let importedAt = 0;
+    const histMap = new Map();
+    const histKey = (row) => {
+      const s = String(row?.start_window || '').slice(0, 19);
+      const e = String(row?.end_window || '').slice(0, 19);
+      if (s && e) return s + '|' + e;
+      return String(row?.epoch_id ?? row?.epoch ?? row?.week ?? row?.created_at ?? JSON.stringify(row));
+    };
+    const add = (a, b) => {
+      const x = parseFloat(a);
+      const y = parseFloat(b);
+      if (isFinite(x) && isFinite(y)) return x + y;
+      return isFinite(x) ? x : (isFinite(y) ? y : a);
+    };
+    for (const p of parts) {
+      if (p.importedAt && p.importedAt > importedAt) importedAt = p.importedAt;
+      const s = p.points_summary || {};
+      const t = parseFloat(s.total_points ?? s.total);
+      const sf = parseFloat(s.self_points ?? s.self);
+      const rf = parseFloat(s.referral_points ?? s.referral);
+      if (isFinite(t)) { total += t; hasTotal = true; }
+      if (isFinite(sf)) { selfPts += sf; hasSelf = true; }
+      if (isFinite(rf)) { refPts += rf; hasRef = true; }
+      for (const row of (p.points_history || [])) {
+        if (!row || typeof row !== 'object') continue;
+        const key = histKey(row);
+        const prev = histMap.get(key);
+        if (!prev) {
+          histMap.set(key, { ...row });
+          continue;
+        }
+        histMap.set(key, {
+          ...prev,
+          ...row,
+          points: add(prev.points, row.points),
+          self_points: add(prev.self_points, row.self_points),
+          referral_points: add(prev.referral_points, row.referral_points),
+          total_points: add(prev.total_points, row.total_points),
+          volume: add(prev.volume, row.volume),
+        });
+      }
+    }
+    return {
+      v: 1,
+      points_summary: {
+        total_points: hasTotal ? total : null,
+        self_points: hasSelf ? selfPts : null,
+        referral_points: hasRef ? refPts : null,
+      },
+      points_history: Array.from(histMap.values()),
+      competition: null,
+      exported_at: null,
+      sourceFile: null,
+      importedAt: importedAt || Date.now(),
+      multiAccount: true,
+    };
   }
 
   function varFarmEpochHlSources(suiviState) {
@@ -5234,7 +5328,10 @@
 
     let epochRows = [];
     try {
-      epochRows = varBuildEpochRows(points, bundle || { trades: [] }).slice(0, 4);
+      // Always build the week calendar from ALL jambes (not only the selected chip).
+      const unionPts = varPointsUnionFromWallets(wallets) || points;
+      const allBundle = varCsvLoadAll() || bundle || { trades: [] };
+      epochRows = varBuildEpochRows(unionPts, allBundle).slice(0, 4);
     } catch (_) {
       epochRows = [];
     }
@@ -5281,7 +5378,7 @@
         const pnl = stats.hasPnlData
           ? (stats.pnl != null ? stats.pnl : (Number(stats.realizedPnl || 0) + Number(stats.funding || 0) + Number(stats.fees || 0)))
           : null;
-        const s = varEpochSuiviMetrics(pts, { ...stats, pnl }, pp);
+        const s = varEpochSuiviMetrics(pts, { ...stats, pnl: pnl != null ? pnl : 0 }, pp);
         tVol += stats.volume || 0;
         tPts += pts || 0;
         if (pnl != null) {
@@ -5419,7 +5516,7 @@
         ...t,
         underlying: String(t.underlying || t.reference_instrument?.underlying || t.asset || '').toUpperCase(),
         ts,
-        qty: parseFloat(t.qty || 0),
+        qty: varTransferQty(t),
         type: forcedType || String(t.transfer_type || '').toLowerCase(),
       });
     };
@@ -5807,10 +5904,29 @@
       }
     }
 
-    return rows
+    // Collapse duplicate weeks (merged multi-wallet history used to emit the same Thu twice).
+    const sorted = rows
       .filter((r) => r.estimated || r.inProgress || r.finalising || r.total > 0 || r.self > 0)
-      .sort((a, b) => b.start - a.start)
-      .slice(0, 24);
+      .sort((a, b) => b.start - a.start);
+    const deduped = [];
+    for (const r of sorted) {
+      const hit = deduped.find((x) => Math.abs(x.start - r.start) < 12 * 3600 * 1000);
+      if (!hit) {
+        deduped.push(r);
+        continue;
+      }
+      const hitScore = (hit.total || 0) + (hit.self || 0);
+      const nextScore = (r.total || 0) + (r.self || 0);
+      const preferNext = (!!hit.estimated && !r.estimated)
+        || (hit.estimated === r.estimated && nextScore > hitScore);
+      if (preferNext) {
+        Object.assign(hit, r);
+      } else {
+        hit.inProgress = hit.inProgress || r.inProgress;
+        hit.finalising = hit.finalising || r.finalising;
+      }
+    }
+    return deduped.slice(0, 24);
   }
 
   function varAssetLogoLetterBg(sym) {
@@ -5987,8 +6103,6 @@
     });
   }
 
-  let _varEpochSumCache = null;
-
   function varEpochSumCacheKey(bundle) {
     const trades = bundle?.trades || [];
     const last = trades.length ? trades[trades.length - 1] : null;
@@ -6031,7 +6145,7 @@
       if (t.status && t.status !== 'confirmed') return;
       const ts = Date.parse(t.created_at || 0);
       if (!(ts >= start && ts < exclusiveEnd)) return;
-      const qty = parseFloat(t.qty || 0) || 0;
+      const qty = varTransferQty(t);
       const tt = forcedType || String(t.transfer_type || '').toLowerCase();
       if (tt === 'realized_pnl') realizedPnl += qty;
       else if (tt === 'funding') funding += qty;
