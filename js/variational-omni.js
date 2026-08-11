@@ -1034,6 +1034,11 @@
   let _varAccountsMemoRaw = null;
   let _varCsvViewMemo = null;
   let _varCsvViewMemoKey = '';
+  let _varDashAnalyticsMemo = null;
+  let _varDashAnalyticsMemoKey = '';
+  let _varDashAnalyticsMemoTs = 0;
+  let _varOmniBookMemo = null;
+  let _varOmniBookMemoTs = 0;
 
   function varAccountsInvalidateMemo() {
     _varAccountsMemo = null;
@@ -1117,6 +1122,10 @@
       window.__hsVarSlotsRefreshTimer = null;
       try { renderVarActivity(); } catch (_) {}
       try { if (varHedgePanelVisible()) renderVarHedge(true); } catch (_) {}
+      try {
+        if (varIsPointsTab(_varSub)) renderVarPoints();
+      } catch (_) {}
+      try { varRenderFarmOverview(); } catch (_) {}
     }, 0);
   }
 
@@ -1131,13 +1140,28 @@
     });
   }
 
+  function varInvalidateViewCaches() {
+    _varCsvViewMemo = null;
+    _varCsvViewMemoKey = '';
+    _varDashAnalyticsMemo = null;
+    _varDashAnalyticsMemoKey = '';
+    _varDashAnalyticsMemoTs = 0;
+    _varOmniBookMemo = null;
+    _varOmniBookMemoTs = 0;
+  }
+
   function varAccountsSetActiveImport(id) {
     const acc = varAccountsLoad();
     if (!varOmniSlotIds(acc).includes(id)) return;
-    if (acc.activeImportSlot === id) return;
-    acc.activeImportSlot = id;
-    varAccountsSave(acc);
+    if (acc.activeImportSlot !== id) {
+      acc.activeImportSlot = id;
+      varAccountsSave(acc);
+    }
+    // Leaving "Tous" / switching jambe must always rebind CSV + points to this slot.
+    varCsvScopeSave('active');
+    varInvalidateViewCaches();
     varAccountsPaintActiveSlot(id);
+    try { varRenderOmniSlotsUi(); } catch (_) {}
     varAccountsScheduleActivityRefresh();
   }
 
@@ -1373,13 +1397,7 @@
   }
   function varSetCsvScope(scope) {
     varCsvScopeSave(scope);
-    _varOmniBookMemo = null;
-    _varOmniBookMemoTs = 0;
-    _varCsvViewMemo = null;
-    _varCsvViewMemoKey = '';
-    _varDashAnalyticsMemo = null;
-    _varDashAnalyticsMemoKey = '';
-    _varDashAnalyticsMemoTs = 0;
+    varInvalidateViewCaches();
     varAccountsScheduleActivityRefresh();
     try { if (_varSub === 'points' || _varSub === 'lab') renderVarPoints(); } catch (_) {}
   }
@@ -1511,15 +1529,14 @@
       if (_varCsvScope === 'all') return varPointsLoadAll();
 
       const acc = varAccountsLoad();
-      const active = acc.slots[varAccountsActiveId()]?.points;
+      const activeId = varAccountsActiveId();
+      const active = acc.slots[activeId]?.points;
       if (varPointsHasData(active)) return varPointsNormalizeRaw(active);
-      // Other jambes may hold the Omni points export while the active jambe is CSV-only.
-      for (const id of varOmniSlotIds(acc)) {
-        const p = acc.slots[id]?.points;
-        if (varPointsHasData(p)) return varPointsNormalizeRaw(p);
-      }
+      // Stay bound to the selected jambe — never borrow another wallet's points/rank/comp.
       const legacy = JSON.parse(localStorage.getItem(HS_VAR_POINTS_KEY) || 'null');
-      if (varPointsHasData(legacy)) return varPointsNormalizeRaw(legacy);
+      if (varPointsHasData(legacy) && varOmniSlotIds(acc).length <= 1) {
+        return varPointsNormalizeRaw(legacy);
+      }
       return null;
     } catch {
       return null;
@@ -1704,9 +1721,6 @@
     }
     return null;
   }
-
-  let _varOmniBookMemo = null;
-  let _varOmniBookMemoTs = 0;
 
   function varCsvTradeFingerprint(bundle) {
     const trades = bundle?.trades || [];
@@ -7506,9 +7520,6 @@
   let _varOmniExtSyncing = false;
   let _varLiveVolPeriod = 'this_epoch';
   let _varOmniExtPongTimer = 0;
-  let _varDashAnalyticsMemo = null;
-  let _varDashAnalyticsMemoKey = '';
-  let _varDashAnalyticsMemoTs = 0;
 
   function varLiveVolPeriodLoad() {
     try {
