@@ -1350,6 +1350,8 @@
         var items = (byAcc[id] || []).filter(function (p) {
           return !!p.paired && !!p.hlSide;
         });
+        // Hide legs / Omni rows with no HL link — only hedged pairs belong in Positions.
+        if (!items.length) return;
         var groupNet = items.reduce(function (sum, p) {
           return sum + (Number(p.omniUpnl) || 0) + (Number(p.hlUpnl) || 0);
         }, 0);
@@ -1390,9 +1392,7 @@
               "</div>" +
             "</div>" +
             '<div class="group-body">' +
-              (items.length
-                ? items.map(function (p) { return pairRow(p, hlOpen); }).join("")
-                : '<div class="group-empty">' + esc(t("emptyLeg")) + "</div>") +
+              items.map(function (p) { return pairRow(p, hlOpen); }).join("") +
             "</div>" +
           "</div>";
       });
@@ -1424,7 +1424,7 @@
       var freeN = (snap.unpairedHl || []).length;
       foot.textContent =
         t("footUpdated") + " " + when +
-        (pairs.length ? " · " + pairs.length + " " + t("footPairs") : "") +
+        (hedgedPairs.length ? " · " + hedgedPairs.length + " " + t("footPairs") : "") +
         (hlOpen.length ? " · " + hlOpen.length + " HL/XYZ" : "") +
         (freeN ? " · " + freeN + " " + t("hlFree") : "");
     }
