@@ -258,6 +258,7 @@
       alertNote: "",
       alertSaved: "OK",
       settingsTitle: "Réglages",
+      settingsLang: "Langue",
     },
     en: {
       popoutTitle: "Free window",
@@ -410,6 +411,7 @@
       alertNote: "",
       alertSaved: "OK",
       settingsTitle: "Settings",
+      settingsLang: "Language",
     },
   };
 
