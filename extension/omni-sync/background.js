@@ -2323,7 +2323,37 @@ function collectOmniPointWindows(payload, slotId) {
   return out;
 }
 
-function currentOmniEpochWindow(payload, slotId, now) {
+/** Unique Variational epochs (newest first), always includes the live week. */
+function listOmniEpochs(payload, slotId, now) {
+  const t = now || Date.now();
+  const byStart = new Map();
+  for (const row of collectOmniPointWindows(payload, slotId)) {
+    byStart.set(row.start, { start: row.start, end: row.end });
+  }
+  const liveStart = epochStartUtc(t);
+  const liveEnd = liveStart + 7 * 864e5;
+  if (!byStart.has(liveStart)) {
+    byStart.set(liveStart, { start: liveStart, end: liveEnd });
+  } else {
+    const cur = byStart.get(liveStart);
+    if (!(cur.end > cur.start)) cur.end = liveEnd;
+  }
+  return [...byStart.values()]
+    .sort((a, b) => b.start - a.start)
+    .slice(0, 24)
+    .map((e) => ({
+      start: e.start,
+      end: e.end,
+      current: e.start === liveStart,
+      label:
+        fmtUtcShort(e.start) +
+        ' → ' +
+        fmtUtcShort(e.end) +
+        (e.start === liveStart ? ' · now' : ''),
+    }));
+}
+
+function currentOmniEpochBounds(payload, slotId, now) {
   const t = now || Date.now();
   const rows = collectOmniPointWindows(payload, slotId);
   let active = null;
@@ -2335,25 +2365,61 @@ function currentOmniEpochWindow(payload, slotId, now) {
     }
   }
   if (active) {
-    return {
-      start: active.start,
-      end: Math.min(t, active.end - 1),
-      label: 'Epoch · ' + fmtUtcShort(active.start) + ' → now',
-    };
+    return { start: active.start, end: active.end };
   }
   if (latest && latest.end > t - 21 * 864e5) {
     const nextStart = latest.end;
     const nextEnd = nextStart + 7 * 864e5;
     if (nextStart <= t && t < nextEnd) {
-      return {
-        start: nextStart,
-        end: t,
-        label: 'Epoch · ' + fmtUtcShort(nextStart) + ' → now',
-      };
+      return { start: nextStart, end: nextEnd };
     }
   }
   const start = epochStartUtc(t);
-  return { start, end: t, label: 'Epoch · ' + fmtUtcShort(start) + ' → now' };
+  return { start, end: start + 7 * 864e5 };
+}
+
+function resolveOmniEpochWindow(payload, slotId, epochStart, now) {
+  const t = now || Date.now();
+  const epochs = listOmniEpochs(payload, slotId, t);
+  const want = Number(epochStart) || 0;
+  let hit = want > 0 ? epochs.find((e) => e.start === want) : null;
+  if (!hit) hit = epochs.find((e) => e.current) || epochs[0] || null;
+  if (!hit) {
+    const b = currentOmniEpochBounds(payload, slotId, t);
+    return {
+      start: b.start,
+      end: Math.min(t, b.end - 1),
+      exclusiveEnd: b.end,
+      label: 'Epoch · ' + fmtUtcShort(b.start) + ' → now',
+    };
+  }
+  const exclusiveEnd = hit.end;
+  const end = hit.current ? Math.min(t, exclusiveEnd - 1) : exclusiveEnd - 1;
+  return {
+    start: hit.start,
+    end,
+    exclusiveEnd,
+    label:
+      'Epoch · ' +
+      fmtUtcShort(hit.start) +
+      (hit.current ? ' → now' : ' → ' + fmtUtcShort(exclusiveEnd)),
+  };
+}
+
+function currentOmniEpochWindow(payload, slotId, now) {
+  return resolveOmniEpochWindow(payload, slotId, 0, now);
+}
+
+function omniEpochInfo(payload, slotId, now) {
+  const t = now || Date.now();
+  const b = currentOmniEpochBounds(payload, slotId, t);
+  return {
+    start: b.start,
+    end: b.end,
+    remainingMs: Math.max(0, b.end - t),
+    startLabel: fmtUtcShort(b.start),
+    endLabel: fmtUtcShort(b.end),
+  };
 }
 
 function omniTradeVolume(trades, start, end) {
@@ -2525,11 +2591,13 @@ function pickVolumeSlot(legs, slotId) {
   return slot;
 }
 
-async function computeVolumeReport(source, period, slotId) {
+async function computeVolumeReport(source, period, slotId, epochStart) {
   const src = source === 'hl' ? 'hl' : source === 'xyz' ? 'xyz' : 'omni';
   let per = String(period || '');
-  if (src !== 'omni' && per === 'epoch') per = '1d';
-  if (src === 'omni' && (per === '30d' || per === 'monthly')) per = 'mtd';
+  if (src !== 'omni' && (per === 'epoch' || per.startsWith('epoch:'))) per = '1d';
+  if (src === 'omni' && (per === '30d' || per === 'monthly' || per === '7d' || per === 'mtd' || per === 'ytd')) {
+    per = 'epoch';
+  }
   if (!per) per = src === 'omni' ? 'epoch' : '1d';
 
   const win = volumeWindow(src, per, Date.now());
@@ -2539,7 +2607,12 @@ async function computeVolumeReport(source, period, slotId) {
   if (src === 'omni') {
     const legs = listOmniVolumeLegs(payload);
     const slot = pickVolumeSlot(legs, slotId);
-    const effectiveWin = per === 'epoch' ? currentOmniEpochWindow(payload, slot, Date.now()) : win;
+    const epochs = listOmniEpochs(payload, slot, Date.now());
+    const epochInfo = omniEpochInfo(payload, slot, Date.now());
+    const effectiveWin =
+      per === 'epoch'
+        ? resolveOmniEpochWindow(payload, slot, epochStart, Date.now())
+        : win;
     if (!payload || !legs.length) {
       return {
         ok: true,
@@ -2547,6 +2620,9 @@ async function computeVolumeReport(source, period, slotId) {
         period: per,
         slotId: slot,
         legs,
+        epochs,
+        epochInfo,
+        epochStart: effectiveWin.start,
         volume: 0,
         count: 0,
         window: effectiveWin,
@@ -2561,6 +2637,9 @@ async function computeVolumeReport(source, period, slotId) {
       period: per,
       slotId: slot,
       legs,
+      epochs,
+      epochInfo,
+      epochStart: per === 'epoch' ? effectiveWin.start : 0,
       volume: agg.volume,
       count: agg.count,
       window: effectiveWin,
@@ -4113,7 +4192,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   }
 
   if (msg.type === 'HS_WIDGET_VOLUME') {
-    computeVolumeReport(msg.source, msg.period, msg.slotId)
+    computeVolumeReport(msg.source, msg.period, msg.slotId, msg.epochStart)
       .then((res) => sendResponse(res))
       .catch((e) => sendResponse({ ok: false, error: String(e && e.message || e) }));
     return true;
