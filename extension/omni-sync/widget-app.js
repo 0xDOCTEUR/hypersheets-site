@@ -1403,8 +1403,26 @@
 
   var pendingPositionsSnap = null;
   var positionsRenderTimer = null;
+  function showCloseNotices(snap) {
+    var notes = snap && Array.isArray(snap.closeNotices) ? snap.closeNotices.filter(Boolean) : [];
+    if (!notes.length) return;
+    if (!toastEl) return;
+    toastEl.hidden = false;
+    toastEl.textContent = notes[0];
+    toastEl.className = "toast err";
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () {
+      toastEl.hidden = true;
+    }, 8000);
+    try {
+      var next = Object.assign({}, snap, { closeNotices: [] });
+      chrome.storage.local.set({ hsWidgetSnapshot: next });
+    } catch (_) {}
+  }
+
   function scheduleRenderPositions(snap) {
     pendingPositionsSnap = snap;
+    showCloseNotices(snap);
     if (positionsRenderTimer) return;
     positionsRenderTimer = setTimeout(function tick() {
       var active = document.activeElement;

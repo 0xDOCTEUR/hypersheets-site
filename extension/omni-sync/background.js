@@ -3329,15 +3329,72 @@ function linkedHlPairSignature(pair) {
   ].join('::');
 }
 
+function pairSuppressKey(accountId, market) {
+  return String(accountId || '') + '::' + normalizeMarket(market || '');
+}
+
+const SUPPRESSED_PAIRS_KEY = 'hsWidgetSuppressedPairs';
+
+async function loadSuppressedPairs() {
+  try {
+    const stored = await chrome.storage.local.get([SUPPRESSED_PAIRS_KEY]);
+    const raw = stored[SUPPRESSED_PAIRS_KEY];
+    return raw && typeof raw === 'object' ? raw : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+async function saveSuppressedPairs(map) {
+  try {
+    await chrome.storage.local.set({ [SUPPRESSED_PAIRS_KEY]: map || {} });
+  } catch (_) {}
+}
+
+/** Drop Omni↔hedge rows whose XYZ (or HL) hedge just closed — until Omni flat / recollect. */
+function applySuppressedPairs(snap, suppressed) {
+  if (!snap || !Array.isArray(snap.pairs)) return [];
+  const map = suppressed && typeof suppressed === 'object' ? suppressed : {};
+  const notices = [];
+  const liveOmni = new Set(
+    (snap.pairs || []).map((p) => pairSuppressKey(p.accountId, p.market))
+  );
+  // Forget suppressions for markets no longer open on Omni
+  for (const key of Object.keys(map)) {
+    if (!liveOmni.has(key)) delete map[key];
+  }
+  const nextPairs = [];
+  for (const pair of snap.pairs) {
+    const key = pairSuppressKey(pair.accountId, pair.market);
+    if (map[key]) {
+      if (map[key].notice) {
+        notices.push(map[key].notice);
+        map[key].notice = ''; // show once
+      }
+      continue;
+    }
+    nextPairs.push(pair);
+  }
+  snap.pairs = nextPairs;
+  if (notices.length) snap.closeNotices = notices;
+  return notices;
+}
+
 async function evaluateHlMissingAlert(snap, reliable, alertCfg) {
   const currentMap = {};
   const pairs = Array.isArray(snap && snap.pairs) ? snap.pairs : [];
   for (const pair of pairs) {
     const key = linkedHlPairKey(pair);
     if (!key) continue;
+    const sig = linkedHlPairSignature(pair);
+    const dex = String(pair.hlDex || '').toUpperCase();
     currentMap[key] = {
       label: [pair.accountLabel || pair.accountId || 'Position', pair.market || ''].filter(Boolean).join(' · '),
-      linkedSig: linkedHlPairSignature(pair),
+      market: normalizeMarket(pair.market || ''),
+      accountId: String(pair.accountId || ''),
+      linkedSig: sig,
+      dex: sig ? dex : '',
+      paired: !!pair.paired && !!sig,
     };
   }
   let prev = {};
@@ -3348,24 +3405,55 @@ async function evaluateHlMissingAlert(snap, reliable, alertCfg) {
       : {};
   } catch (_) {}
   const prevSeen = prev.seen && typeof prev.seen === 'object' ? prev.seen : {};
-  if (alertCfg.hlMissing && reliable && Object.keys(prevSeen).length) {
-    const disappeared = Object.keys(currentMap).filter((key) => {
-      const wasLinked = prevSeen[key] && prevSeen[key].linkedSig;
-      const isLinked = currentMap[key] && currentMap[key].linkedSig;
-      return !!wasLinked && !isLinked;
-    });
-    if (disappeared.length) {
-      const first = currentMap[disappeared[0]];
-      const label = first && first.label ? first.label : 'Linked HL position';
-      try {
-        await notifyAlert(
-          'Linked HL hedge disappeared',
-          disappeared.length > 1 ? label + ' +' + (disappeared.length - 1) + ' more' : label,
-          alertCfg.sound
-        );
-      } catch (_) {}
+  const suppressed = await loadSuppressedPairs();
+  const closedEvents = [];
+
+  if (reliable && Object.keys(prevSeen).length) {
+    for (const key of Object.keys(prevSeen)) {
+      const was = prevSeen[key];
+      if (!was || !was.linkedSig) continue;
+      const now = currentMap[key];
+      const stillLinked = !!(now && now.linkedSig);
+      // Only fire when the hedge is gone (unpaired), not when it swaps to another size/wallet.
+      if (stillLinked) continue;
+
+      const wasXyz = String(was.dex || '').toUpperCase() === 'XYZ'
+        || /::XYZ::/i.test(String(was.linkedSig || ''));
+      const label = (now && now.label) || was.label || 'Position';
+      const accountId = (now && now.accountId) || was.accountId || '';
+      const market = (now && now.market) || was.market || '';
+
+      if (wasXyz) {
+        // XYZ closed → hide pair in extension + notify to check Omni close.
+        const sk = pairSuppressKey(accountId, market);
+        if (sk && sk !== '::') {
+          suppressed[sk] = {
+            at: Date.now(),
+            reason: 'xyz-closed',
+            label,
+            notice: 'Vérifie la clôture de la jambe Omni',
+          };
+        }
+        closedEvents.push({ kind: 'xyz', label, accountId, market });
+        try {
+          await notifyAlert(
+            'XYZ fermé · ' + (market || label),
+            'Vérifie la clôture de la jambe Omni',
+            (alertCfg && alertCfg.sound && alertCfg.sound !== 'none') ? alertCfg.sound : 'double'
+          );
+        } catch (_) {}
+      } else if (alertCfg && alertCfg.hlMissing) {
+        try {
+          await notifyAlert(
+            'Hedge HL disparu',
+            label,
+            (alertCfg && alertCfg.sound) || 'beep'
+          );
+        } catch (_) {}
+      }
     }
   }
+
   try {
     await chrome.storage.local.set({
       [HL_MISSING_ALERT_STATE_KEY]: {
@@ -3374,6 +3462,9 @@ async function evaluateHlMissingAlert(snap, reliable, alertCfg) {
       },
     });
   } catch (_) {}
+
+  if (closedEvents.length) await saveSuppressedPairs(suppressed);
+  return { suppressed, closedEvents };
 }
 
 async function refreshWidgetSnapshot(opts) {
@@ -3427,11 +3518,14 @@ async function refreshWidgetSnapshot(opts) {
       snap.reason = omniLegs.length ? undefined : 'no-omni-trades';
     }
     await evaluatePnlAlert(snap);
-    await evaluateHlMissingAlert(
+    const hedgeEval = await evaluateHlMissingAlert(
       snap,
       wallets.length === 0 || !!((folio.accounts || []).length),
       alertCfg
     );
+    const suppressed = (hedgeEval && hedgeEval.suppressed) || (await loadSuppressedPairs());
+    applySuppressedPairs(snap, suppressed);
+    await saveSuppressedPairs(suppressed);
     await chrome.storage.local.set({ hsWidgetSnapshot: snap });
   } catch (e) {
     await chrome.storage.local.set({
