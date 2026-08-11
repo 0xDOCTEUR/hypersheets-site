@@ -1315,10 +1315,15 @@
     var hlByWallet = snap.hlByWallet || {};
     var hlOpen = Array.isArray(snap.hlOpen) ? snap.hlOpen : [];
 
+    var hedgedPairs = pairs.filter(function (p) { return !!p.paired && !!p.hlSide; });
+    var hedgedUpnl = hedgedPairs.reduce(function (sum, p) {
+      return sum + (Number(p.omniUpnl) || 0) + (Number(p.hlUpnl) || 0);
+    }, 0);
+
     safeSetInnerHTML(
       summary,
-      '<div class="kpi kpi-main"><div class="l">' + esc(t("pnlTotal")) + '</div><div class="v ' + pnlClass(snap.netUpnl) + '">' +
-      esc(fmtUsd(snap.netUpnl, true)) + "</div></div>"
+      '<div class="kpi kpi-main"><div class="l">' + esc(t("pnlTotal")) + '</div><div class="v ' + pnlClass(hedgedUpnl) + '">' +
+      esc(fmtUsd(hedgedUpnl, true)) + "</div></div>"
     );
 
     showVolumeSection(true);
@@ -1349,7 +1354,9 @@
       order.forEach(function (id) {
         var slot = (acc && acc.slots && acc.slots[id]) || {};
         var label = slot.label || (byAcc[id] && byAcc[id][0] && byAcc[id][0].accountLabel) || "";
-        var items = byAcc[id] || [];
+        var items = (byAcc[id] || []).filter(function (p) {
+          return !!p.paired && !!p.hlSide;
+        });
         var groupNet = items.reduce(function (sum, p) {
           return sum + (Number(p.omniUpnl) || 0) + (Number(p.hlUpnl) || 0);
         }, 0);
