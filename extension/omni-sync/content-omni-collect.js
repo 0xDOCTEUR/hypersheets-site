@@ -4,7 +4,7 @@
  * PC file download is handled by the background service worker (chrome.downloads).
  */
 (function () {
-  const COLLECT_SCRIPT_VERSION = 7;
+  const COLLECT_SCRIPT_VERSION = 8;
   // Re-injects bump this so stale listeners from older injects ignore messages.
   window.__hsOmniCollectVersion = COLLECT_SCRIPT_VERSION;
   const VERSION = 3;
@@ -168,21 +168,24 @@
     if (transfersRes.skipped) warnings.push('transfers: ' + transfersRes.skipped);
 
     // Stamp wallet identity once — used for PC filename + jambe label.
+    // Omni competition.self.address is often truncated ("0x3…ed0f") — suffix is enough.
     let omniAddress = '';
+    let walletSuffix = 'XX';
     try {
       if (board && board.self && board.self.address) omniAddress = String(board.self.address);
       else if (summary && summary.address) omniAddress = String(summary.address);
       else if (summary && summary.user && summary.user.address) omniAddress = String(summary.user.address);
     } catch (_) {}
-    omniAddress = omniAddress.toLowerCase().trim();
-    if (!/^0x[a-f0-9]{40}$/i.test(omniAddress)) omniAddress = '';
-    const walletSuffix = omniAddress ? omniAddress.slice(-2).toUpperCase() : 'XX';
+    walletSuffix = walletSuffixFromAddr(omniAddress) || 'XX';
+    const fullAddr = /^0x[a-f0-9]{40}$/i.test(omniAddress.trim())
+      ? omniAddress.trim().toLowerCase()
+      : '';
 
     return {
       format: 'variational-dashboard-export',
       version: VERSION,
       exported_at: new Date().toISOString(),
-      omni_address: omniAddress || undefined,
+      omni_address: fullAddr || undefined,
       wallet_suffix: walletSuffix,
       counts: {
         trades: trades.length,
@@ -201,20 +204,29 @@
     };
   }
 
+  /** Last 2 hex chars from full or truncated Omni addr (e.g. 0x3…ed0f → 0F). */
+  function walletSuffixFromAddr(addr) {
+    const a = String(addr || '').trim();
+    if (!a) return '';
+    const hex = a.replace(/[^a-fA-F0-9]/g, '');
+    if (hex.length >= 2) return hex.slice(-2).toUpperCase();
+    return '';
+  }
+
   function buildAutoFileName(payload) {
     const stamp = new Date().toISOString().slice(0, 10);
-    let suffix = (payload && payload.wallet_suffix) || 'XX';
+    let suffix = (payload && payload.wallet_suffix) || '';
     try {
       if (!suffix || suffix === 'XX') {
-        const addr =
-          (payload && payload.omni_address) ||
-          (payload.competition && payload.competition.self && payload.competition.self.address) ||
-          (payload.points_summary && payload.points_summary.address) ||
-          (payload.points_summary && payload.points_summary.user && payload.points_summary.user.address) ||
-          '';
-        if (addr && String(addr).length >= 2) suffix = String(addr).slice(-2).toUpperCase();
+        suffix = walletSuffixFromAddr(payload && payload.omni_address)
+          || walletSuffixFromAddr(payload && payload.competition && payload.competition.self && payload.competition.self.address)
+          || walletSuffixFromAddr(payload && payload.points_summary && payload.points_summary.address)
+          || walletSuffixFromAddr(payload && payload.points_summary && payload.points_summary.user && payload.points_summary.user.address)
+          || 'XX';
       }
-    } catch (_) {}
+    } catch (_) {
+      suffix = 'XX';
+    }
     let trades = 0;
     try {
       trades = (payload.counts && payload.counts.trades) || (payload.trades && payload.trades.length) || 0;
@@ -224,7 +236,6 @@
       const sum = payload.points_summary;
       pts = Math.round(parseFloat((sum && (sum.total_points || sum.self_points)) || 0)) || 0;
     } catch (_) {}
-    // Explicit "omni-C6_…" so the wallet suffix is obvious in Downloads.
     return 'omni-' + suffix + '_' + trades + 't_' + pts + 'pts_' + stamp + '.json';
   }
 

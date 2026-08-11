@@ -1885,6 +1885,9 @@
     if (!data || typeof data !== 'object') return '';
     const candidates = [];
     try {
+      if (data.omni_address) candidates.push(data.omni_address);
+    } catch (_) {}
+    try {
       const self = data.competition && !Array.isArray(data.competition) ? data.competition.self : null;
       if (self && self.address) candidates.push(self.address);
     } catch (_) {}
@@ -1902,13 +1905,21 @@
       const a = String(c || '').toLowerCase().trim();
       if (/^0x[a-f0-9]{40}$/i.test(a)) return a;
     }
+    // Truncated Omni form (0x3…ed0f) — still usable for suffix.
+    for (const c of candidates) {
+      const a = String(c || '').trim();
+      if (/0x/i.test(a) && /[a-f0-9]{2}/i.test(a)) return a;
+    }
     return '';
   }
 
+  /** Last 2 hex chars from full or truncated addr (0x3…ed0f → 0F). */
   function varOmniAddrSuffix(addr) {
-    const a = String(addr || '');
-    if (a.length < 2) return '';
-    return a.slice(-2).toUpperCase();
+    const a = String(addr || '').trim();
+    if (!a) return '';
+    const hex = a.replace(/[^a-fA-F0-9]/g, '');
+    if (hex.length >= 2) return hex.slice(-2).toUpperCase();
+    return '';
   }
 
   function varApplyOmniExport(data, fileName) {

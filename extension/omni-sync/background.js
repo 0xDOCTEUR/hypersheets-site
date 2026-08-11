@@ -1168,7 +1168,7 @@ async function applyLocalOmniBundle(bundle, origin, points, preferredSlotId, pre
   }
   if (!resolvedOmni) resolvedOmni = prevSlot.omniAddress || '';
 
-  // Slot / chip label = ALWAYS last 2 chars of Omni wallet from the JSON.
+  // Slot / chip label = last 2 hex chars (works on truncated 0x3…ed0f too).
   const addrSuffix = omniAddrSuffix(resolvedOmni);
   const label = addrSuffix || autoLabel || requestedLabel || String(prevSlot.label || '').trim() || '';
 
@@ -1590,13 +1590,7 @@ function buildExportFileName(payload, preferred) {
     return name.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_').slice(0, 120);
   }
   const stamp = new Date().toISOString().slice(0, 10);
-  let suffix = (payload && payload.wallet_suffix) || 'XX';
-  try {
-    if (!suffix || suffix === 'XX') {
-      const addr = extractOmniAddress(payload) || '';
-      if (addr.length >= 2) suffix = omniAddrSuffix(addr);
-    }
-  } catch (_) {}
+  const suffix = walletSuffixFromPayload(payload) || 'XX';
   let trades = 0;
   try {
     trades = (payload && payload.counts && payload.counts.trades)
@@ -1761,13 +1755,36 @@ function extractOmniAddress(payload) {
     const a = String(c || '').toLowerCase().trim();
     if (/^0x[a-f0-9]{40}$/i.test(a)) return a;
   }
+  // Truncated Omni form (0x3…ed0f) — not a full address; callers use omniAddrSuffix.
+  for (const c of candidates) {
+    const a = String(c || '').trim();
+    if (/0x/i.test(a) && /[a-f0-9]{2}/i.test(a)) return a;
+  }
   return '';
 }
 
+/** Last 2 hex chars from full OR truncated Omni addr (0x3…ed0f → 0F). */
 function omniAddrSuffix(addr) {
-  const a = String(addr || '');
-  if (a.length < 2) return '';
-  return a.slice(-2).toUpperCase();
+  const a = String(addr || '').trim();
+  if (!a) return '';
+  if (addr && typeof addr === 'object' && addr.wallet_suffix) {
+    const s = String(addr.wallet_suffix).trim();
+    if (/^[a-f0-9]{2}$/i.test(s)) return s.toUpperCase();
+  }
+  const hex = a.replace(/[^a-fA-F0-9]/g, '');
+  if (hex.length >= 2) return hex.slice(-2).toUpperCase();
+  return '';
+}
+
+function walletSuffixFromPayload(payload) {
+  if (!payload || typeof payload !== 'object') return '';
+  if (payload.wallet_suffix && /^[a-f0-9]{2}$/i.test(String(payload.wallet_suffix))) {
+    return String(payload.wallet_suffix).toUpperCase();
+  }
+  return omniAddrSuffix(extractOmniAddress(payload))
+    || omniAddrSuffix(payload.competition && payload.competition.self && payload.competition.self.address)
+    || omniAddrSuffix(payload.points_summary && payload.points_summary.address)
+    || '';
 }
 
 function shortOmniAddr(addr) {
