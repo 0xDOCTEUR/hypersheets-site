@@ -1071,17 +1071,29 @@ function normalizeTradeRow(t) {
 
 function payloadToCsvBundle(payload) {
   const trades = (payload && payload.trades ? payload.trades : []).map(normalizeTradeRow);
-  const transfers = (payload && payload.transfers ? payload.transfers : []).slice();
+  const transfersRaw = (payload && payload.transfers ? payload.transfers : []).slice();
+  const funding = [];
+  const realizedPnl = [];
+  const transfers = [];
+  for (const row of transfersRaw) {
+    const tt = (row && row.transfer_type ? String(row.transfer_type) : '').toLowerCase();
+    if (tt === 'funding') funding.push(row);
+    else if (tt === 'realized_pnl') realizedPnl.push(row);
+    else transfers.push(row);
+  }
+  const now = Date.now();
+  const src = 'omni-export.json';
   return {
+    v: 2,
     trades,
-    funding: [],
-    realizedPnl: [],
+    funding,
+    realizedPnl,
     transfers,
     files: {
-      trades: { name: 'omni-export.json', at: Date.now(), rows: trades.length },
-      transfers: transfers.length
-        ? { name: 'omni-export.json', at: Date.now(), rows: transfers.length }
-        : undefined,
+      trades: { name: src, at: now, rows: trades.length },
+      funding: funding.length ? { name: src, at: now, rows: funding.length } : undefined,
+      realizedPnl: realizedPnl.length ? { name: src, at: now, rows: realizedPnl.length } : undefined,
+      transfers: transfers.length ? { name: src, at: now, rows: transfers.length } : undefined,
     },
   };
 }
