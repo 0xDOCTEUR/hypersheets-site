@@ -7964,6 +7964,29 @@
     window.open(url, '_blank', 'noopener,noreferrer');
   }
 
+  const VAR_LIVE_PANEL_KEY = 'hs-var-live-panels';
+  function varLoadLivePanelsState() {
+    try { return JSON.parse(localStorage.getItem(VAR_LIVE_PANEL_KEY) || '{}') || {}; }
+    catch (_) { return {}; }
+  }
+  function varSaveLivePanelsState(state) {
+    try { localStorage.setItem(VAR_LIVE_PANEL_KEY, JSON.stringify(state || {})); } catch (_) {}
+  }
+  function varApplyLivePanelsState() {
+    const state = varLoadLivePanelsState();
+    document.querySelectorAll('[data-collapsible-key]').forEach((el) => {
+      const key = el.getAttribute('data-collapsible-key');
+      if (!key) return;
+      el.classList.toggle('is-collapsed', !!state[key]);
+    });
+  }
+  function varToggleLivePanel(key) {
+    const state = varLoadLivePanelsState();
+    state[key] = !state[key];
+    varSaveLivePanelsState(state);
+    varApplyLivePanelsState();
+  }
+
   let _varInitInFlight = null;
 
   async function initVarPage(force) {
@@ -8009,6 +8032,7 @@
     varBindLegForm();
     varInitLegTickerPicker();
     varBindJsonDrop();
+    varApplyLivePanelsState();
     const bootSub = varNormalizeSub(_varSub || 'dashboard');
     varSetSub(bootSub, null);
 
@@ -8082,6 +8106,7 @@
   window.varSetImportDdOpen = varSetImportDdOpen;
   window.varSetDashPeriod = varSetDashPeriod;
   window.varSetLiveVolPeriod = varSetLiveVolPeriod;
+  window.varToggleLivePanel = varToggleLivePanel;
   window.renderVarDash = renderVarDash;
   window.renderVarUserHeroKpis = renderVarUserHeroKpis;
   window.varScrollToDashSection = varScrollToDashSection;

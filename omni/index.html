@@ -855,6 +855,29 @@ const HS_CONFIG = {
           border: 1px solid var(--border); border-radius: var(--hs-radius-tile); background: var(--surface);
           padding: 16px 18px;
         }
+        .var-live-panel.is-collapsed { padding-bottom: 12px; }
+        .var-live-panel-toggle {
+          margin-left: auto;
+          border: 1px solid var(--border);
+          background: transparent;
+          color: var(--muted);
+          border-radius: 8px;
+          padding: 4px 8px;
+          font-size: .72rem;
+          line-height: 1;
+          cursor: pointer;
+          transition: border-color .15s, color .15s, background .15s, transform .15s;
+        }
+        .var-live-panel-toggle:hover {
+          color: var(--text);
+          border-color: rgba(76,154,248,.35);
+          background: rgba(76,154,248,.08);
+        }
+        .var-live-panel.is-collapsed .var-live-panel-toggle {
+          transform: rotate(-90deg);
+        }
+        .var-live-panel-body { margin-top: 0; }
+        .var-live-panel.is-collapsed .var-live-panel-body { display: none; }
         .var-live-panel-h { font-size: var(--fs-md); font-weight: 650; margin: 0 0 2px; color: var(--text); }
         .var-live-panel-sub { font-size: var(--fs-sm); color: var(--muted); margin: 0 0 12px; }
         .var-live-pos .var-pos-empty,
@@ -11299,31 +11322,42 @@ try {
                 <div class="kpi-sub" id="varLiveTradesMeta"></div>
               </div>
             </div>
-            <div class="var-live-panel var-live-pos">
-              <div class="section-h mb-1" style="margin:0 0 2px">
+            <div class="var-live-panel var-live-pos" id="varLivePosPanel" data-collapsible-key="live-pos">
+              <div class="section-h mb-1" style="margin:0 0 2px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
                 <span class="bar" style="background:var(--accent)"></span>
                 <span data-i18n="var.livePosTitle">Open positions</span>
+                <button type="button" class="var-live-panel-toggle" onclick="varToggleLivePanel('live-pos')" aria-label="Toggle section">▾</button>
               </div>
-              <p class="var-live-panel-sub" id="varLivePosSub" data-i18n="var.livePosSub">Une carte par marché · Omni vs HL / XYZ</p>
-              <div class="overflow-x-auto" id="varLivePositions"></div>
+              <div class="var-live-panel-body">
+                <p class="var-live-panel-sub" id="varLivePosSub" data-i18n="var.livePosSub">Une carte par marché · Omni vs HL / XYZ</p>
+                <div class="overflow-x-auto" id="varLivePositions"></div>
+              </div>
             </div>
-            <div class="var-live-panel var-live-markets">
-              <div class="section-h mb-1" style="margin:0 0 2px">
+            <div class="var-live-panel var-live-markets" id="varLiveMarketsPanel" data-collapsible-key="live-markets">
+              <div class="section-h mb-1" style="margin:0 0 2px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
                 <span class="bar" style="background:var(--accent)"></span>
                 <span data-i18n="var.liveMarketsTitle">Markets this period</span>
+                <button type="button" class="var-live-panel-toggle" onclick="varToggleLivePanel('live-markets')" aria-label="Toggle section">▾</button>
               </div>
-              <p class="var-live-panel-sub" id="varLiveMarketsSub" data-i18n="var.liveMarketsSub">Every traded market in the selected window</p>
-              <div class="overflow-x-auto" id="varLiveMarkets"></div>
+              <div class="var-live-panel-body">
+                <p class="var-live-panel-sub" id="varLiveMarketsSub" data-i18n="var.liveMarketsSub">Every traded market in the selected window</p>
+                <div class="overflow-x-auto" id="varLiveMarkets"></div>
+              </div>
             </div>
-            <div class="var-live-panel var-farm-epochs" id="varFarmEpochsPanel">
+            <div class="var-live-panel var-farm-epochs" id="varFarmEpochsPanel" data-collapsible-key="live-epochs">
               <div class="section-h mb-1" style="margin:0 0 2px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
                 <div style="display:flex;align-items:center;gap:8px">
                   <span class="bar" style="background:var(--accent)"></span>
                   <span data-i18n="var.farmEpochsTitle">Recent epochs</span>
                 </div>
-                <button type="button" class="btn btn-ghost text-xs" onclick="varSetSub('points',null)" data-i18n="var.farmEpochsAll">All points →</button>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <button type="button" class="btn btn-ghost text-xs" onclick="varSetSub('points',null)" data-i18n="var.farmEpochsAll">All points →</button>
+                  <button type="button" class="var-live-panel-toggle" onclick="varToggleLivePanel('live-epochs')" aria-label="Toggle section">▾</button>
+                </div>
               </div>
-              <div class="overflow-x-auto" id="varFarmEpochMini"></div>
+              <div class="var-live-panel-body">
+                <div class="overflow-x-auto" id="varFarmEpochMini"></div>
+              </div>
             </div>
           </div>
 
