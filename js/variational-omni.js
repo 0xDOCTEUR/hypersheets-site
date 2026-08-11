@@ -14,7 +14,7 @@
   const HS_VAR_AIRDROP_KEY = 'hs-var-airdrop-assumptions';
   const VAR_OMNI_MIN_SLOTS = 2;
   const VAR_OMNI_MAX_SLOTS = 8;
-  const VAR_OMNI_SLOT_DEFAULT_LABELS = { a: 'Omni 1', b: 'Omni 2' };
+  const VAR_OMNI_SLOT_DEFAULT_LABELS = { a: '', b: '' };
   const HS_VAR_DASH_PERIOD_KEY = 'hs-var-dash-period';
   const HS_VAR_FUND_HIST_KEY = 'hs-var-fund-hist';
   const HS_VAR_RADAR_SIZE_KEY = 'hs-var-radar-size';
@@ -878,7 +878,8 @@
   }
 
   function varOmniLabelForIndex(i) {
-    return 'Omni ' + (i + 1);
+    // Empty until a wallet CSV is linked — chips use last 2 address chars.
+    return '';
   }
 
   function varOmniMakeSlot(id, label) {
@@ -917,9 +918,17 @@
   }
 
   function varOmniSlotLabel(slot, id, index) {
+    if (slot?.label) {
+      const lab = String(slot.label).slice(0, 24);
+      if (!/^omni\s*\d+$/i.test(lab.trim())) return lab;
+    }
+    if (slot?.omniAddress) {
+      const s = varOmniAddrSuffix(slot.omniAddress);
+      if (s) return s;
+    }
     if (slot?.label) return String(slot.label).slice(0, 24);
     if (VAR_OMNI_SLOT_DEFAULT_LABELS[id]) return VAR_OMNI_SLOT_DEFAULT_LABELS[id];
-    return varOmniLabelForIndex(index == null ? 0 : index);
+    return varOmniLabelForIndex(index == null ? 0 : index) || '';
   }
 
   function varOmniRenumberLabels(acc) {

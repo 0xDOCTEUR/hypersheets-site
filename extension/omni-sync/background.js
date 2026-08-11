@@ -563,6 +563,20 @@ function hydrateCsvLibrary(state) {
   }
 
   state.csvLibrary = dedupeCsvLibrary(library, accounts);
+  // Rename legacy "Omni N" slots to wallet suffix when we know the address / CSV.
+  for (const sid of omniSlotIds(accounts)) {
+    const slot = accounts.slots[sid];
+    if (!slot) continue;
+    if (!isGenericOmniLabel(slot.label) && String(slot.label || '').trim()) continue;
+    let entry = null;
+    const ids = Array.isArray(slot.csvIds) ? slot.csvIds : [];
+    for (const cid of ids) {
+      entry = state.csvLibrary.find((e) => e.id === cid) || null;
+      if (entry) break;
+    }
+    const next = labelFromWalletSource(slot.omniAddress, entry, '');
+    if (next) slot.label = next;
+  }
   state.accounts = accounts;
   return state;
 }
@@ -1299,9 +1313,12 @@ async function applyLocalOmniBundle(bundle, origin, points, preferredSlotId, pre
   }
   if (!resolvedOmni) resolvedOmni = prevSlot.omniAddress || '';
 
-  // Slot / chip label = last 2 hex chars (works on truncated 0x3…ed0f too).
-  const addrSuffix = omniAddrSuffix(resolvedOmni);
-  const label = addrSuffix || autoLabel || requestedLabel || String(prevSlot.label || '').trim() || '';
+  // Slot / chip label = last 2 hex chars of the selected wallet (not Omni N / market).
+  const addrSuffix = labelFromWalletSource(resolvedOmni, entry, requestedLabel);
+  const prevLab = String(prevSlot.label || '').trim();
+  const label = addrSuffix
+    || (!isGenericOmniLabel(prevLab) ? prevLab : '')
+    || '';
 
   // Warn if this Omni wallet was already collected into another jambe
   let duplicateSlot = null;
@@ -2008,6 +2025,30 @@ function shortOmniAddr(addr) {
   const a = String(addr || '');
   if (!/^0x[a-fA-F0-9]{40}$/i.test(a)) return '';
   return a.slice(0, 6) + '…' + a.slice(-4);
+}
+
+function isGenericOmniLabel(s) {
+  return /^omni\s*\d+$/i.test(String(s || '').trim());
+}
+
+/** Prefer last 2 wallet chars from address / library entry — never "Omni N" or market tickers. */
+function labelFromWalletSource(addr, entry, fallback) {
+  const fromAddr = omniAddrSuffix(addr);
+  if (fromAddr) return fromAddr;
+  if (entry) {
+    const fromEntry = omniAddrSuffix(entry.omniAddress);
+    if (fromEntry) return fromEntry;
+    const lab = String(entry.label || '').trim();
+    if (/^[a-f0-9]{2}$/i.test(lab)) return lab.toUpperCase();
+    const m = lab.match(/^([a-f0-9]{2})(?:\b|[_\s·.-])/i);
+    if (m) return m[1].toUpperCase();
+  }
+  const fb = String(fallback || '').trim();
+  if (fb && !isGenericOmniLabel(fb)) {
+    if (/^[a-f0-9]{2}$/i.test(fb)) return fb.toUpperCase();
+    return fb.slice(0, 32);
+  }
+  return '';
 }
 
 function quoteMid(listing) {
@@ -3633,17 +3674,31 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         ? marketsHintFromCsv(rebuilt.csv)
         : '';
       accounts.slots[id].importedAt = rebuilt.csvIds.length ? Date.now() : null;
-      // Address from first selected source that has one
-      let addr = accounts.slots[id].omniAddress || '';
+      // Address + label from selected CSV (2 last wallet chars).
+      let addr = '';
+      let entry = null;
       for (const cid of rebuilt.csvIds) {
         const e = library.find((x) => x.id === cid);
-        if (e && e.omniAddress) {
+        if (!e) continue;
+        if (!entry) entry = e;
+        if (e.omniAddress) {
           addr = e.omniAddress;
+          entry = e;
           break;
         }
       }
-      if (rebuilt.csvIds.length) accounts.slots[id].omniAddress = addr || '';
-      else accounts.slots[id].omniAddress = '';
+      if (rebuilt.csvIds.length) {
+        accounts.slots[id].omniAddress = addr || (entry && entry.omniAddress) || '';
+        const nextLabel = labelFromWalletSource(
+          accounts.slots[id].omniAddress,
+          entry,
+          accounts.slots[id].label
+        );
+        if (nextLabel) accounts.slots[id].label = nextLabel;
+        else if (isGenericOmniLabel(accounts.slots[id].label)) accounts.slots[id].label = '';
+      } else {
+        accounts.slots[id].omniAddress = '';
+      }
     })
       .then((res) => {
         refreshWidgetSnapshot().then(() => sendResponse(res)).catch(() => sendResponse(res));
