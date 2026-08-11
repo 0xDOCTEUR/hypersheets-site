@@ -1911,13 +1911,14 @@
           (res.omniAddress ? t("omniAddrLabel") + " " + shortAddr(res.omniAddress) + " · " : "") +
           (res.marketsHint ? t("marketsOpenLabel") + " " + res.marketsHint + " · " : "") +
           (c.trades != null ? c.trades + " " + t("trades") : t("ok")) +
-          (c.points != null ? " · " + c.points + " " + t("epochs") : "") +
-          (res.fileName ? " · " + res.fileName : "");
+          (c.points != null ? " · " + c.points + " " + t("epochs") : "");
         if (res.duplicateLabel) {
           msg += " · " + t("collectDupWarn").replace("{label}", res.duplicateLabel);
         }
         if (warns.length) msg += " · " + t("collectPartialWarn");
-        setCollectUi({ ok: true, err: !!res.duplicateLabel }, t("collectedDone"), msg);
+        if (res.fileName) msg += " · ↓ " + res.fileName;
+        if (res.downloadOk === false) msg += " · download failed";
+        setCollectUi({ ok: true, err: !!res.duplicateLabel || res.downloadOk === false }, t("collectedDone"), msg);
         toast((warns.length || res.duplicateLabel ? t("collectPartialWarn") : t("collectedOk")) + " · " + msg, (warns.length || res.duplicateLabel) ? "" : "ok");
         loadState();
         setPage("positions");

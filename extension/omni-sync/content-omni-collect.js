@@ -1,9 +1,10 @@
 /**
  * Omni tab collector — runs only on omni.variational.io while the user is logged in.
  * Triggered by the Hypersheets extension panel (1 click).
+ * PC file download is handled by the background service worker (chrome.downloads).
  */
 (function () {
-  const COLLECT_SCRIPT_VERSION = 5;
+  const COLLECT_SCRIPT_VERSION = 6;
   // Re-injects bump this so stale listeners from older injects ignore messages.
   window.__hsOmniCollectVersion = COLLECT_SCRIPT_VERSION;
   const VERSION = 3;
@@ -78,30 +79,6 @@
       await sleep(70);
     }
     return out;
-  }
-
-  function downloadJson(payload, fileName) {
-    try {
-      const json = JSON.stringify(payload);
-      const stamp = new Date().toISOString().slice(0, 10);
-      let name = String(fileName || '').trim();
-      if (!name) name = 'variational-export-' + stamp + '.json';
-      if (!/\.json$/i.test(name)) name += '.json';
-      name = name.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_').slice(0, 120);
-      const blob = new Blob([json], { type: 'application/json' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = name;
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => {
-        URL.revokeObjectURL(a.href);
-        a.remove();
-      }, 4000);
-      return (json.length / 1048576).toFixed(2);
-    } catch (_) {
-      return null;
-    }
   }
 
   async function collect(onProgress) {
@@ -218,18 +195,23 @@
       const addr =
         (payload.competition && payload.competition.self && payload.competition.self.address) ||
         (payload.points_summary && payload.points_summary.address) ||
+        (payload.points_summary && payload.points_summary.user && payload.points_summary.user.address) ||
         '';
-      if (addr && addr.length >= 2) parts.push(addr.slice(-2).toUpperCase());
+      if (addr && addr.length >= 2) parts.push(String(addr).slice(-2).toUpperCase());
     } catch (_) {}
     try {
       const n = (payload.counts && payload.counts.trades) || (payload.trades && payload.trades.length) || 0;
-      if (n > 0) parts.push(n + 't');
-    } catch (_) {}
+      parts.push(String(n) + 't');
+    } catch (_) {
+      parts.push('0t');
+    }
     try {
       const sum = payload.points_summary;
-      const pts = parseFloat(sum && (sum.total_points || sum.self_points) || 0);
-      if (pts > 0) parts.push(Math.round(pts) + 'pts');
-    } catch (_) {}
+      const pts = parseFloat((sum && (sum.total_points || sum.self_points)) || 0);
+      parts.push(Math.round(isFinite(pts) ? pts : 0) + 'pts');
+    } catch (_) {
+      parts.push('0pts');
+    }
     parts.push(stamp);
     return parts.join('-') + '.json';
   }
@@ -238,7 +220,8 @@
 
   chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     if (window.__hsOmniCollectVersion !== COLLECT_SCRIPT_VERSION) return undefined;
-    if (!msg || msg.type !== 'HS_OMNI_COLLECT') return undefined;
+    // V2 only — ignore legacy HS_OMNI_COLLECT so stale injects cannot download.
+    if (!msg || msg.type !== 'HS_OMNI_COLLECT_V2') return undefined;
     if (busy) {
       sendResponse({ ok: false, error: 'Collection already running' });
       return false;
@@ -257,13 +240,11 @@
           } catch (_) {}
         });
         const autoName = buildAutoFileName(payload);
-        // Prefer auto name unless the user typed a custom (non-generic) name.
         const isGeneric = !downloadName
           || /^variational-export(-\d{4}-\d{2}-\d{2})?(\.json)?$/i.test(downloadName.trim())
           || /^variational-export-ext(\.json)?$/i.test(downloadName.trim());
         const finalName = isGeneric ? autoName : downloadName;
-        // Do NOT download here — background uses chrome.downloads so the
-        // filename on the user's PC is guaranteed (a.download is unreliable).
+        // Never download from the page — background chrome.downloads owns the PC file name.
         sendResponse({
           ok: true,
           payload,

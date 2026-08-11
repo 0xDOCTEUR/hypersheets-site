@@ -825,7 +825,7 @@ function injectOmniCollector(tabId) {
 function sendCollect(tabId, opts) {
   const fileName = opts && opts.fileName ? String(opts.fileName).slice(0, 120) : '';
   return new Promise((resolve) => {
-    chrome.tabs.sendMessage(tabId, { type: 'HS_OMNI_COLLECT', fileName }, (res) => {
+    chrome.tabs.sendMessage(tabId, { type: 'HS_OMNI_COLLECT_V2', fileName }, (res) => {
       const err = chrome.runtime.lastError;
       if (err) return resolve({ ok: false, error: err.message || 'Omni tab not ready — reload Omni and retry' });
       resolve(res || { ok: false, error: 'No response from Omni collector' });
@@ -1584,13 +1584,17 @@ function buildExportFileName(payload, preferred) {
     const n = (payload && payload.counts && payload.counts.trades)
       || (payload && payload.trades && payload.trades.length)
       || 0;
-    if (n > 0) parts.push(n + 't');
-  } catch (_) {}
+    parts.push(String(n) + 't');
+  } catch (_) {
+    parts.push('0t');
+  }
   try {
     const sum = payload && payload.points_summary;
     const pts = parseFloat((sum && (sum.total_points || sum.self_points)) || 0);
-    if (pts > 0) parts.push(Math.round(pts) + 'pts');
-  } catch (_) {}
+    parts.push(Math.round(isFinite(pts) ? pts : 0) + 'pts');
+  } catch (_) {
+    parts.push('0pts');
+  }
   parts.push(stamp);
   return parts.join('-') + '.json';
 }
@@ -1606,9 +1610,15 @@ function downloadExportToPc(payload, fileName) {
       const name = String(fileName || 'variational-export.json')
         .replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_')
         .slice(0, 120);
-      const json = JSON.stringify(payload);
-      const blob = new Blob([json], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
+      const json = JSON.stringify(payload == null ? {} : payload);
+      // data: URL — blob: from a service worker is often ignored by chrome.downloads.
+      let binary = '';
+      const bytes = new TextEncoder().encode(json);
+      const chunk = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunk) {
+        binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+      }
+      const url = 'data:application/json;base64,' + btoa(binary);
       chrome.downloads.download(
         {
           url,
@@ -1617,9 +1627,6 @@ function downloadExportToPc(payload, fileName) {
           conflictAction: 'uniquify',
         },
         (downloadId) => {
-          setTimeout(() => {
-            try { URL.revokeObjectURL(url); } catch (_) {}
-          }, 60000);
           const err = chrome.runtime.lastError;
           if (err || downloadId == null) {
             resolve({ ok: false, error: (err && err.message) || 'download failed', mb: null });
