@@ -7307,6 +7307,7 @@
     varInitOmniExtBridge();
     varInitCollectorUi();
     varUpdateOmniExtUi();
+    try { varBindImportDd(); } catch (_) {}
     const drop = document.getElementById('varJsonDrop');
     if (!drop || drop.dataset.bound) return;
     drop.dataset.bound = '1';
@@ -7595,6 +7596,54 @@
       <span style="font-size:.68rem;color:var(--muted)">${varT('var.slotAddHint').replace('{max}', String(VAR_OMNI_MAX_SLOTS))}</span>
     </div>`;
     host.innerHTML = chips + slotsHtml + actions;
+    try { varUpdateImportDdBadge(acc, ids, filled); } catch (_) {}
+  }
+
+  function varUpdateImportDdBadge(acc, ids, filled) {
+    const badge = document.getElementById('varImportDdBadge');
+    if (!badge) return;
+    const list = ids || varOmniSlotIds(acc || varAccountsLoad());
+    const n = typeof filled === 'number'
+      ? filled
+      : list.filter((id) => ((acc || varAccountsLoad()).slots[id]?.csv?.trades || []).length > 0).length;
+    if (n > 0) {
+      badge.textContent = String(n);
+      badge.classList.add('is-on');
+    } else {
+      badge.textContent = '';
+      badge.classList.remove('is-on');
+    }
+  }
+
+  function varSetImportDdOpen(open) {
+    const dd = document.getElementById('varImportDd');
+    const btn = document.getElementById('varImportDdBtn');
+    const panel = document.getElementById('varImportDdPanel');
+    if (!dd || !btn || !panel) return;
+    dd.classList.toggle('is-open', !!open);
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open) panel.removeAttribute('hidden');
+    else panel.setAttribute('hidden', '');
+  }
+
+  function varBindImportDd() {
+    const dd = document.getElementById('varImportDd');
+    const btn = document.getElementById('varImportDdBtn');
+    if (!dd || !btn || btn.dataset.bound) return;
+    btn.dataset.bound = '1';
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      varSetImportDdOpen(!dd.classList.contains('is-open'));
+    });
+    document.addEventListener('click', (e) => {
+      if (!dd.classList.contains('is-open')) return;
+      if (dd.contains(e.target)) return;
+      varSetImportDdOpen(false);
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') varSetImportDdOpen(false);
+    });
   }
 
   function varAirdropCompute(points, fdvM, sharePct, totalPtsM) {
@@ -7927,6 +7976,8 @@
   window.varClearCsvKind = varClearCsvKind;
   window.varSetCsvScope = varSetCsvScope;
   window.varRenderOmniSlotsUi = varRenderOmniSlotsUi;
+  window.varBindImportDd = varBindImportDd;
+  window.varSetImportDdOpen = varSetImportDdOpen;
   window.varSetDashPeriod = varSetDashPeriod;
   window.varSetLiveVolPeriod = varSetLiveVolPeriod;
   window.renderVarDash = renderVarDash;

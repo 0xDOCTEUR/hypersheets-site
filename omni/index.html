@@ -783,6 +783,53 @@ const HS_CONFIG = {
           font-size: .7rem;
           color: var(--muted);
         }
+        .var-live-ready-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+        .var-import-dd { position: relative; z-index: 40; }
+        .var-import-dd-btn {
+          display: inline-flex; align-items: center; gap: 6px;
+          padding: 7px 12px !important; font-size: .78rem !important; font-weight: 650;
+        }
+        .var-import-dd-btn .var-import-dd-caret { opacity: .75; font-size: .7rem; line-height: 1; }
+        .var-import-dd.is-open .var-import-dd-caret { transform: rotate(180deg); }
+        .var-import-dd-badge {
+          display: none; min-width: 16px; padding: 1px 6px; border-radius: 999px;
+          font-size: .68rem; font-weight: 700; line-height: 1.3;
+          background: rgba(0,0,0,.28); color: inherit;
+        }
+        .var-import-dd-badge.is-on { display: inline-block; }
+        .var-import-dd-panel {
+          position: absolute; top: calc(100% + 8px); right: 0;
+          width: min(420px, calc(100vw - 28px));
+          padding: 12px;
+          border: 1px solid var(--border);
+          border-radius: 14px;
+          background: var(--surface-2, var(--surface));
+          box-shadow: 0 16px 40px rgba(0,0,0,.45);
+          display: none;
+        }
+        .var-import-dd.is-open .var-import-dd-panel { display: block; }
+        .var-import-dd-panel .var-omni-csv-bar {
+          margin: 0; padding: 0; border: 0; background: transparent; border-radius: 0;
+        }
+        .var-import-dd-panel .var-omni-csv-bar-h { margin-bottom: 8px; }
+        .var-import-dd-panel .var-omni-csv-bar-h strong { font-size: .82rem; }
+        .var-import-dd-panel .var-omni-csv-bar-h span { font-size: .7rem; }
+        .var-import-dd-panel .var-omni-slots {
+          margin: 6px 0;
+          grid-template-columns: 1fr;
+          gap: 6px;
+        }
+        .var-import-dd-panel .var-omni-slot { padding: 8px 10px; }
+        .var-import-dd-panel .var-json-drop {
+          margin: 8px 0 0; padding: 12px 10px; border-radius: 12px;
+        }
+        .var-import-dd-panel .var-json-drop-title { font-size: .8rem; margin-bottom: 8px; }
+        .var-import-dd-panel .var-json-drop .btn { font-size: .74rem; padding: 6px 10px; }
+        .var-import-dd-foot {
+          display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px;
+          padding-top: 10px; border-top: 1px solid var(--border);
+        }
+        .var-import-dd-foot .btn { font-size: .72rem; padding: 5px 10px; flex: 1 1 auto; }
         .var-live-ready { display: flex; flex-direction: column; gap: 16px; }
         .var-live-ready-head {
           display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between;
@@ -792,7 +839,6 @@ const HS_CONFIG = {
           font-size: var(--fs-lg); font-weight: 700; letter-spacing: -0.02em;
           font-family: 'Bricolage Grotesque', sans-serif; color: var(--text);
         }
-        .var-live-ready-actions { display: flex; flex-wrap: wrap; gap: 8px; }
         .var-live-period-row {
           display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
         }
@@ -9946,16 +9992,20 @@ try {
     background: linear-gradient(160deg, rgba(76,154,248,.12), rgba(255,255,255,.02));
   }
   html.hs-omni-standalone .var-omni-csv-bar {
-    background: rgba(255,255,255,.02);
-    border: 1px solid rgba(255,255,255,.08);
-    border-radius: 14px;
-    padding: 14px 16px;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+  }
+  html.hs-omni-standalone .var-import-dd-panel {
+    background: #121a28;
+    border-color: rgba(255,255,255,.12);
   }
   html.hs-omni-standalone .var-json-drop {
     margin-bottom: 0;
-    margin-top: 12px;
+    margin-top: 8px;
     border-radius: 12px;
-    padding: 16px;
+    padding: 12px 10px;
     background: rgba(76,154,248,.04);
   }
   html.hs-omni-standalone .var-live-panel {
@@ -11150,8 +11200,35 @@ try {
                 <p id="varOmniSyncStatus" class="var-guide-note" style="margin:4px 0 0"></p>
               </div>
               <div class="var-live-ready-actions">
-                <a class="btn btn-ghost text-xs" href="https://omni.variational.io/?ref=OMNILD9IBR89" target="_blank" rel="noopener noreferrer" data-i18n="var.onboardLink">Omni ↗</a>
-                <button type="button" class="btn btn-ac text-xs" id="varOmniPosBtn" onclick="varRefreshOmniFromLocal()" data-i18n="var.extSyncPositions">Rafraîchir fills + marks</button>
+                <div class="var-import-dd" id="varImportDd">
+                  <button type="button" class="btn btn-ac text-xs var-import-dd-btn" id="varImportDdBtn" aria-expanded="false" aria-haspopup="true" aria-controls="varImportDdPanel">
+                    <span data-i18n="var.importMenu">Import</span>
+                    <span class="var-import-dd-badge" id="varImportDdBadge" aria-hidden="true"></span>
+                    <span class="var-import-dd-caret" aria-hidden="true">▾</span>
+                  </button>
+                  <div class="var-import-dd-panel" id="varImportDdPanel" role="dialog" aria-label="Import Omni" hidden>
+                    <div class="var-omni-csv-bar" id="varOmniCsvBar">
+                      <div class="var-omni-csv-bar-h">
+                        <strong data-i18n="var.csvSlotsTitle">Sources Omni (CSV / export)</strong>
+                        <span data-i18n="var.csvSlotsHint">Choisis une jambe, ou « Tous » pour agréger.</span>
+                      </div>
+                      <div id="varOmniSlots" class="var-omni-slots" aria-label="Omni CSV slots"></div>
+                      <div class="var-json-drop" id="varJsonDrop" tabindex="0" role="button" aria-label="Import Omni JSON or CSV">
+                        <p class="var-json-drop-title" data-i18n="var.jsonDropTitle">Drop Omni export (.json / .csv)</p>
+                        <label class="btn btn-ac" style="cursor:pointer;margin:0;display:inline-flex">
+                          <span data-i18n="var.importJson">Importer JSON / CSV</span>
+                          <input id="varJsonFileInput" type="file" accept=".json,.csv,application/json,text/csv" multiple style="display:none" onchange="varImportMixedFiles(this)"/>
+                        </label>
+                        <button type="button" class="btn btn-ghost" style="margin-left:6px" onclick="varClearCsv()" data-i18n="var.clearCsv">Tout vider</button>
+                        <div class="var-json-drop-meta" id="varJsonMeta" data-i18n="var.jsonNotImported">Aucun import pour l’instant</div>
+                      </div>
+                    </div>
+                    <div class="var-import-dd-foot">
+                      <a class="btn btn-ghost" href="https://omni.variational.io/?ref=OMNILD9IBR89" target="_blank" rel="noopener noreferrer" data-i18n="var.onboardLink">Omni ↗</a>
+                      <button type="button" class="btn btn-ghost" id="varOmniPosBtn" onclick="varRefreshOmniFromLocal()" data-i18n="var.extSyncPositions">Rafraîchir fills + marks</button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -11160,23 +11237,6 @@ try {
               <div class="kpi"><div class="kpi-label" data-i18n="var.actRank">Points rank</div><div class="kpi-val" id="varFarmRank">—</div><div class="kpi-sub" id="varFarmRankSub"></div></div>
               <div class="kpi"><div class="kpi-label" data-i18n="var.actRefPts">Referral</div><div class="kpi-val" id="varFarmRefPts">—</div></div>
               <div class="kpi"><div class="kpi-label" data-i18n="var.compPlace">Comp. place</div><div class="kpi-val" id="varFarmCompPlace">—</div><div class="kpi-sub" id="varFarmCompPlaceSub"></div></div>
-            </div>
-
-            <div class="var-omni-csv-bar" id="varOmniCsvBar">
-              <div class="var-omni-csv-bar-h">
-                <strong data-i18n="var.csvSlotsTitle">Sources Omni (CSV / export)</strong>
-                <span data-i18n="var.csvSlotsHint">Choisis une jambe, ou « Tous » pour agréger.</span>
-              </div>
-              <div id="varOmniSlots" class="var-omni-slots" aria-label="Omni CSV slots"></div>
-              <div class="var-json-drop" id="varJsonDrop" tabindex="0" role="button" aria-label="Import Omni JSON or CSV">
-                <p class="var-json-drop-title" data-i18n="var.jsonDropTitle">Drop Omni export (.json / .csv)</p>
-                <label class="btn btn-ac" style="cursor:pointer;margin:0;display:inline-flex">
-                  <span data-i18n="var.importJson">Importer JSON / CSV</span>
-                  <input id="varJsonFileInput" type="file" accept=".json,.csv,application/json,text/csv" multiple style="display:none" onchange="varImportMixedFiles(this)"/>
-                </label>
-                <button type="button" class="btn btn-ghost" style="margin-left:8px" onclick="varClearCsv()" data-i18n="var.clearCsv">Tout vider</button>
-                <div class="var-json-drop-meta" id="varJsonMeta" data-i18n="var.jsonNotImported">Aucun import pour l’instant</div>
-              </div>
             </div>
 
             <div class="var-live-period-row">
@@ -12358,6 +12418,7 @@ const I18N = {
     'var.csvSlotsTitle': 'Omni sources (CSV / export)',
     'var.csvSlotsHint': 'Pick one leg, or All to aggregate.',
     'var.importJson': 'Import JSON / CSV',
+    'var.importMenu': 'Import',
     'var.jsonNotImported': 'No JSON import yet',
     'var.jsonMeta': '{file} · {points} pts · rank #{rank} · exported {when}',
     'var.jsonImported': 'Variational export imported',
@@ -13487,6 +13548,7 @@ const I18N = {
     'var.csvSlotsTitle': 'Sources Omni (CSV / export)',
     'var.csvSlotsHint': 'Choisis une jambe, ou Tous pour agréger.',
     'var.importJson': 'Importer JSON / CSV',
+    'var.importMenu': 'Import',
     'var.jsonNotImported': 'Pas encore d’import JSON',
     'var.jsonMeta': '{file} · {points} pts · rang #{rank} · exporté {when}',
     'var.jsonImported': 'Export Variational importé',
@@ -32863,7 +32925,7 @@ document.addEventListener('DOMContentLoaded', () => {
   </div>
 </div>
 <script src="../js/variational-omni-collector.js"></script>
-<script src="../js/variational-omni.js?v=20260810tabs"></script>
+<script src="../js/variational-omni.js?v=20260811import"></script>
 <script>
 (function hsLoadCfWebAnalytics() {
   var token = (typeof HS_CONFIG !== 'undefined' && HS_CONFIG.cfWebAnalyticsToken) || '';
