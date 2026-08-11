@@ -37,10 +37,48 @@ function emptyCsv() {
   return { trades: [], funding: [], realizedPnl: [], transfers: [], files: {} };
 }
 
-const MAX_CSV_LIBRARY = 24;
+const MAX_CSV_LIBRARY = 12;
 
 function newCsvId() {
   return 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+function companyFromBundle(bundle) {
+  try {
+    const t = bundle && Array.isArray(bundle.trades) ? bundle.trades[0] : null;
+    if (t && t.company) return String(t.company).toLowerCase();
+  } catch (_) {}
+  return '';
+}
+
+/** Stable wallet identity for CSV library: 1 entry per wallet. */
+function csvWalletKey(meta, bundle) {
+  const m = meta || {};
+  const addr = String(m.omniAddress || '').trim().toLowerCase();
+  if (/^0x[a-f0-9]{40}$/.test(addr)) return 'addr:' + addr;
+  const suf = typeof omniAddrSuffix === 'function' ? omniAddrSuffix(addr) : '';
+  if (suf && suf !== 'XX') return 'suf:' + suf;
+  const company = String(m.company || companyFromBundle(bundle) || '').toLowerCase();
+  if (company) return 'co:' + company;
+  const lab = String(m.label || '').trim();
+  if (/^[a-f0-9]{2}$/i.test(lab)) return 'suf:' + lab.toUpperCase();
+  const mLab = lab.match(/^([a-f0-9]{2})(?:\b|[_\s·.-])/i);
+  if (mLab) return 'suf:' + mLab[1].toUpperCase();
+  return '';
+}
+
+function csvEntryKeys(entry) {
+  const keys = [];
+  const k = csvWalletKey(entry, entry && entry.bundle);
+  if (k) keys.push(k);
+  const company = String((entry && entry.company) || companyFromBundle(entry && entry.bundle) || '').toLowerCase();
+  if (company) keys.push('co:' + company);
+  const suf = omniAddrSuffix((entry && entry.omniAddress) || '');
+  if (suf && suf !== 'XX') keys.push('suf:' + suf);
+  const lab = String((entry && entry.label) || '').trim();
+  const mLab = lab.match(/^([a-f0-9]{2})(?:\b|[_\s·.-]|$)/i);
+  if (mLab) keys.push('suf:' + mLab[1].toUpperCase());
+  return [...new Set(keys)];
 }
 
 function tradeDedupeKey(t) {
@@ -106,12 +144,15 @@ function normalizeCsvLibrary(raw) {
       id,
       label: typeof e.label === 'string' ? e.label.slice(0, 48) : '',
       omniAddress: typeof e.omniAddress === 'string' ? e.omniAddress.toLowerCase() : '',
+      company: typeof e.company === 'string' && e.company
+        ? e.company.toLowerCase()
+        : companyFromBundle(bundle),
       importedAt: Number(e.importedAt) || Date.now(),
       tradeCount: Array.isArray(bundle.trades) ? bundle.trades.length : (Number(e.tradeCount) || 0),
       marketsHint: typeof e.marketsHint === 'string' ? e.marketsHint : '',
       bundle,
     });
-    if (out.length >= MAX_CSV_LIBRARY) break;
+    if (out.length >= MAX_CSV_LIBRARY * 3) break; // allow temp headroom before dedupe
   }
   return out;
 }
@@ -131,29 +172,41 @@ function upsertCsvLibraryEntry(library, bundle, meta) {
   const list = Array.isArray(library) ? library : [];
   const opts = meta || {};
   const addr = opts.omniAddress ? String(opts.omniAddress).toLowerCase() : '';
+  const company = String(opts.company || companyFromBundle(bundle) || '').toLowerCase();
   const marketsHint = marketsHintFromCsv(bundle);
   const tradeCount = (bundle && bundle.trades && bundle.trades.length) || 0;
   const label = csvEntryLabel(bundle, opts);
+  const probe = { omniAddress: addr, label: opts.label || label, company, bundle };
+  const keys = csvEntryKeys(probe);
 
-  // Collect same Omni wallet → refresh that library entry (keeps dropdown id stable)
-  // File "Ajouter CSV" always creates a new dropdown option (forceNew)
-  if (!opts.forceNew && addr) {
-    const hit = list.find((e) => e.omniAddress && e.omniAddress === addr);
+  // Always 1 entry per wallet — refresh existing even on file drop (forceNew ignored when identifiable).
+  if (keys.length) {
+    const hit = list.find((e) => {
+      const ek = csvEntryKeys(e);
+      return ek.some((k) => keys.includes(k));
+    });
     if (hit) {
       hit.bundle = bundle || emptyCsv();
       hit.tradeCount = tradeCount;
       hit.marketsHint = marketsHint;
       hit.importedAt = Date.now();
       hit.label = label;
-      hit.omniAddress = addr;
+      if (addr) hit.omniAddress = addr;
+      if (company) hit.company = company;
       return hit;
     }
+  }
+
+  // Anonymous / unidentified: only create new if forceNew or nothing to match.
+  if (!opts.forceNew && !keys.length) {
+    /* fall through to create */
   }
 
   const entry = {
     id: newCsvId(),
     label,
     omniAddress: addr,
+    company,
     importedAt: Date.now(),
     tradeCount,
     marketsHint,
@@ -162,6 +215,82 @@ function upsertCsvLibraryEntry(library, bundle, meta) {
   list.unshift(entry);
   while (list.length > MAX_CSV_LIBRARY) list.pop();
   return entry;
+}
+
+/**
+ * Collapse library to 1 entry per wallet; remap slot csvIds to survivors.
+ * Drops unidentified orphans not linked to any jambe.
+ */
+function dedupeCsvLibrary(library, accounts) {
+  const list = normalizeCsvLibrary(library);
+  list.sort((a, b) => (Number(b.importedAt) || 0) - (Number(a.importedAt) || 0));
+
+  const kept = [];
+  const idMap = {};
+  const keyToEntry = new Map();
+
+  for (const e of list) {
+    const keys = csvEntryKeys(e);
+    let hit = null;
+    for (const k of keys) {
+      if (keyToEntry.has(k)) {
+        hit = keyToEntry.get(k);
+        break;
+      }
+    }
+    if (hit) {
+      idMap[e.id] = hit.id;
+      // Prefer richer address / company on the kept (newest) entry.
+      if (!hit.omniAddress && e.omniAddress) hit.omniAddress = e.omniAddress;
+      if (!hit.company && e.company) hit.company = e.company;
+      continue;
+    }
+    kept.push(e);
+    idMap[e.id] = e.id;
+    for (const k of keys) keyToEntry.set(k, e);
+  }
+
+  const referenced = new Set();
+  const acc = accounts && accounts.slots ? accounts : null;
+  if (acc) {
+    for (const sid of omniSlotIds(accounts)) {
+      const slot = accounts.slots[sid];
+      const ids = Array.isArray(slot && slot.csvIds) ? slot.csvIds : [];
+      for (const cid of ids) referenced.add(idMap[cid] || cid);
+    }
+  }
+
+  const final = kept.filter((e) => {
+    if (csvEntryKeys(e).length) return true;
+    return referenced.has(e.id);
+  }).slice(0, MAX_CSV_LIBRARY);
+
+  const finalIds = new Set(final.map((e) => e.id));
+  if (acc) {
+    for (const sid of omniSlotIds(accounts)) {
+      const slot = accounts.slots[sid];
+      if (!slot) continue;
+      const rawIds = Array.isArray(slot.csvIds) ? slot.csvIds.map(String) : [];
+      const mapped = [];
+      const seen = new Set();
+      for (const cid of rawIds) {
+        const nid = idMap[cid] || cid;
+        if (!finalIds.has(nid) || seen.has(nid)) continue;
+        seen.add(nid);
+        mapped.push(nid);
+      }
+      // One CSV per jambe
+      slot.csvIds = mapped.slice(0, 1);
+      const rebuilt = rebuildSlotCsvFromIds({ csvIds: slot.csvIds, csv: null }, final);
+      slot.csvIds = rebuilt.csvIds;
+      if (rebuilt.csvIds.length) {
+        slot.csv = rebuilt.csv;
+        slot.marketsHint = marketsHintFromCsv(rebuilt.csv) || slot.marketsHint || '';
+      }
+    }
+  }
+
+  return final;
 }
 
 function rebuildSlotCsvFromIds(slot, library) {
@@ -433,7 +562,7 @@ function hydrateCsvLibrary(state) {
     }
   }
 
-  state.csvLibrary = library;
+  state.csvLibrary = dedupeCsvLibrary(library, accounts);
   state.accounts = accounts;
   return state;
 }
@@ -503,7 +632,7 @@ async function mutateAccounts(mutator) {
   mutator(accounts, state);
   state.accounts = normalizeAccounts(accounts);
   state.wallets = mergeWalletsList(state.accounts, state.wallets);
-  state.csvLibrary = normalizeCsvLibrary(state.csvLibrary);
+  state.csvLibrary = dedupeCsvLibrary(state.csvLibrary, state.accounts);
   if (!state.pairOverrides || typeof state.pairOverrides !== 'object') state.pairOverrides = {};
   state.accountsGuard = normalizeAccountsGuard(state.accountsGuard);
   state.syncedAt = Date.now();
@@ -1138,16 +1267,19 @@ async function applyLocalOmniBundle(bundle, origin, points, preferredSlotId, pre
   const prevSlot = accounts.slots[active];
   const nextPoints = mergePointsPreferRich(prevSlot.points || null, points);
   const omniAddress = (omniMeta && omniMeta.omniAddress) || '';
-  // File imports always add a new dropdown option. Omni collect updates same-address entry.
+  const company = (omniMeta && omniMeta.company) || companyFromBundle(incoming);
+  // 1 entry per wallet — never force a duplicate when the wallet is identifiable.
+  const walletKnown = !!(omniAddress || company || omniAddrSuffix(omniAddress));
   const forceNew =
-    options.forceNew === true ||
-    (!!origin && /drop|import/i.test(String(origin)));
+    !walletKnown &&
+    (options.forceNew === true || (!!origin && /drop|import/i.test(String(origin))));
   const entry = upsertCsvLibraryEntry(library, incoming, {
     label: omniAddrSuffix(omniAddress)
       || (options.fileName ? String(options.fileName).replace(/\.json$/i, '').slice(0, 48) : '')
       || prevSlot.label
       || '',
     omniAddress: omniAddress || '',
+    company,
     forceNew,
   });
 
@@ -1212,9 +1344,25 @@ async function applyLocalOmniBundle(bundle, origin, points, preferredSlotId, pre
   if (guard.clearedSlots[active]) delete guard.clearedSlots[active];
   state.accountsGuard = guard;
   state.accounts = normalizeAccounts(accounts);
-  state.csvLibrary = library;
+  state.csvLibrary = dedupeCsvLibrary(library, state.accounts);
+  // After dedupe, ensure active jambe still points at the surviving library row.
+  {
+    const keys = csvEntryKeys(entry);
+    const kept =
+      state.csvLibrary.find((e) => e.id === entry.id) ||
+      state.csvLibrary.find((e) => csvEntryKeys(e).some((k) => keys.includes(k))) ||
+      null;
+    if (kept && accounts.slots[active]) {
+      accounts.slots[active].csvIds = [kept.id];
+      const rebuiltKept = rebuildSlotCsvFromIds(accounts.slots[active], state.csvLibrary);
+      accounts.slots[active].csvIds = rebuiltKept.csvIds;
+      accounts.slots[active].csv = rebuiltKept.csv;
+      entry.id = kept.id;
+    }
+    state.accounts = normalizeAccounts(accounts);
+  }
   // legacyCsv mirrors active jambe only — other jambes keep their own csv
-  state.legacyCsv = csv;
+  state.legacyCsv = (accounts.slots[active] && accounts.slots[active].csv) || csv;
   state.wallets = mergeWalletsList(state.accounts, state.wallets);
   state.syncedAt = Date.now();
   state.origin = origin || 'extension-local';
@@ -1224,11 +1372,11 @@ async function applyLocalOmniBundle(bundle, origin, points, preferredSlotId, pre
   } catch (_) {}
   return {
     ok: true,
-    tradeCount: (csv.trades || []).length,
+    tradeCount: ((accounts.slots[active] && accounts.slots[active].csv && accounts.slots[active].csv.trades) || csv.trades || []).length,
     csvId: entry.id,
-    csvIds: rebuilt.csvIds,
+    csvIds: (accounts.slots[active] && accounts.slots[active].csvIds) || rebuilt.csvIds,
     merged: forceNew,
-    libraryCount: library.length,
+    libraryCount: (state.csvLibrary || []).length,
     slotId: active,
     slotLabel: label || active,
     marketsHint,
@@ -1292,13 +1440,17 @@ function mergePointsPreferRich(prev, next) {
 }
 
 async function applyLocalOmniPayload(payload, origin, preferredSlotId, preferredLabel, applyOpts) {
+  const company = payloadCompanyId(payload);
   return applyLocalOmniBundle(
     payloadToCsvBundle(payload),
     origin || 'omni-payload',
     pointsFromPayload(payload),
     preferredSlotId,
     preferredLabel,
-    { omniAddress: extractOmniAddress(payload) },
+    {
+      omniAddress: extractOmniAddress(payload),
+      company,
+    },
     applyOpts
   );
 }
