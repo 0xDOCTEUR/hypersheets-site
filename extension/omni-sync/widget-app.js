@@ -111,6 +111,7 @@
       popoutTitle: "Fenetre libre",
       tabPositions: "Positions",
       tabCollect: "Collecte",
+      tabVolume: "Volume",
       volumeTitle: "Volume",
       stepWalletTitle: "Wallet Hyperliquid",
       stepWalletHelp: "Adresse EVM pour charger les hedges HL / XYZ.",
@@ -264,6 +265,7 @@
       popoutTitle: "Free window",
       tabPositions: "Positions",
       tabCollect: "Collect",
+      tabVolume: "Volume",
       volumeTitle: "Volume",
       stepWalletTitle: "Hyperliquid wallet",
       stepWalletHelp: "EVM address used to load HL / XYZ hedges.",
@@ -971,7 +973,7 @@
   }
 
   function loadVolume(opts) {
-    if (!volSection || volSection.hidden) return;
+    if (!volSection) return;
     var silent = !!(opts && opts.silent);
     var req = ++volReqId;
     // Silent refresh keeps the previous $ / meta visible (avoids 3–4s blink on HS sync).
@@ -997,14 +999,35 @@
   }
 
   function showVolumeSection(show) {
+    // Volume lives on its own tab now — keep the block visible and refresh when asked.
     if (!volSection) return;
-    var wasHidden = volSection.hidden;
-    volSection.hidden = !show;
+    volSection.hidden = false;
     if (show) {
       renderVolSource();
       renderVolPeriodPills();
-      if (wasHidden) loadVolume();
+      loadVolume();
     }
+  }
+
+  function setPage(name) {
+    if (name === "points") name = "positions";
+    if (name !== "positions" && name !== "collecte" && name !== "volume") name = "positions";
+    setSettingsOpen(false);
+    document.querySelectorAll(".page").forEach(function (el) {
+      el.classList.toggle("is-on", el.getAttribute("data-page") === name);
+    });
+    document.querySelectorAll(".tab").forEach(function (el) {
+      el.classList.toggle("is-on", el.getAttribute("data-page") === name);
+    });
+    try { chrome.storage.local.set({ [PAGE_KEY]: name }); } catch (_) {}
+    if (foot) {
+      foot.textContent = name === "collecte"
+        ? t("footCollect")
+        : name === "volume"
+          ? t("volumeTitle")
+          : t("footPositions");
+    }
+    if (name === "volume") showVolumeSection(true);
   }
 
   function pairKeyOf(p) {
@@ -1094,23 +1117,6 @@
     toastTimer = setTimeout(function () {
       toastEl.hidden = true;
     }, 3200);
-  }
-
-  function setPage(name) {
-    if (name === "points") name = "positions";
-    setSettingsOpen(false);
-    document.querySelectorAll(".page").forEach(function (el) {
-      el.classList.toggle("is-on", el.getAttribute("data-page") === name);
-    });
-    document.querySelectorAll(".tab").forEach(function (el) {
-      el.classList.toggle("is-on", el.getAttribute("data-page") === name);
-    });
-    try { chrome.storage.local.set({ [PAGE_KEY]: name }); } catch (_) {}
-    if (foot) {
-      foot.textContent = name === "collecte"
-        ? t("footCollect")
-        : t("footPositions");
-    }
   }
 
   /* —— Positions render —— */
@@ -1285,7 +1291,6 @@
 
     if (!snap || !snap.ok) {
       safeSetInnerHTML(summary, "");
-      showVolumeSection(false);
       safeSetInnerHTML(
         posScroll,
         '<div class="empty">' +
@@ -1310,8 +1315,6 @@
       '<div class="kpi kpi-main"><div class="l">' + esc(t("pnlTotal")) + '</div><div class="v ' + pnlClass(hedgedUpnl) + '">' +
       esc(fmtUsd(hedgedUpnl, true)) + "</div></div>"
     );
-
-    showVolumeSection(true);
 
     var known = {};
     pairOrder.forEach(function (k) { known[k] = true; });
@@ -2478,6 +2481,7 @@
       renderPositions((st && st.hsWidgetSnapshot) || null);
       var page = st && st[PAGE_KEY];
       if (page === "collecte") setPage("collecte");
+      else if (page === "volume") setPage("volume");
       else setPage("positions");
     });
     chrome.storage.onChanged.addListener(function (changes, area) {
@@ -2487,7 +2491,9 @@
       }
       if (changes.hsWidgetSync) {
         loadState();
-        if (volSection && !volSection.hidden) loadVolume({ silent: true });
+        if (document.getElementById("pageVolume") && document.getElementById("pageVolume").classList.contains("is-on")) {
+          loadVolume({ silent: true });
+        }
       }
       if (changes[ALERT_KEY]) {
         alertPrefs = normalizeAlertPrefs(changes[ALERT_KEY].newValue);

@@ -141,7 +141,7 @@
     .icon-btn svg { display: block; }
 
     .tabs {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 4px;
+      display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px;
       flex-shrink: 0;
       margin: 0 12px 10px;
       padding: 3px; border-radius: 10px;
@@ -908,7 +908,7 @@
         flex-wrap: nowrap;
       }
       .tabs {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr 1fr 1fr;
       }
       .alert-grid,
       .alert-pos-grid,
@@ -1061,7 +1061,11 @@
 
     <div class="page is-on" id="pagePositions" data-page="positions">
       <div class="kpis" id="summary"></div>
-      <div class="kpis" id="volSection" hidden>
+      <div class="scroll" id="posScroll"></div>
+    </div>
+
+    <div class="page" id="pageVolume" data-page="volume">
+      <div class="kpis" id="volSection">
         <div class="vol">
           <div class="vol-hd">
             <div class="l" data-i18n="volumeTitle">Volume</div>
@@ -1083,7 +1087,6 @@
           <div class="vol-meta" id="volMeta"></div>
         </div>
       </div>
-      <div class="scroll" id="posScroll"></div>
     </div>
 
     <div class="page" id="pageCollecte" data-page="collecte">
@@ -1147,8 +1150,9 @@
     <div class="tabs" role="tablist">
       <button type="button" class="tab is-on" data-page="positions" id="tabPos" data-i18n="tabPositions">Positions</button>
       <button type="button" class="tab" data-page="collecte" id="tabCol" data-i18n="tabCollect">Collecte</button>
+      <button type="button" class="tab" data-page="volume" id="tabVol" data-i18n="tabVolume">Volume</button>
     </div>
   </div>
-  <script src="widget-app.js?v=2.9.63"></script>
+  <script src="widget-app.js?v=2.9.64"></script>
 </body>
 </html>
