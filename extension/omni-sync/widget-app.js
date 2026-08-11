@@ -1173,11 +1173,6 @@
     var dex = p.hlDex || "HL";
     var vc = String(dex).toUpperCase() === "XYZ" ? "xyz" : "hl";
     var hlAsset = p.hlMarket || p.market || "—";
-    // All free hedges + this row's current hedge (any wallet)
-    var choices = (hlOpen || []).filter(function (h) {
-      if (!h.paired) return true;
-      return p.hlKey && h.key === p.hlKey;
-    });
     var conflict = !!p.hlConflict;
     var omniMeta = [
       "Q " + fmtQty(p.omniQty),
@@ -1223,9 +1218,6 @@
         (conflict
           ? '<div class="warn" style="grid-column:1/-1">⚠ ' + esc(t("conflict")) + "</div>"
           : "") +
-        '<div class="pair-link">' +
-          pairHlSelect(p, choices) +
-        "</div>" +
       "</div>"
     );
   }
@@ -1342,8 +1334,6 @@
     if (!order.length && pairs.length) order = Object.keys(byAcc);
 
     if (order.length || pairs.length) {
-      var wallets = walletsOf(accountsState);
-      var lib = csvLibraryOf(accountsState);
       order.forEach(function (id) {
         var slot = (acc && acc.slots && acc.slots[id]) || {};
         var label = slot.label || (byAcc[id] && byAcc[id][0] && byAcc[id][0].accountLabel) || "";
@@ -1362,13 +1352,6 @@
         else if (items.length) {
           idLine.push(items.map(function (p) { return p.market; }).slice(0, 4).join(" · "));
         }
-        var csvN = Array.isArray(slot.csvIds) ? slot.csvIds.length : 0;
-        if (csvN) idLine.push(t("csvLinked"));
-        var wallet = slot.hlWallet || "";
-        var walletOpts = '<option value="">' + esc(t("chooseHlWallet")) + "</option>" + wallets.map(function (w) {
-          var sel = wallet && w.toLowerCase() === wallet.toLowerCase() ? " selected" : "";
-          return '<option value="' + esc(w) + '"' + sel + ">" + esc(shortAddr(w)) + "</option>";
-        }).join("");
         html +=
           '<div class="group' + (closed ? " is-closed" : "") + '" data-slot="' + esc(id) + '">' +
             '<div class="group-hd">' +
@@ -1384,13 +1367,6 @@
               '" title="' + esc(order.length <= 1 ? t("clearLeg") : t("removeLeg")) + '">' +
               esc(order.length <= 1 ? t("clear") : t("removeShort")) + "</button>" +
             "</div>" +
-            '<div class="group-binds">' +
-              '<div class="row-in"><select data-act="pick-wallet-pos" data-slot="' + esc(id) + '">' + walletOpts + "</select></div>" +
-              slotCsvSelectHtml(id, slot, lib) +
-              '<div class="acts">' +
-                '<button type="button" class="btn btn-ac" data-act="join-csv" data-slot="' + esc(id) + '">' + esc(t("joinCsv")) + "</button>" +
-              "</div>" +
-            "</div>" +
             '<div class="group-body">' +
               items.map(function (p) { return pairRow(p, hlOpen); }).join("") +
             "</div>" +
@@ -1398,10 +1374,7 @@
       });
     }
 
-    // Always surface HL / XYZ book when a wallet is loaded (pairing source of truth)
-    if (hlOpen.length || (snap.hlCount > 0) || (snap.portfolio && (snap.portfolio.hlAccounts || []).length)) {
-      html += renderHlBook(snap);
-    }
+    // Positions = hedged Omni↔HL pairs only (wallet/CSV/HL book live under Collecte).
 
     if (!html) {
       html = '<div class="empty">' + t("noPosition") + "</div>";
