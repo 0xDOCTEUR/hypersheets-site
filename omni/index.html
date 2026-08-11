@@ -682,8 +682,22 @@ const HS_CONFIG = {
           align-items: center;
           gap: 8px;
           flex-wrap: wrap;
-          margin-top: 2px;
+          margin-top: 6px;
           cursor: default;
+        }
+        .var-omni-slots-foot .var-omni-add-btn {
+          padding: 8px 14px;
+          font-size: .8rem;
+          font-weight: 700;
+          letter-spacing: -0.01em;
+        }
+        .var-omni-slots-foot .var-omni-reset-btn {
+          padding: 7px 12px;
+          font-size: .74rem;
+        }
+        .var-omni-slots-hint {
+          font-size: .68rem;
+          color: var(--muted);
         }
         .var-omni-scope-chips {
           grid-column: 1 / -1;
@@ -11437,7 +11451,7 @@ try {
                           <span data-i18n="var.importJson">Importer JSON / CSV</span>
                           <input id="varJsonFileInput" type="file" accept=".json,.csv,application/json,text/csv" multiple style="display:none" onchange="varImportMixedFiles(this)"/>
                         </label>
-                        <button type="button" class="btn btn-ghost" style="margin-left:6px" onclick="varClearCsv()" data-i18n="var.clearCsv">Tout vider</button>
+                        <button type="button" class="btn btn-ghost" style="margin-left:6px" onclick="varResetOmniLegs()" data-i18n="var.clearCsv">Tout vider</button>
                         <div class="var-json-drop-meta" id="varJsonMeta" data-i18n="var.jsonNotImported">Aucun import pour l’instant</div>
                       </div>
                     </div>
@@ -12674,6 +12688,9 @@ const I18N = {
     'var.slotCleared': '{label} cleared',
     'var.slotAdd': '+ Omni leg',
     'var.slotAddHint': 'Up to {max} legs — select a leg then import',
+    'var.slotReset': 'Clear',
+    'var.slotResetTip': 'Reset to 2 empty legs (Omni 1 / Omni 2)',
+    'var.slotResetConfirm': 'Clear all Omni legs, imported data, and custom names? Resets to Omni 1 / Omni 2.',
     'var.slotRemove': 'Remove leg',
     'var.slotRemoved': '{label} removed',
     'var.slotRenameTip': 'Rename this wallet',
@@ -12805,7 +12822,7 @@ const I18N = {
     'var.legCleared': 'Omni leg cleared',
     'var.csvEmpty': 'Import a Variational JSON export or Omni CSV files (trades, funding, realized PnL…) for a full activity view.',
     'var.csvImported': 'CSV imported',
-    'var.csvCleared': 'Activity & points data cleared',
+    'var.csvCleared': 'Legs reset — Omni 1 / Omni 2 empty',
     'var.airdropTitle': 'Airdrop simulator',
     'var.airdropDesc': 'Nothing about a Variational airdrop has been announced. These are community estimates you can move to see what your points would be worth under each scenario.',
     'var.airdropAssumptions': 'Assumptions',
@@ -13827,6 +13844,9 @@ const I18N = {
     'var.slotCleared': '{label} vidé',
     'var.slotAdd': '+ jambe Omni',
     'var.slotAddHint': 'Jusqu’à {max} jambes — sélectionne une jambe puis importe',
+    'var.slotReset': 'Clear',
+    'var.slotResetTip': 'Remet 2 jambes vides (Omni 1 / Omni 2)',
+    'var.slotResetConfirm': 'Effacer toutes les jambes Omni, les données importées et les noms personnalisés ? Retour à Omni 1 / Omni 2.',
     'var.slotRemove': 'Retirer la jambe',
     'var.slotRemoved': '{label} retirée',
     'var.slotRenameTip': 'Renommer ce wallet',
@@ -13958,7 +13978,7 @@ const I18N = {
     'var.legCleared': 'Jambe Omni effacée',
     'var.csvEmpty': 'Importe un export JSON Variational ou des CSV Omni (trades, funding, PnL réalisé…) pour une vue complète.',
     'var.csvImported': 'CSV importé',
-    'var.csvCleared': 'Données activité & points effacées',
+    'var.csvCleared': 'Jambes réinitialisées — Omni 1 / Omni 2 vides',
     'var.airdropTitle': 'Simulateur d’airdrop',
     'var.airdropDesc': 'Rien n’a été annoncé sur un airdrop Variational. Ce sont des estimations communautaires que tu peux faire bouger pour voir ce que vaudraient tes points.',
     'var.airdropAssumptions': 'Hypothèses',

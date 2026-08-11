@@ -8235,20 +8235,28 @@
   }
 
   function varClearCsv() {
-    const prev = varAccountsLoad();
-    const ids = varOmniSlotIds(prev);
+    // Full reset: back to 2 empty default legs (Omni 1 / Omni 2), wipe data + custom names.
     const empty = varAccountsEmpty();
-    empty.slotOrder = ids.slice();
-    empty.slots = {};
-    ids.forEach((id, i) => {
-      empty.slots[id] = varOmniMakeSlot(id, prev.slots[id]?.label || varOmniLabelForIndex(i));
-    });
-    empty.activeImportSlot = ids.includes(prev.activeImportSlot) ? prev.activeImportSlot : ids[0];
     varAccountsSave(empty);
     varPositionsClear();
+    try { varCsvScopeSave('all'); } catch (_) {}
+    try { varRenderOmniSlotsUi(); } catch (_) {}
+    try { varRenderTopScopeChips(); } catch (_) {}
+    try { varUpdateImportDdBadge(); } catch (_) {}
     if (typeof toast === 'function') toast(varT('var.csvCleared'));
-    renderVarActivity();
-    if (varHedgePanelVisible()) renderVarHedge(true);
+    try { renderVarActivity(); } catch (_) {}
+    if (varHedgePanelVisible()) {
+      try { renderVarHedge(true); } catch (_) {}
+    }
+    try { varRenderFarmEpochMini(); } catch (_) {}
+    try { varRenderFarmOverview(); } catch (_) {}
+  }
+
+  function varResetOmniLegs() {
+    const ok = typeof window.confirm !== 'function'
+      || window.confirm(varT('var.slotResetConfirm'));
+    if (!ok) return;
+    varClearCsv();
   }
 
   function varBindOmniSlotsUi() {
@@ -8292,6 +8300,13 @@
         e.stopPropagation();
         if (addBtn.disabled) return;
         varAccountsAddSlot();
+        return;
+      }
+      const resetBtn = e.target.closest('[data-omni-reset]');
+      if (resetBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        varResetOmniLegs();
         return;
       }
       const removeBtn = e.target.closest('[data-omni-remove]');
@@ -8405,8 +8420,9 @@
       </div>`;
     }).join('');
     const actions = `<div class="var-omni-slots-foot">
-      <button type="button" class="btn btn-ghost text-xs" style="padding:6px 10px" data-omni-add="1" ${canAdd ? '' : 'disabled'}>${varT('var.slotAdd')}</button>
-      <span style="font-size:.68rem;color:var(--muted)">${varT('var.slotAddHint').replace('{max}', String(VAR_OMNI_MAX_SLOTS))}</span>
+      <button type="button" class="btn btn-ac text-xs var-omni-add-btn" data-omni-add="1" ${canAdd ? '' : 'disabled'}>${varT('var.slotAdd')}</button>
+      <button type="button" class="btn btn-ghost text-xs var-omni-reset-btn" data-omni-reset="1" title="${varEsc(varT('var.slotResetTip'))}">${varT('var.slotReset')}</button>
+      <span class="var-omni-slots-hint">${varT('var.slotAddHint').replace('{max}', String(VAR_OMNI_MAX_SLOTS))}</span>
     </div>`;
     host.innerHTML = chips + slotsHtml + actions;
     try { varUpdateImportDdBadge(acc, ids, filled); } catch (_) {}
@@ -8852,6 +8868,7 @@
   window.varClearOmniSlot = varClearOmniSlot;
   window.varClearCsv = varClearCsv;
   window.varClearCsvKind = varClearCsvKind;
+  window.varResetOmniLegs = varResetOmniLegs;
   window.varSetCsvScope = varSetCsvScope;
   window.varRenderOmniSlotsUi = varRenderOmniSlotsUi;
   window.varBindImportDd = varBindImportDd;
