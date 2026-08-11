@@ -1917,9 +1917,14 @@
         }
         if (warns.length) msg += " · " + t("collectPartialWarn");
         if (res.fileName) msg += " · ↓ " + res.fileName;
-        if (res.downloadOk === false) msg += " · download failed";
+        if (res.downloadOk === false) msg += " · DOWNLOAD FAIL";
         setCollectUi({ ok: true, err: !!res.duplicateLabel || res.downloadOk === false }, t("collectedDone"), msg);
-        toast((warns.length || res.duplicateLabel ? t("collectPartialWarn") : t("collectedOk")) + " · " + msg, (warns.length || res.duplicateLabel) ? "" : "ok");
+        toast(
+          (res.downloadOk === false ? "DOWNLOAD FAIL · " : "") +
+          (warns.length || res.duplicateLabel ? t("collectPartialWarn") : t("collectedOk")) +
+          " · " + msg,
+          (warns.length || res.duplicateLabel || res.downloadOk === false) ? "err" : "ok"
+        );
         loadState();
         setPage("positions");
         setTimeout(function () {

@@ -190,30 +190,25 @@
 
   function buildAutoFileName(payload) {
     const stamp = new Date().toISOString().slice(0, 10);
-    const parts = ['variational-export'];
+    let suffix = 'XX';
     try {
       const addr =
         (payload.competition && payload.competition.self && payload.competition.self.address) ||
         (payload.points_summary && payload.points_summary.address) ||
         (payload.points_summary && payload.points_summary.user && payload.points_summary.user.address) ||
         '';
-      if (addr && addr.length >= 2) parts.push(String(addr).slice(-2).toUpperCase());
+      if (addr && addr.length >= 2) suffix = String(addr).slice(-2).toUpperCase();
     } catch (_) {}
+    let trades = 0;
     try {
-      const n = (payload.counts && payload.counts.trades) || (payload.trades && payload.trades.length) || 0;
-      parts.push(String(n) + 't');
-    } catch (_) {
-      parts.push('0t');
-    }
+      trades = (payload.counts && payload.counts.trades) || (payload.trades && payload.trades.length) || 0;
+    } catch (_) {}
+    let pts = 0;
     try {
       const sum = payload.points_summary;
-      const pts = parseFloat((sum && (sum.total_points || sum.self_points)) || 0);
-      parts.push(Math.round(isFinite(pts) ? pts : 0) + 'pts');
-    } catch (_) {
-      parts.push('0pts');
-    }
-    parts.push(stamp);
-    return parts.join('-') + '.json';
+      pts = Math.round(parseFloat((sum && (sum.total_points || sum.self_points)) || 0)) || 0;
+    } catch (_) {}
+    return suffix + '_' + trades + 't_' + pts + 'pts_' + stamp + '.json';
   }
 
   let busy = false;

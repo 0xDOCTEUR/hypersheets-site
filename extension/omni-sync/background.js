@@ -1579,28 +1579,24 @@ function buildExportFileName(payload, preferred) {
     return name.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_').slice(0, 120);
   }
   const stamp = new Date().toISOString().slice(0, 10);
-  const parts = ['variational-export'];
+  let suffix = 'XX';
   try {
     const addr = extractOmniAddress(payload) || '';
-    if (addr.length >= 2) parts.push(addr.slice(-2).toUpperCase());
+    if (addr.length >= 2) suffix = addr.slice(-2).toUpperCase();
   } catch (_) {}
+  let trades = 0;
   try {
-    const n = (payload && payload.counts && payload.counts.trades)
+    trades = (payload && payload.counts && payload.counts.trades)
       || (payload && payload.trades && payload.trades.length)
       || 0;
-    parts.push(String(n) + 't');
-  } catch (_) {
-    parts.push('0t');
-  }
+  } catch (_) {}
+  let pts = 0;
   try {
     const sum = payload && payload.points_summary;
-    const pts = parseFloat((sum && (sum.total_points || sum.self_points)) || 0);
-    parts.push(Math.round(isFinite(pts) ? pts : 0) + 'pts');
-  } catch (_) {
-    parts.push('0pts');
-  }
-  parts.push(stamp);
-  return parts.join('-') + '.json';
+    pts = Math.round(parseFloat((sum && (sum.total_points || sum.self_points)) || 0)) || 0;
+  } catch (_) {}
+  // Distinct from legacy "variational-export-DATE.json" so a wrong name is obvious.
+  return `${suffix}_${trades}t_${pts}pts_${stamp}.json`;
 }
 
 /** Pending PC download name — forced via onDeterminingFilename. */
@@ -1622,93 +1618,111 @@ try {
   }
 } catch (_) {}
 
-/** Save JSON to the user's Downloads folder with an explicit filename. */
-function downloadExportToPc(payload, fileName, tabId) {
-  return new Promise(async (resolve) => {
-    try {
-      const name = String(fileName || 'variational-export.json')
-        .replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_')
-        .slice(0, 120);
-      const json = JSON.stringify(payload == null ? {} : payload);
-      const mb = (json.length / 1048576).toFixed(2);
+/**
+ * Save JSON to the user's Downloads folder with an explicit filename.
+ * Uses chrome.storage (not executeScript args) so large payloads (~0.5MB+) work.
+ */
+async function downloadExportToPc(payload, fileName, tabId) {
+  const name = String(fileName || 'export.json')
+    .replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_')
+    .slice(0, 120);
+  const json = JSON.stringify(payload == null ? {} : payload);
+  const mb = (json.length / 1048576).toFixed(2);
+  const storageKey = '__hsOmniDlPending';
 
-      // 1) Prefer injecting a one-shot download in the Omni tab (same-origin blob honors a.download).
-      if (tabId != null && chrome.scripting && chrome.scripting.executeScript) {
+  try {
+    await chrome.storage.local.set({ [storageKey]: { name, json, at: Date.now() } });
+  } catch (e) {
+    return { ok: false, error: 'storage set failed: ' + String(e && e.message || e), mb };
+  }
+
+  // A) Omni tab: read from storage, blob + a.download (no huge IPC args).
+  if (tabId != null && chrome.scripting && chrome.scripting.executeScript) {
+    try {
+      const injected = await chrome.scripting.executeScript({
+        target: { tabId },
+        world: 'ISOLATED',
+        func: async (key) => {
+          try {
+            const bag = await chrome.storage.local.get(key);
+            const pending = bag && bag[key];
+            if (!pending || !pending.json) return { ok: false, error: 'no pending payload' };
+            const blob = new Blob([pending.json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = pending.name;
+            a.rel = 'noopener';
+            a.style.display = 'none';
+            (document.body || document.documentElement).appendChild(a);
+            a.click();
+            setTimeout(() => {
+              try { URL.revokeObjectURL(url); } catch (_) {}
+              try { a.remove(); } catch (_) {}
+            }, 5000);
+            try { await chrome.storage.local.remove(key); } catch (_) {}
+            return { ok: true, name: pending.name, bytes: pending.json.length };
+          } catch (e) {
+            return { ok: false, error: String(e && e.message || e) };
+          }
+        },
+        args: [storageKey],
+      });
+      const res = injected && injected[0] && injected[0].result;
+      if (res && res.ok) {
         try {
-          const injected = await chrome.scripting.executeScript({
-            target: { tabId },
-            world: 'ISOLATED',
-            func: (jsonStr, file) => {
-              try {
-                const blob = new Blob([jsonStr], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = file;
-                a.rel = 'noopener';
-                a.style.display = 'none';
-                (document.body || document.documentElement).appendChild(a);
-                a.click();
-                setTimeout(() => {
-                  try { URL.revokeObjectURL(url); } catch (_) {}
-                  try { a.remove(); } catch (_) {}
-                }, 4000);
-                return { ok: true, file };
-              } catch (e) {
-                return { ok: false, error: String(e && e.message || e) };
-              }
-            },
-            args: [json, name],
-          });
-          const res = injected && injected[0] && injected[0].result;
-          if (res && res.ok) {
-            resolve({ ok: true, fileName: name, mb, via: 'inject' });
-            return;
+          if (chrome.notifications && chrome.notifications.create) {
+            chrome.notifications.create({
+              type: 'basic',
+              iconUrl: 'icons/128.png',
+              title: 'Omni export',
+              message: res.name,
+            });
           }
         } catch (_) {}
+        return { ok: true, fileName: res.name, mb, via: 'storage-inject' };
       }
+    } catch (_) {}
+  }
 
-      // 2) Fallback: chrome.downloads + onDeterminingFilename to force the name.
-      if (!chrome.downloads || !chrome.downloads.download) {
-        resolve({ ok: false, error: 'downloads API unavailable', mb });
-        return;
-      }
-      _pendingPcDownloadName = name;
-      let binary = '';
-      const bytes = new TextEncoder().encode(json);
-      const chunk = 0x8000;
-      for (let i = 0; i < bytes.length; i += chunk) {
-        binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
-      }
-      const url = 'data:application/json;base64,' + btoa(binary);
+  // B) chrome.downloads with blob URL from the service worker + forced filename.
+  try {
+    if (!chrome.downloads || !chrome.downloads.download) {
+      return { ok: false, error: 'downloads API unavailable', mb };
+    }
+    _pendingPcDownloadName = name;
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const downloadId = await new Promise((resolve) => {
       chrome.downloads.download(
         {
           url,
           filename: name,
-          saveAs: false,
+          saveAs: true,
           conflictAction: 'uniquify',
         },
-        (downloadId) => {
+        (id) => {
           const err = chrome.runtime.lastError;
-          if (err || downloadId == null) {
-            _pendingPcDownloadName = '';
-            resolve({ ok: false, error: (err && err.message) || 'download failed', mb: null });
-            return;
-          }
-          resolve({
-            ok: true,
-            downloadId,
-            fileName: name,
-            mb,
-            via: 'downloads-api',
-          });
+          if (err || id == null) resolve(null);
+          else resolve(id);
         }
       );
-    } catch (e) {
+    });
+    setTimeout(() => {
+      try { URL.revokeObjectURL(url); } catch (_) {}
+    }, 120000);
+    if (downloadId == null) {
       _pendingPcDownloadName = '';
-      resolve({ ok: false, error: String(e && e.message || e) });
+      try { await chrome.storage.local.remove(storageKey); } catch (_) {}
+      return { ok: false, error: 'chrome.downloads failed', mb };
     }
-  });
+    try { await chrome.storage.local.remove(storageKey); } catch (_) {}
+    return { ok: true, downloadId, fileName: name, mb, via: 'downloads-api' };
+  } catch (e) {
+    _pendingPcDownloadName = '';
+    try { await chrome.storage.local.remove(storageKey); } catch (_) {}
+    return { ok: false, error: String(e && e.message || e), mb };
+  }
 }
 
 function extractOmniAddress(payload) {
