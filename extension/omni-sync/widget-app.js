@@ -113,16 +113,22 @@
       stepWalletHelp: "Adresse EVM pour charger les hedges HL / XYZ.",
       addWallet: "Ajouter",
       stepCollectTitle: "Collecter Omni",
-      collectStep1Before: "Connecte-toi a ton wallet sur",
+      collectStep1Before: "Connecte-toi au BON wallet Omni sur",
       collectStep1After: ".",
-      collectStep2: "Donne un nom a la position active (optionnel).",
-      collectStep3: "Clique pour collecter automatiquement toutes tes datas Omni en CSV.",
-      collectStep4: "Sinon, depose un export JSON / CSV manuellement.",
+      collectStep2: "Optionnel: nomme la position (ex. Farm A). Sinon auto via marches ouverts.",
+      collectStep3: "Collecter Omni → ce wallet va dans SA jambe (cree une nouvelle si autre wallet).",
+      collectStep4: "Change de wallet sur Omni, re-collecte: la 1re jambe est conservee.",
+      omniAddrLabel: "Omni",
+      marketsOpenLabel: "Ouvert",
+      collectDupWarn: "Attention: meme wallet Omni deja sur « {label} »",
+      collectedInto: "dans « {label} »",
       positionNameLabel: "Nom de la nouvelle position",
       positionNamePlaceholder: "Ex. Variational, Hedge BTC…",
       collectOmni: "Collecter Omni",
+      collectFileNamePrompt: "Nom du fichier JSON a telecharger",
+      collectFileNameCancel: "Collecte annulee",
       dropTitle: "Deposer JSON / CSV (par compte)",
-      dropHintDefault: "vers la jambe active · ou nouvelle jambe si deja remplie",
+      dropHintDefault: "ajoute des CSV a la biblio · menu deroulant pour lier a chaque position",
       stepSyncTitle: "Envoyer vers Hypersheets",
       stepSyncHelp: "Pousse tes trades + points + positions vers le Dashboard Omni sur Hypersheets (garde l’onglet Hypersheets ouvert).",
       syncButton: "Synchroniser",
@@ -163,10 +169,25 @@
       removeShort: "Suppr.",
       emptyLeg: "Jambe vide — importe Omni dans Collecte",
       noPosition: "Aucune position.<br/>Ouvre <strong>Collecte</strong> pour ajouter un wallet.",
+      hlBookTitle: "Ouvertes HL / Trade XYZ",
+      hlBookSub: "Choisis le hedge dans le menu de chaque jambe Omni",
+      hlPaired: "lié",
+      hlFree: "libre",
+      hlBookEmpty: "Aucune position HL / XYZ — ajoute un wallet et rafraîchis",
+      hlUnpairedHint: "{n} libre(s) à appairer",
       targetArrow: "→ ",
       toActiveLeg: "vers « {label} »",
       walletsCount: "{count} wallet(s)",
       chooseHlWallet: "Choisir wallet HL",
+      chooseCsv: "Choisir CSV Omni",
+      joinCsv: "Ajouter CSV",
+      csvJoined: "CSV ajoutes",
+      csvNone: "Aucun CSV — ajoute un fichier",
+      csvSources: "Fichiers CSV",
+      csvMergeOk: "CSV ajoute a la bibliotheque",
+      csvLinked: "CSV lie",
+      replaceCsv: "Remplacer",
+      csvCount: "{n} CSV",
       active: "actif",
       target: "cible",
       empty: "vide",
@@ -243,16 +264,22 @@
       stepWalletHelp: "EVM address used to load HL / XYZ hedges.",
       addWallet: "Add",
       stepCollectTitle: "Collect Omni",
-      collectStep1Before: "Connect your wallet on",
+      collectStep1Before: "Sign in with the RIGHT Omni wallet on",
       collectStep1After: ".",
-      collectStep2: "Name the active position (optional).",
-      collectStep3: "Click to automatically collect all your Omni data as CSV.",
-      collectStep4: "Or drop a JSON / CSV export manually.",
+      collectStep2: "Optional: name the position (e.g. Farm A). Else auto from open markets.",
+      collectStep3: "Collect Omni → this wallet goes to ITS leg (creates a new one if different wallet).",
+      collectStep4: "Switch Omni wallet, collect again: the first leg is kept.",
+      omniAddrLabel: "Omni",
+      marketsOpenLabel: "Open",
+      collectDupWarn: "Warning: same Omni wallet already on \"{label}\"",
+      collectedInto: "into \"{label}\"",
       positionNameLabel: "New position name",
       positionNamePlaceholder: "e.g. Variational, BTC hedge…",
       collectOmni: "Collect Omni",
+      collectFileNamePrompt: "JSON download file name",
+      collectFileNameCancel: "Collection cancelled",
       dropTitle: "Drop JSON / CSV (per account)",
-      dropHintDefault: "to active leg · or new leg if current one already has data",
+      dropHintDefault: "add CSVs to the library · dropdown to link one per position",
       stepSyncTitle: "Send to Hypersheets",
       stepSyncHelp: "Push your trades + points + positions to the Omni Dashboard on Hypersheets (keep the Hypersheets tab open).",
       syncButton: "Sync",
@@ -293,10 +320,25 @@
       removeShort: "Remove",
       emptyLeg: "Empty leg — import Omni in Collect",
       noPosition: "No position.<br/>Open <strong>Collect</strong> to add a wallet.",
+      hlBookTitle: "Open HL / Trade XYZ",
+      hlBookSub: "Pick the hedge in each Omni leg dropdown",
+      hlPaired: "linked",
+      hlFree: "free",
+      hlBookEmpty: "No HL / XYZ position — add a wallet and refresh",
+      hlUnpairedHint: "{n} free to pair",
       targetArrow: "→ ",
       toActiveLeg: "to \"{label}\"",
       walletsCount: "{count} wallet(s)",
       chooseHlWallet: "Choose HL wallet",
+      chooseCsv: "Choose Omni CSV",
+      joinCsv: "Add CSV",
+      csvJoined: "CSVs added",
+      csvNone: "No CSV — add a file",
+      csvSources: "CSV files",
+      csvMergeOk: "CSV added to library",
+      csvLinked: "CSV linked",
+      replaceCsv: "Replace",
+      csvCount: "{n} CSV",
       active: "active",
       target: "target",
       empty: "empty",
@@ -509,6 +551,14 @@
   function focusInside(el) {
     var active = document.activeElement;
     return !!(el && active && el.contains(active));
+  }
+
+  function editingFocusBlocksPositions() {
+    var active = document.activeElement;
+    if (!active) return false;
+    var tag = active.tagName;
+    if (tag !== "SELECT" && tag !== "INPUT" && tag !== "TEXTAREA") return false;
+    return focusInside(posScroll) || focusInside(alertCard) || focusInside(alertReminderSectionEl);
   }
 
   function shortAddr(w) {
@@ -1091,16 +1141,32 @@
   }
 
   function pairHlSelect(p, hlChoices) {
-    var cur = p.pairAuto ? "auto" : (p.pairOverride === "__none__" ? "__none__" : (p.hlMarket || p.pairOverride || "auto"));
-    var opts = '<option value="auto"' + (cur === "auto" ? " selected" : "") + ">" + esc(t("auto")) + "</option>" +
+    var cur = "auto";
+    if (!p.pairAuto) {
+      if (p.pairOverride === "__none__") cur = "__none__";
+      else if (p.pairOverride) cur = String(p.pairOverride);
+      else if (p.hlKey) cur = String(p.hlKey);
+      else cur = "auto";
+    }
+    var opts =
+      '<option value="auto"' + (cur === "auto" ? " selected" : "") + ">" + esc(t("auto")) + "</option>" +
       '<option value="__none__"' + (cur === "__none__" ? " selected" : "") + ">" + esc(t("none")) + "</option>";
+    var seen = {};
     (hlChoices || []).forEach(function (h) {
-      var m = h.market;
-      var sel = !p.pairAuto && String(cur).toUpperCase() === String(m).toUpperCase() ? " selected" : "";
-      opts +=
-        '<option value="' + esc(m) + '"' + sel + ">" +
-        esc((h.dex || "HL") + " " + m) +
-        "</option>";
+      var key = h.key || [String(h.wallet || "").toLowerCase(), String(h.dex || "HL").toUpperCase(), String(h.market || "").toUpperCase()].join("|");
+      if (!key || seen[key]) return;
+      seen[key] = true;
+      var label =
+        (h.dex || "HL") +
+        " " +
+        (h.market || "?") +
+        " · " +
+        shortAddr(h.wallet) +
+        " · " +
+        (h.side || "?") +
+        (h.paired && key !== cur ? " (lié)" : "");
+      var sel = !p.pairAuto && String(cur) === String(key) ? " selected" : "";
+      opts += '<option value="' + esc(key) + '"' + sel + ">" + esc(label) + "</option>";
     });
     return (
       '<select class="pair-hl" data-act="pair-hl" data-slot="' + esc(p.accountId || "a") +
@@ -1108,14 +1174,17 @@
     );
   }
 
-  function pairRow(p, hlByWallet) {
+  function pairRow(p, hlOpen) {
     var net = (Number(p.omniUpnl) || 0) + (Number(p.hlUpnl) || 0);
     var hasHl = !!p.paired && p.hlSide;
     var dex = p.hlDex || "HL";
     var vc = String(dex).toUpperCase() === "XYZ" ? "xyz" : "hl";
     var hlAsset = p.hlMarket || p.market || "—";
-    var walletKey = String(p.hlWallet || "").toLowerCase();
-    var choices = (hlByWallet && hlByWallet[walletKey]) || [];
+    // All free hedges + this row's current hedge (any wallet)
+    var choices = (hlOpen || []).filter(function (h) {
+      if (!h.paired) return true;
+      return p.hlKey && h.key === p.hlKey;
+    });
     var conflict = !!p.hlConflict;
     var omniMeta = [
       "Q " + fmtQty(p.omniQty),
@@ -1168,6 +1237,63 @@
     );
   }
 
+  function hlBookRow(h) {
+    var dex = h.dex || "HL";
+    var vc = String(dex).toUpperCase() === "XYZ" ? "xyz" : "hl";
+    var lev = fmtLev(h.leverage);
+    var meta = [
+      "Q " + fmtQty(h.qty),
+      "S " + fmtUsd(h.notionalUsd, false),
+    ];
+    if (lev) meta.push(lev);
+    if (h.wallet) meta.push(shortAddr(h.wallet));
+    var badge = h.paired
+      ? '<span class="hl-badge is-linked">' + esc(t("hlPaired")) + "</span>"
+      : '<span class="hl-badge is-free">' + esc(t("hlFree")) + "</span>";
+    return (
+      '<div class="row hl-book-row' + (h.paired ? " is-linked" : " is-free") + '">' +
+        '<div class="main">' +
+          '<span class="venue ' + vc + '">' + esc(dex) + "</span>" +
+          sidePill(h.side) +
+          '<span class="asset">' + esc(h.market || "—") + "</span>" +
+          badge +
+        "</div>" +
+        '<div class="right">' +
+          '<div class="u ' + pnlClass(h.upnl) + '">' + esc(fmtUsd(h.upnl, true)) + "</div>" +
+          '<div class="n">' + esc(meta.join(" · ")) + "</div>" +
+        "</div>" +
+      "</div>"
+    );
+  }
+
+  function renderHlBook(snap) {
+    var list = Array.isArray(snap.hlOpen) ? snap.hlOpen : [];
+    if (!list.length && Array.isArray(snap.unpairedHl)) list = snap.unpairedHl;
+    var freeN = list.filter(function (h) { return !h.paired; }).length;
+    var head =
+      '<div class="hl-book-hd">' +
+        '<div class="hl-book-title">' + esc(t("hlBookTitle")) + "</div>" +
+        '<div class="hl-book-sub">' +
+          esc(t("hlBookSub")) +
+          (freeN ? " · " + esc(t("hlUnpairedHint").replace("{n}", String(freeN))) : "") +
+        "</div>" +
+      "</div>";
+    if (!list.length) {
+      return (
+        '<div class="group hl-book">' +
+          head +
+          '<div class="group-body"><div class="group-empty">' + esc(t("hlBookEmpty")) + "</div></div>" +
+        "</div>"
+      );
+    }
+    return (
+      '<div class="group hl-book">' +
+        head +
+        '<div class="group-body">' + list.map(hlBookRow).join("") + "</div>" +
+      "</div>"
+    );
+  }
+
   function renderPositions(snap, opts) {
     lastSnap = snap;
     if (!summary || !posScroll) return;
@@ -1187,6 +1313,7 @@
 
     var pairs = sortPairs(snap.pairs || []);
     var hlByWallet = snap.hlByWallet || {};
+    var hlOpen = Array.isArray(snap.hlOpen) ? snap.hlOpen : [];
 
     safeSetInnerHTML(
       summary,
@@ -1217,6 +1344,8 @@
     if (!order.length && pairs.length) order = Object.keys(byAcc);
 
     if (order.length || pairs.length) {
+      var wallets = walletsOf(accountsState);
+      var lib = csvLibraryOf(accountsState);
       order.forEach(function (id) {
         var slot = (acc && acc.slots && acc.slots[id]) || {};
         var label = slot.label || (byAcc[id] && byAcc[id][0] && byAcc[id][0].accountLabel) || "";
@@ -1225,33 +1354,62 @@
           return sum + (Number(p.omniUpnl) || 0) + (Number(p.hlUpnl) || 0);
         }, 0);
         var closed = !!collapsedLegs[id];
+        var idLine = [];
+        if (slot.omniAddress) idLine.push(t("omniAddrLabel") + " " + shortAddr(slot.omniAddress));
+        if (slot.marketsHint) idLine.push(slot.marketsHint);
+        else if (items.length) {
+          idLine.push(items.map(function (p) { return p.market; }).slice(0, 4).join(" · "));
+        }
+        var csvN = Array.isArray(slot.csvIds) ? slot.csvIds.length : 0;
+        if (csvN) idLine.push(t("csvLinked"));
+        var wallet = slot.hlWallet || "";
+        var walletOpts = '<option value="">' + esc(t("chooseHlWallet")) + "</option>" + wallets.map(function (w) {
+          var sel = wallet && w.toLowerCase() === wallet.toLowerCase() ? " selected" : "";
+          return '<option value="' + esc(w) + '"' + sel + ">" + esc(shortAddr(w)) + "</option>";
+        }).join("");
         html +=
           '<div class="group' + (closed ? " is-closed" : "") + '" data-slot="' + esc(id) + '">' +
             '<div class="group-hd">' +
               '<button type="button" class="tog" data-act="toggle-leg" data-slot="' + esc(id) + '" title="' +
                 (closed ? t("open") : t("collapse")) + '">' + (closed ? "▸" : "▾") + "</button>" +
-              '<input data-act="rename-pos" data-slot="' + esc(id) + '" value="' + esc(label) + '" placeholder="' + esc(t("positionPlaceholder")) + '" maxlength="32" title="' + esc(t("rename")) + '" />' +
+              '<div class="group-title">' +
+                '<input data-act="rename-pos" data-slot="' + esc(id) + '" value="' + esc(label) + '" placeholder="' + esc(t("positionPlaceholder")) + '" maxlength="32" title="' + esc(t("rename")) + '" />' +
+                (idLine.length ? '<div class="group-sub">' + esc(idLine.join(" · ")) + "</div>" : "") +
+              "</div>" +
               '<span class="pnl ' + pnlClass(groupNet) + '">' + esc(fmtUsd(groupNet, true)) + "</span>" +
               '<span class="tag">' + items.length + "</span>" +
               '<button type="button" class="del" data-act="remove-leg" data-slot="' + esc(id) +
               '" title="' + esc(order.length <= 1 ? t("clearLeg") : t("removeLeg")) + '">' +
               esc(order.length <= 1 ? t("clear") : t("removeShort")) + "</button>" +
             "</div>" +
+            '<div class="group-binds">' +
+              '<div class="row-in"><select data-act="pick-wallet-pos" data-slot="' + esc(id) + '">' + walletOpts + "</select></div>" +
+              slotCsvSelectHtml(id, slot, lib) +
+              '<div class="acts">' +
+                '<button type="button" class="btn btn-ac" data-act="join-csv" data-slot="' + esc(id) + '">' + esc(t("joinCsv")) + "</button>" +
+              "</div>" +
+            "</div>" +
             '<div class="group-body">' +
               (items.length
-                ? items.map(function (p) { return pairRow(p, hlByWallet); }).join("")
+                ? items.map(function (p) { return pairRow(p, hlOpen); }).join("")
                 : '<div class="group-empty">' + esc(t("emptyLeg")) + "</div>") +
             "</div>" +
           "</div>";
       });
     }
 
+    // Always surface HL / XYZ book when a wallet is loaded (pairing source of truth)
+    if (hlOpen.length || (snap.hlCount > 0) || (snap.portfolio && (snap.portfolio.hlAccounts || []).length)) {
+      html += renderHlBook(snap);
+    }
+
     if (!html) {
       html = '<div class="empty">' + t("noPosition") + "</div>";
     }
 
-    // Avoid full DOM wipe while a native <select> popup is closing.
-    if (!(opts && opts.force) && (focusInside(posScroll) || focusInside(alertCard) || focusInside(alertReminderSectionEl))) {
+    // Avoid full DOM wipe while editing a field or closing a native <select>.
+    // Buttons (toggle / Suppr.) must NOT block — otherwise delete/collapse never redraw.
+    if (!(opts && opts.force) && editingFocusBlocksPositions()) {
       updateAlertPositionNets();
       return;
     }
@@ -1263,7 +1421,12 @@
       ? new Date(snap.updatedAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
       : "—";
     if (foot && document.getElementById("pagePositions").classList.contains("is-on")) {
-      foot.textContent = t("footUpdated") + " " + when + (pairs.length ? " · " + pairs.length + " " + t("footPairs") : "");
+      var freeN = (snap.unpairedHl || []).length;
+      foot.textContent =
+        t("footUpdated") + " " + when +
+        (pairs.length ? " · " + pairs.length + " " + t("footPairs") : "") +
+        (hlOpen.length ? " · " + hlOpen.length + " HL/XYZ" : "") +
+        (freeN ? " · " + freeN + " " + t("hlFree") : "");
     }
   }
 
@@ -1302,6 +1465,56 @@
     if (dropHint) dropHint.textContent = t("toActiveLeg", { label: label });
   }
 
+  function csvLibraryOf(state) {
+    return (state && Array.isArray(state.csvLibrary)) ? state.csvLibrary : [];
+  }
+
+  function csvEntryTitle(e) {
+    if (!e) return "?";
+    if (e.label) return e.label;
+    if (e.omniAddress) return shortAddr(e.omniAddress) + (e.tradeCount ? " · " + e.tradeCount : "");
+    return (e.tradeCount || 0) + " trades";
+  }
+
+  function slotCsvSelectHtml(slotId, slot, library) {
+    var lib = library || [];
+    var cur = (slot && Array.isArray(slot.csvIds) && slot.csvIds[0]) ? String(slot.csvIds[0]) : "";
+    var opts = '<option value="">' + esc(t("chooseCsv")) + "</option>";
+    if (!lib.length) {
+      opts += '<option value="" disabled>' + esc(t("csvNone")) + "</option>";
+    } else {
+      opts += lib.map(function (e) {
+        var sel = cur && cur === e.id ? " selected" : "";
+        var title = csvEntryTitle(e);
+        if (e.tradeCount) title += " · " + e.tradeCount + "t";
+        return '<option value="' + esc(e.id) + '"' + sel + ">" + esc(title) + "</option>";
+      }).join("");
+    }
+    return (
+      '<div class="row-in">' +
+        '<select data-act="pick-csv" data-slot="' + esc(slotId) + '" title="' + esc(t("chooseCsv")) + '">' +
+          opts +
+        "</select>" +
+      "</div>"
+    );
+  }
+
+  function applySlotCsvId(slotId, csvId, cb) {
+    send(
+      "HS_WIDGET_SET_SLOT_CSVS",
+      { slotId: slotId, csvIds: csvId ? [csvId] : [] },
+      function (res) {
+        chrome.runtime.sendMessage({ type: "HS_WIDGET_REFRESH" }, function () {
+          void chrome.runtime.lastError;
+          chrome.storage.local.get(["hsWidgetSnapshot"], function (st) {
+            renderPositions((st && st.hsWidgetSnapshot) || lastSnap, { force: true });
+          });
+          if (typeof cb === "function") cb(res);
+        });
+      }
+    );
+  }
+
   function renderCollecte(state) {
     accountsState = state && state.ok ? state : accountsState;
     if (!accountsState) return;
@@ -1333,10 +1546,21 @@
       var slot = acc.slots[id] || {};
       var trades = slot.csv && slot.csv.trades ? slot.csv.trades.length : 0;
       var wallet = slot.hlWallet || "";
+      var omniAddr = slot.omniAddress || "";
+      var markets = slot.marketsHint || "";
+      var lib = csvLibraryOf(accountsState);
+      var csvId = Array.isArray(slot.csvIds) && slot.csvIds[0] ? slot.csvIds[0] : "";
       var opts = '<option value="">' + esc(t("chooseHlWallet")) + "</option>" + wallets.map(function (w) {
         var sel = wallet && w.toLowerCase() === wallet.toLowerCase() ? " selected" : "";
         return '<option value="' + esc(w) + '"' + sel + ">" + esc(shortAddr(w)) + "</option>";
       }).join("");
+      var idBits = [];
+      if (omniAddr) idBits.push(t("omniAddrLabel") + " " + shortAddr(omniAddr));
+      if (markets) idBits.push(t("marketsOpenLabel") + " " + markets);
+      if (trades) idBits.push(trades + " " + t("trades"));
+      else idBits.push(t("empty"));
+      if (csvId) idBits.push(t("csvLinked"));
+      if (wallet) idBits.push("HL " + shortAddr(wallet));
 
       return (
         '<div class="leg' + (id === active ? " is-on" : "") + '" data-slot="' + esc(id) + '" data-act="activate-leg" title="' + esc(t("clickTargetLeg")) + '">' +
@@ -1344,14 +1568,14 @@
             '<input data-act="rename" data-slot="' + esc(id) + '" value="' + esc(slot.label || "") + '" placeholder="' + esc(t("positionPlaceholder")) + '" maxlength="32" />' +
             (id === active ? '<span class="badge">' + esc(t("active")) + "</span>" : '<span class="badge" style="opacity:.45">' + esc(t("target")) + "</span>") +
           "</div>" +
+          (idBits.length
+            ? '<div class="leg-id">' + esc(idBits.join(" · ")) + "</div>"
+            : "") +
           '<div class="row-in"><select data-act="pick-wallet" data-slot="' + esc(id) + '">' + opts + "</select></div>" +
-          '<div class="meta">' +
-            (trades ? trades + " " + t("trades") : t("empty")) +
-            (wallet ? " · " + shortAddr(wallet) : "") +
-          "</div>" +
+          slotCsvSelectHtml(id, slot, lib) +
           '<div class="acts">' +
             (id === active ? "" : '<button type="button" class="btn btn-ac" data-act="activate" data-slot="' + esc(id) + '">' + esc(t("targetBtn")) + "</button>") +
-            '<button type="button" class="btn" data-act="import-csv" data-slot="' + esc(id) + '">' + esc(t("csv")) + "</button>" +
+            '<button type="button" class="btn btn-ac" data-act="join-csv" data-slot="' + esc(id) + '">' + esc(t("joinCsv")) + "</button>" +
             '<button type="button" class="btn" data-act="clear" data-slot="' + esc(id) + '">' + esc(t("clear")) + "</button>" +
             '<button type="button" class="btn" data-act="remove" data-slot="' + esc(id) + '" style="border-color:rgba(248,113,113,.3);color:#fca5a5">' + esc(t("remove")) + "</button>" +
           "</div>" +
@@ -1445,11 +1669,22 @@
         var act = btn.getAttribute("data-act");
         var id = btn.getAttribute("data-slot");
         if (act === "activate") send("HS_WIDGET_SET_ACTIVE_SLOT", { slotId: id });
+        if (act === "join-csv") {
+          send("HS_WIDGET_SET_ACTIVE_SLOT", { slotId: id }, function () {
+            if (dropFile) {
+              dropFile.dataset.forceSlot = id;
+              delete dropFile.dataset.forceReplace;
+              dropFile.dataset.forceMerge = "1";
+              dropFile.click();
+            }
+          });
+        }
         if (act === "import-csv") {
           send("HS_WIDGET_SET_ACTIVE_SLOT", { slotId: id }, function () {
             if (dropFile) {
               dropFile.dataset.forceSlot = id;
               dropFile.dataset.forceReplace = "1";
+              delete dropFile.dataset.forceMerge;
               dropFile.click();
             }
           });
@@ -1477,6 +1712,9 @@
       var id = el.getAttribute("data-slot");
       if (act === "rename") send("HS_WIDGET_RENAME_SLOT", { slotId: id, label: el.value.trim() });
       if (act === "pick-wallet") send("HS_WIDGET_SET_SLOT_WALLET", { slotId: id, wallet: el.value.trim() });
+      if (act === "pick-csv") {
+        applySlotCsvId(id, el.value.trim());
+      }
     });
   }
 
@@ -1514,10 +1752,38 @@
             });
           }
         );
+        return;
+      }
+      if (act === "pick-wallet-pos") {
+        var sid = el.getAttribute("data-slot");
+        send("HS_WIDGET_SET_SLOT_WALLET", { slotId: sid, wallet: el.value.trim() }, function () {
+          chrome.runtime.sendMessage({ type: "HS_WIDGET_REFRESH" }, function () {
+            void chrome.runtime.lastError;
+          });
+        });
+        return;
+      }
+      if (act === "pick-csv") {
+        applySlotCsvId(el.getAttribute("data-slot"), el.value.trim());
+        return;
       }
     });
 
     posScroll.addEventListener("click", function (e) {
+      var join = e.target.closest('[data-act="join-csv"]');
+      if (join) {
+        var jid = join.getAttribute("data-slot");
+        send("HS_WIDGET_SET_ACTIVE_SLOT", { slotId: jid }, function () {
+          if (dropFile) {
+            dropFile.dataset.forceSlot = jid;
+            delete dropFile.dataset.forceReplace;
+            dropFile.dataset.forceMerge = "1";
+            setPage("collecte");
+            setTimeout(function () { dropFile.click(); }, 80);
+          }
+        });
+        return;
+      }
       var tog = e.target.closest('[data-act="toggle-leg"]');
       if (tog) {
         e.preventDefault();
@@ -1542,6 +1808,7 @@
       var del = e.target.closest('[data-act="remove-leg"]');
       if (del) {
         e.preventDefault();
+        e.stopPropagation();
         var id = del.getAttribute("data-slot");
         if (!id) return;
         var onlyOne = accountsState && accountsState.accounts &&
@@ -1550,11 +1817,38 @@
           ? t("confirmClearOmniLeg")
           : t("confirmRemoveOmniLeg");
         if (!window.confirm(msg)) return;
-        send("HS_WIDGET_REMOVE_SLOT", { slotId: id }, function () {
+
+        // Optimistic UI — don't wait for storage/render (focus used to block redraw).
+        var group = del.closest(".group");
+        if (group) {
+          if (onlyOne) {
+            var body = group.querySelector(".group-body");
+            if (body) body.innerHTML = '<div class="group-empty">' + esc(t("emptyLeg")) + "</div>";
+            var tag = group.querySelector(".tag");
+            if (tag) tag.textContent = "0";
+            var pnl = group.querySelector(".group-hd .pnl");
+            if (pnl) {
+              pnl.textContent = "$0.00";
+              pnl.className = "pnl";
+            }
+          } else {
+            group.remove();
+          }
+        }
+        try { document.activeElement && document.activeElement.blur(); } catch (_) {}
+
+        send("HS_WIDGET_REMOVE_SLOT", { slotId: id }, function (res) {
           delete collapsedLegs[id];
           try { chrome.storage.local.set({ [COLLAPSE_KEY]: collapsedLegs }); } catch (_) {}
+          if (res && res.ok && res.accounts) {
+            accountsState = res;
+            try { renderCollecte(res); } catch (_) {}
+          }
           chrome.runtime.sendMessage({ type: "HS_WIDGET_REFRESH" }, function () {
             void chrome.runtime.lastError;
+            chrome.storage.local.get(["hsWidgetSnapshot"], function (st) {
+              renderPositions((st && st.hsWidgetSnapshot) || lastSnap, { force: true });
+            });
           });
         });
       }
@@ -1583,9 +1877,26 @@
       e.preventDefault();
       if (collectBusy) return;
       var newLegLabel = desiredPositionLabel();
+      var stamp = new Date().toISOString().slice(0, 10);
+      var defaultName = "variational-export-" + stamp + ".json";
+      var asked = window.prompt(t("collectFileNamePrompt"), defaultName);
+      if (asked === null) {
+        toast(t("collectFileNameCancel"), "");
+        return;
+      }
+      var fileName = String(asked || "").trim() || defaultName;
+      if (!/\.json$/i.test(fileName)) fileName += ".json";
+      fileName = fileName.replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_").slice(0, 120);
       collectBusy = true;
+      var collectWatchdog = setTimeout(function () {
+        if (!collectBusy) return;
+        collectBusy = false;
+        setCollectUi({ err: true }, t("collectOmni"), t("collectFailed") + " (timeout)");
+        toast(t("collectFailed") + " · timeout", "err");
+      }, 180000);
       setCollectUi({ busy: true }, t("collecting"), t("readingOmni"));
-      chrome.runtime.sendMessage({ type: "HS_OMNI_COLLECT_RUN", label: newLegLabel }, function (res) {
+      chrome.runtime.sendMessage({ type: "HS_OMNI_COLLECT_RUN", label: newLegLabel, fileName: fileName }, function (res) {
+        clearTimeout(collectWatchdog);
         collectBusy = false;
         var err = chrome.runtime.lastError;
         if (err || !res || !res.ok) {
@@ -1597,12 +1908,17 @@
         var warns = res.warnings || [];
         var msg =
           (res.newLeg ? t("newLeg") + " · " : "") +
-          (res.slotLabel ? "→ " + res.slotLabel + " · " : "") +
+          (res.slotLabel ? t("collectedInto").replace("{label}", res.slotLabel) + " · " : "") +
+          (res.omniAddress ? t("omniAddrLabel") + " " + shortAddr(res.omniAddress) + " · " : "") +
+          (res.marketsHint ? t("marketsOpenLabel") + " " + res.marketsHint + " · " : "") +
           (c.trades != null ? c.trades + " " + t("trades") : t("ok")) +
           (c.points != null ? " · " + c.points + " " + t("epochs") : "");
+        if (res.duplicateLabel) {
+          msg += " · " + t("collectDupWarn").replace("{label}", res.duplicateLabel);
+        }
         if (warns.length) msg += " · " + t("collectPartialWarn");
-        setCollectUi({ ok: true }, t("collectedDone"), msg);
-        toast((warns.length ? t("collectPartialWarn") : t("collectedOk")) + " · " + msg, warns.length ? "" : "ok");
+        setCollectUi({ ok: true, err: !!res.duplicateLabel }, t("collectedDone"), msg);
+        toast((warns.length || res.duplicateLabel ? t("collectPartialWarn") : t("collectedOk")) + " · " + msg, (warns.length || res.duplicateLabel) ? "" : "ok");
         loadState();
         setPage("positions");
         setTimeout(function () {
@@ -1759,23 +2075,30 @@
       return;
     }
 
+    var forceSlot = (dropFile && dropFile.dataset.forceSlot) || "";
+    var doReplace = !!(dropFile && dropFile.dataset.forceReplace === "1");
+    var fileLabel = files.length === 1 ? files[0].name : files.length + " files";
+
     chrome.runtime.sendMessage(
       {
         type: "HS_WIDGET_IMPORT_LOCAL",
         legacyCsv: bundle,
         payload: jsonPayload,
-        label: desiredPositionLabel(),
+        label: desiredPositionLabel() || fileLabel,
+        fileName: fileLabel,
         broadcast: !!jsonPayload,
         origin: "extension-drop",
-        // Default: refresh active jambe. Explicit new-leg UI should pass newLeg: true.
         autoNewLeg: false,
-        slotId: (dropFile && dropFile.dataset.forceSlot) || "",
+        slotId: forceSlot,
+        replace: doReplace,
+        forceNew: true,
       },
       function (res) {
         void chrome.runtime.lastError;
         if (dropFile) {
           delete dropFile.dataset.forceSlot;
           delete dropFile.dataset.forceReplace;
+          delete dropFile.dataset.forceMerge;
         }
         if (!res || !res.ok) {
           if (dropHint) dropHint.textContent = (res && res.error) || t("failure");
@@ -1783,10 +2106,10 @@
         }
         if (dropHint) {
           dropHint.textContent =
-            t("ok") +
-            (res.newLeg ? " · " + t("newLeg") : "") +
+            t("csvMergeOk") +
             (res.slotLabel ? " → " + res.slotLabel : "") +
-            " · " + (res.tradeCount || 0) + " " + t("trades");
+            " · " + (res.tradeCount || 0) + " " + t("trades") +
+            (res.libraryCount ? " · " + t("csvCount").replace("{n}", String(res.libraryCount)) : "");
         }
         loadState();
         setPage("positions");

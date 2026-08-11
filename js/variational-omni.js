@@ -4631,35 +4631,90 @@
     try { varRenderFarmScore(points); } catch (_) {}
   }
 
-  /** Farm overview score strip (self / rank / ref / competition). */
+  /** Farm overview score strip: Points / Volume / Rang LB / Place compétition. */
   function varRenderFarmScore(points) {
     if (!document.getElementById('varFarmScore')) return;
     const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+    const show = (id, on) => { const e = document.getElementById(id); if (e) e.style.display = on ? '' : 'none'; };
     const pts = points || varPointsLoad();
     const sum = pts?.points_summary;
+    const multi = !!(pts && pts.multiAccount) || _varCsvScope === 'all';
     const self = pts?.competition && !Array.isArray(pts.competition)
       ? pts.competition.self
       : null;
-    if (!sum) {
-      set('varFarmSelfPts', '—');
-      set('varFarmRank', '—');
-      set('varFarmRefPts', '—');
-      set('varFarmCompPlace', '—');
-      set('varFarmSelfPtsSub', '');
-      set('varFarmRankSub', '');
-      set('varFarmCompPlaceSub', '');
+    const scoreHost = document.getElementById('varFarmScore');
+    if (scoreHost) scoreHost.classList.toggle('is-tous', multi);
+
+    const selfPts = parseFloat(sum?.self_points ?? sum?.self);
+    const refPts = parseFloat(sum?.referral_points ?? sum?.referral);
+    const totalPts = parseFloat(sum?.total_points ?? sum?.total);
+    const ptsTotal = isFinite(totalPts)
+      ? totalPts
+      : ((isFinite(selfPts) ? selfPts : 0) + (isFinite(refPts) ? refPts : 0));
+
+    // Volume: competition.self.volume when single, else all trades (Tous) or active CSV.
+    let volume = NaN;
+    if (!multi && self && isFinite(parseFloat(self.volume))) {
+      volume = parseFloat(self.volume);
     } else {
-      set('varFarmSelfPts', varFmtPoints(sum.self_points));
-      set('varFarmRank', sum.rank != null ? '#' + Number(sum.rank).toLocaleString(varLoc()) : '—');
-      set('varFarmRefPts', varFmtPoints(sum.referral_points));
+      try {
+        const bundle = varCsvLoadForView();
+        if (bundle) {
+          const dash = varBuildDashAnalytics(bundle, 'all', { light: true });
+          if (dash && isFinite(dash.volume)) volume = dash.volume;
+        }
+      } catch (_) {}
+    }
+
+    const kpiPts = document.getElementById('varFarmKpiPoints');
+    if (!sum && !(ptsTotal > 0)) {
+      set('varFarmPtsTotal', '—');
+      set('varFarmPtsSub', '');
+      if (kpiPts) kpiPts.removeAttribute('title');
+    } else {
+      set('varFarmPtsTotal', varFmtPoints(ptsTotal));
       const hist = pts.points_history || [];
-      set('varFarmSelfPtsSub', hist.length
+      set('varFarmPtsSub', hist.length
         ? varT('var.farmEpochsCount').replace('{n}', String(hist.length))
         : '');
-      set('varFarmRankSub', sum.total_points != null
-        ? varT('var.farmTotalPts').replace('{n}', varFmtPoints(sum.total_points))
-        : '');
+      const tip = varT('var.farmPtsTip')
+        .replace('{self}', varFmtPoints(isFinite(selfPts) ? selfPts : 0))
+        .replace('{ref}', varFmtPoints(isFinite(refPts) ? refPts : 0));
+      if (kpiPts) kpiPts.setAttribute('title', tip);
     }
+
+    set('varFarmVol', isFinite(volume) && volume > 0 ? varFmtCompactUsd(volume) : '—');
+    set('varFarmVolSub', multi
+      ? varT('var.farmVolAllWallets')
+      : (isFinite(volume) && volume > 0 ? varT('var.farmVolTotalSub') : ''));
+
+    if (multi) {
+      // Tous: Points + volume all wallets + approx LB rank from Classement curve.
+      show('varFarmKpiVol', true);
+      show('varFarmKpiRank', true);
+      show('varFarmKpiComp', false);
+      const approx = varApproxPointsLbRank(ptsTotal);
+      if (approx != null && isFinite(approx)) {
+        set('varFarmRank', '~#' + Math.round(approx).toLocaleString(varLoc()));
+        set('varFarmRankSub', varT('var.farmLbRankApproxSub'));
+      } else {
+        set('varFarmRank', '—');
+        set('varFarmRankSub', varT('var.farmLbRankApproxSub'));
+      }
+      set('varFarmCompPlace', '—');
+      set('varFarmCompPlaceSub', '');
+      return;
+    }
+
+    show('varFarmKpiVol', true);
+    show('varFarmKpiRank', true);
+    show('varFarmKpiComp', true);
+
+    set('varFarmRank', sum?.rank != null ? '#' + Number(sum.rank).toLocaleString(varLoc()) : '—');
+    set('varFarmRankSub', sum?.total_points != null
+      ? varT('var.farmTotalPts').replace('{n}', varFmtPoints(sum.total_points))
+      : '');
+
     if (self) {
       const place = self.place != null ? self.place : self.rank;
       set('varFarmCompPlace', place != null ? '#' + Number(place).toLocaleString(varLoc()) : '—');
@@ -4671,6 +4726,53 @@
       set('varFarmCompPlace', '—');
       set('varFarmCompPlaceSub', '');
     }
+  }
+
+  /** Approx points leaderboard rank (same curve as Classement / farm-varia). */
+  const VAR_LB_RANK_SEEDS = [
+    { pts: 9, rank: 35000 },
+    { pts: 22.66, rank: 21148 },
+    { pts: 24.38, rank: 20443 },
+    { pts: 80.54, rank: 12393 },
+    { pts: 104.24, rank: 11400 },
+    { pts: 207, rank: 6850 },
+    { pts: 230, rank: 5450 },
+    { pts: 261, rank: 4850 },
+    { pts: 322.98, rank: 3995 },
+    { pts: 371, rank: 3600 },
+    { pts: 453, rank: 3500 },
+    { pts: 860.9, rank: 1413 },
+    { pts: 903.24, rank: 1345 },
+    { pts: 1314.01, rank: 956 },
+    { pts: 3690, rank: 245 },
+    { pts: 4070, rank: 240 },
+    { pts: 5440, rank: 175 },
+    { pts: 7420, rank: 122 },
+    { pts: 86000, rank: 2 },
+  ];
+  function varLbLogInterp(x0, y0, x1, y1, x) {
+    if (!(x0 > 0 && x1 > 0 && y0 > 0 && y1 > 0 && x > 0)) return NaN;
+    if (x0 === x1) return (y0 + y1) / 2;
+    const t = (Math.log(x) - Math.log(x0)) / (Math.log(x1) - Math.log(x0));
+    return Math.exp(Math.log(y0) + t * (Math.log(y1) - Math.log(y0)));
+  }
+  function varApproxPointsLbRank(pts) {
+    if (!(pts > 0)) return null;
+    const sorted = VAR_LB_RANK_SEEDS.slice().sort((a, b) => a.pts - b.pts);
+    if (sorted.length < 2) return null;
+    if (pts <= sorted[0].pts) {
+      return varLbLogInterp(sorted[0].pts, sorted[0].rank, sorted[1].pts, sorted[1].rank, pts);
+    }
+    const last = sorted.length - 1;
+    if (pts >= sorted[last].pts) {
+      return varLbLogInterp(sorted[last - 1].pts, sorted[last - 1].rank, sorted[last].pts, sorted[last].rank, pts);
+    }
+    for (let i = 0; i < last; i++) {
+      if (pts >= sorted[i].pts && pts <= sorted[i + 1].pts) {
+        return varLbLogInterp(sorted[i].pts, sorted[i].rank, sorted[i + 1].pts, sorted[i + 1].rank, pts);
+      }
+    }
+    return null;
   }
 
   /** Compact recent epochs on Farm overview. */

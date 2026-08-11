@@ -77,14 +77,18 @@
     return out;
   }
 
-  function downloadJson(payload) {
+  function downloadJson(payload, fileName) {
     try {
       const json = JSON.stringify(payload);
       const stamp = new Date().toISOString().slice(0, 10);
+      let name = String(fileName || '').trim();
+      if (!name) name = 'variational-export-' + stamp + '.json';
+      if (!/\.json$/i.test(name)) name += '.json';
+      name = name.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_').slice(0, 120);
       const blob = new Blob([json], { type: 'application/json' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = 'variational-export-' + stamp + '.json';
+      a.download = name;
       document.body.appendChild(a);
       a.click();
       setTimeout(() => {
@@ -131,7 +135,8 @@
       const entries = [];
       const seenAddr = new Set();
       let selfRow = null;
-      for (let offset = 0; offset < 20000; offset += 100) {
+      // Cap leaderboard pull — we only need `self` for wallet identity; full board freezes Collecte
+      for (let offset = 0; offset < 500; offset += 100) {
         const page = await api('/api/competition', {
           limit: 100,
           offset,
@@ -212,6 +217,7 @@
       return false;
     }
     busy = true;
+    const downloadName = msg.fileName ? String(msg.fileName) : '';
     (async () => {
       try {
         const payload = await collect((label, n) => {
@@ -223,13 +229,14 @@
             });
           } catch (_) {}
         });
-        const mb = downloadJson(payload);
+        const mb = downloadJson(payload, downloadName);
         sendResponse({
           ok: true,
           payload,
           mb,
           counts: payload.counts,
           warnings: payload.warnings || [],
+          fileName: downloadName || undefined,
         });
       } catch (e) {
         sendResponse({

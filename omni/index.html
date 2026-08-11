@@ -9972,6 +9972,9 @@ try {
     html.hs-omni-standalone .var-farm-score {
       grid-template-columns: repeat(4, minmax(0, 1fr));
     }
+    html.hs-omni-standalone .var-farm-score.is-tous {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
   }
   html.hs-omni-standalone .var-farm-score .kpi,
   html.hs-omni-standalone #varLiveKpis .kpi {
@@ -11233,10 +11236,26 @@ try {
             </div>
 
             <div class="var-farm-score" id="varFarmScore">
-              <div class="kpi kpi-accent"><div class="kpi-label" data-i18n="var.actSelfPts">Self points</div><div class="kpi-val" id="varFarmSelfPts">—</div><div class="kpi-sub" id="varFarmSelfPtsSub"></div></div>
-              <div class="kpi"><div class="kpi-label" data-i18n="var.actRank">Points rank</div><div class="kpi-val" id="varFarmRank">—</div><div class="kpi-sub" id="varFarmRankSub"></div></div>
-              <div class="kpi"><div class="kpi-label" data-i18n="var.actRefPts">Referral</div><div class="kpi-val" id="varFarmRefPts">—</div></div>
-              <div class="kpi"><div class="kpi-label" data-i18n="var.compPlace">Comp. place</div><div class="kpi-val" id="varFarmCompPlace">—</div><div class="kpi-sub" id="varFarmCompPlaceSub"></div></div>
+              <div class="kpi kpi-accent" id="varFarmKpiPoints" title="">
+                <div class="kpi-label" data-i18n="var.farmPtsLabel">Points</div>
+                <div class="kpi-val" id="varFarmPtsTotal">—</div>
+                <div class="kpi-sub" id="varFarmPtsSub"></div>
+              </div>
+              <div class="kpi" id="varFarmKpiVol">
+                <div class="kpi-label" data-i18n="var.farmVolLabel">Volume total</div>
+                <div class="kpi-val mono" id="varFarmVol">—</div>
+                <div class="kpi-sub" id="varFarmVolSub"></div>
+              </div>
+              <div class="kpi" id="varFarmKpiRank">
+                <div class="kpi-label" data-i18n="var.farmLbRankLabel">Rang Leaderboard</div>
+                <div class="kpi-val" id="varFarmRank">—</div>
+                <div class="kpi-sub" id="varFarmRankSub"></div>
+              </div>
+              <div class="kpi" id="varFarmKpiComp">
+                <div class="kpi-label" data-i18n="var.farmCompPlaceLabel">Place compétition</div>
+                <div class="kpi-val" id="varFarmCompPlace">—</div>
+                <div class="kpi-sub" id="varFarmCompPlaceSub"></div>
+              </div>
             </div>
 
             <div class="var-live-period-row">
@@ -12179,6 +12198,14 @@ const I18N = {
     'var.farmEpochsAll': 'All points →',
     'var.farmEpochsEmpty': 'No epoch data yet — sync an Omni export.',
     'var.farmEpochsCount': '{n} epochs',
+    'var.farmPtsLabel': 'Points',
+    'var.farmPtsTip': 'Self {self} · Referral {ref}',
+    'var.farmVolLabel': 'Total volume',
+    'var.farmVolTotalSub': 'All periods',
+    'var.farmVolAllWallets': 'Volume of all wallets',
+    'var.farmLbRankLabel': 'Leaderboard rank',
+    'var.farmLbRankApproxSub': 'Approx. from Classement',
+    'var.farmCompPlaceLabel': 'Competition place',
     'var.farmTotalPts': '{n} total',
     'var.liveTitle': 'Live',
     'var.sortLabel': 'Sort',
@@ -13303,6 +13330,14 @@ const I18N = {
     'var.farmEpochsAll': 'Tous les points →',
     'var.farmEpochsEmpty': 'Pas encore d’epochs — synchronise un export Omni.',
     'var.farmEpochsCount': '{n} epochs',
+    'var.farmPtsLabel': 'Points',
+    'var.farmPtsTip': 'Self {self} · Parrainage {ref}',
+    'var.farmVolLabel': 'Volume total',
+    'var.farmVolTotalSub': 'Toutes périodes',
+    'var.farmVolAllWallets': 'Volume de tous les wallets',
+    'var.farmLbRankLabel': 'Rang Leaderboard',
+    'var.farmLbRankApproxSub': 'Approx. depuis Classement',
+    'var.farmCompPlaceLabel': 'Place compétition',
     'var.farmTotalPts': '{n} total',
     'var.liveTitle': 'Live',
     'var.sortLabel': 'Tri',
@@ -32925,7 +32960,7 @@ document.addEventListener('DOMContentLoaded', () => {
   </div>
 </div>
 <script src="../js/variational-omni-collector.js"></script>
-<script src="../js/variational-omni.js?v=20260811import"></script>
+<script src="../js/variational-omni.js?v=20260811kpis"></script>
 <script>
 (function hsLoadCfWebAnalytics() {
   var token = (typeof HS_CONFIG !== 'undefined' && HS_CONFIG.cfWebAnalyticsToken) || '';

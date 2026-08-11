@@ -822,9 +822,10 @@ function injectOmniCollector(tabId) {
   });
 }
 
-function sendCollect(tabId) {
+function sendCollect(tabId, opts) {
+  const fileName = opts && opts.fileName ? String(opts.fileName).slice(0, 120) : '';
   return new Promise((resolve) => {
-    chrome.tabs.sendMessage(tabId, { type: 'HS_OMNI_COLLECT' }, (res) => {
+    chrome.tabs.sendMessage(tabId, { type: 'HS_OMNI_COLLECT', fileName }, (res) => {
       const err = chrome.runtime.lastError;
       if (err) return resolve({ ok: false, error: err.message || 'Omni tab not ready — reload Omni and retry' });
       resolve(res || { ok: false, error: 'No response from Omni collector' });
@@ -961,19 +962,20 @@ async function ensureTargetImportSlot(opts) {
   return { slotId: activeId, newLeg: false, matchedBy: 'active-overwrite-max' };
 }
 
-async function runOmniCollect(preferredLabel) {
+async function runOmniCollect(preferredLabel, fileName) {
   const tab = await ensureOmniTab();
   if (!tab || tab.id == null) return { ok: false, error: 'Could not open Omni tab' };
   await waitTabComplete(tab.id, 25000);
   // Give Omni SPA a moment after "complete"
   await new Promise((r) => setTimeout(r, 1200));
 
-  let result = await sendCollect(tab.id);
+  const collectOpts = { fileName: fileName || '' };
+  let result = await sendCollect(tab.id, collectOpts);
   if (!result.ok && /Receiving end does not exist|Could not establish connection/i.test(String(result.error || ''))) {
     const injected = await injectOmniCollector(tab.id);
     if (injected) {
       await new Promise((r) => setTimeout(r, 200));
-      result = await sendCollect(tab.id);
+      result = await sendCollect(tab.id, collectOpts);
     }
   }
 
@@ -987,6 +989,7 @@ async function runOmniCollect(preferredLabel) {
         at: Date.now(),
         counts: result.counts || null,
         payload: slim,
+        fileName: fileName || result.fileName || null,
       },
     });
   } catch (_) {}
@@ -1018,9 +1021,10 @@ async function runOmniCollect(preferredLabel) {
     };
   }
 
-  // Broadcast to Hypersheets tabs in background — never block the Collecte UI
+  // Single sync path: accounts push only. Do NOT also PAGE_IMPORT the payload
+  // (that re-applied onto the active jambe and made old jambes look duplicated).
   try {
-    void broadcastExportToHypersheets(slimPayloadForStorage(result.payload));
+    void pushAccountsToHypersheetsTabs();
   } catch (_) {}
 
   return {
@@ -1037,6 +1041,7 @@ async function runOmniCollect(preferredLabel) {
     marketsHint: applied.marketsHint,
     omniAddress: applied.omniAddress || omniAddress,
     duplicateSlot: applied.duplicateSlot,
+    fileName: fileName || result.fileName || null,
     duplicateLabel: applied.duplicateLabel,
   };
 }
@@ -2996,7 +3001,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   }
 
   if (msg.type === 'HS_OMNI_COLLECT_RUN') {
-    runOmniCollect(msg.label || '')
+    runOmniCollect(msg.label || '', msg.fileName || '')
       .then((res) => sendResponse(res))
       .catch((e) => sendResponse({ ok: false, error: String(e && e.message || e) }));
     return true;
