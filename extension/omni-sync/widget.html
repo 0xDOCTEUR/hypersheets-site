@@ -1041,35 +1041,20 @@
             </button>
             <p class="status" id="collectStatus"></p>
             <div class="progress" id="collectProgress" hidden><span></span></div>
-            <label class="drop" id="dropZone" for="dropFile" style="margin-top:10px">
-              <strong data-i18n="dropTitle">Déposer JSON / CSV (par compte)</strong>
-              <span id="dropHint" data-i18n="dropHintDefault">vers la jambe active · ou nouvelle jambe si déjà remplie</span>
-              <input type="file" id="dropFile" accept=".json,.csv,application/json,text/csv" multiple />
-            </label>
-            <!-- Keep rename input in DOM for existing JS; hidden — chip = wallet suffix -->
-            <div class="active-rename" id="activeRenameRow" hidden>
-              <label class="field-label" for="activePositionRename" data-i18n="positionNameLabel">Nom de la position</label>
-              <input
-                id="activePositionRename"
-                type="text"
-                maxlength="32"
-                spellcheck="false"
-                autocomplete="off"
-                data-i18n-placeholder="positionNamePlaceholder"
-                placeholder="Ex. Variational, Hedge BTC…"
-                title="Renommer la position active"
-                data-i18n-title="rename"
-              />
+            <!-- Hidden: kept for JS hooks (manual drop / rename / force sync). Auto-sync after Collecte. -->
+            <div hidden aria-hidden="true">
+              <label class="drop" id="dropZone" for="dropFile">
+                <strong data-i18n="dropTitle">Déposer JSON / CSV (par compte)</strong>
+                <span id="dropHint" data-i18n="dropHintDefault">vers la jambe active</span>
+                <input type="file" id="dropFile" accept=".json,.csv,application/json,text/csv" multiple />
+              </label>
+              <div class="active-rename" id="activeRenameRow">
+                <label class="field-label" for="activePositionRename" data-i18n="positionNameLabel">Nom de la position</label>
+                <input id="activePositionRename" type="text" maxlength="32" spellcheck="false" autocomplete="off" />
+              </div>
+              <button type="button" id="syncHs" data-i18n="syncButton">Synchroniser</button>
+              <p class="status" id="syncHsStatus"></p>
             </div>
-          </div>
-
-          <div class="step-div"></div>
-
-          <div class="step">
-            <div class="step-h"><span class="step-n">3</span><span data-i18n="stepSyncTitle">Envoyer vers Hypersheets</span></div>
-            <p class="help" data-i18n="stepSyncHelp">Pousse tes trades + points + positions vers le Dashboard Omni sur Hypersheets (garde l’onglet Hypersheets ouvert).</p>
-            <button type="button" class="btn btn-ac btn-block" id="syncHs" data-i18n="syncButton">Synchroniser</button>
-            <p class="status" id="syncHsStatus"></p>
           </div>
         </div>
 
@@ -1086,6 +1071,6 @@
 
     <div class="foot" id="foot">Positions · Collecte</div>
   </div>
-  <script src="widget-app.js?v=2.9.36"></script>
+  <script src="widget-app.js?v=2.9.55"></script>
 </body>
 </html>
