@@ -288,16 +288,9 @@
       font-variant-numeric: tabular-nums;
       color: #93c5fd;
     }
-    .vol-tf-row {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 6px;
-      margin: 8px 0;
-    }
     .vol-pills {
       display: flex; flex-wrap: wrap; gap: 3px;
-      margin-bottom: 0;
+      margin: 8px 0;
     }
     .vol-pills button {
       appearance: none; border: 1px solid var(--border);
@@ -309,33 +302,6 @@
       color: var(--ac); border-color: rgba(110,231,255,.35);
       background: rgba(110,231,255,.1);
     }
-    .vol-epoch-sel {
-      display: none;
-      flex: 1 1 150px;
-      min-width: 0;
-      max-width: 100%;
-      appearance: none;
-      border: 1px solid var(--border);
-      background: rgba(0,0,0,.28);
-      color: var(--dim);
-      font: 700 9px/1.2 inherit;
-      letter-spacing: .02em;
-      padding: 5px 24px 5px 8px;
-      border-radius: 999px;
-      cursor: pointer;
-      color-scheme: dark;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b949e' stroke-width='2.2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-      background-repeat: no-repeat;
-      background-position: right 8px center;
-    }
-    .vol-epoch-sel.is-on { display: block; }
-    .vol-epoch-sel.is-active {
-      color: var(--ac);
-      border-color: rgba(110,231,255,.35);
-      background-color: rgba(110,231,255,.1);
-    }
-    .vol-epoch-sel:focus { outline: none; border-color: rgba(76,154,248,.45); }
-    .vol-epoch-sel option { background: #0d1117; color: var(--text); }
     .vol-val {
       font-size: 18px; font-weight: 800; letter-spacing: -.02em;
       line-height: 1.15;
@@ -1155,10 +1121,7 @@
             </div>
             <div class="vol-epoch-cd" id="volEpochCd">—</div>
           </div>
-          <div class="vol-tf-row">
-            <div class="vol-pills" id="volPeriod" role="tablist" aria-label="Période volume"></div>
-            <select class="vol-epoch-sel" id="volEpochSel" aria-label="Epoch Variational" title="Epoch Variational" hidden></select>
-          </div>
+          <div class="vol-pills" id="volPeriod" role="tablist" aria-label="Période volume"></div>
           <div class="vol-val" id="volValue">—</div>
           <div class="vol-meta" id="volMeta"></div>
         </div>
@@ -1229,6 +1192,6 @@
       <button type="button" class="tab" data-page="volume" id="tabVol" data-i18n="tabVolume">Volume</button>
     </div>
   </div>
-  <script src="widget-app.js?v=2.9.65"></script>
+  <script src="widget-app.js?v=2.9.66"></script>
 </body>
 </html>

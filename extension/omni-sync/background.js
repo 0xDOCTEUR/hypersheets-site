@@ -2406,6 +2406,26 @@ function resolveOmniEpochWindow(payload, slotId, epochStart, now) {
   };
 }
 
+function resolveLastOmniEpochWindow(payload, slotId, now) {
+  const t = now || Date.now();
+  const epochs = listOmniEpochs(payload, slotId, t);
+  let hit = null;
+  for (const e of epochs) {
+    if (e.current) continue;
+    if (!hit || e.start > hit.start) hit = e;
+  }
+  if (!hit) {
+    const cur = currentOmniEpochBounds(payload, slotId, t);
+    hit = { start: cur.start - 7 * 864e5, end: cur.start, current: false };
+  }
+  return {
+    start: hit.start,
+    end: hit.end - 1,
+    exclusiveEnd: hit.end,
+    label: 'Last epoch · ' + fmtUtcShort(hit.start) + ' → ' + fmtUtcShort(hit.end),
+  };
+}
+
 function currentOmniEpochWindow(payload, slotId, now) {
   return resolveOmniEpochWindow(payload, slotId, 0, now);
 }
@@ -2594,13 +2614,13 @@ function pickVolumeSlot(legs, slotId) {
 async function computeVolumeReport(source, period, slotId, epochStart) {
   const src = source === 'hl' ? 'hl' : source === 'xyz' ? 'xyz' : 'omni';
   let per = String(period || '');
-  if (src !== 'omni' && (per === 'epoch' || per.startsWith('epoch:'))) per = '1d';
+  if (src !== 'omni' && (per === 'epoch' || per === 'last' || per.startsWith('epoch:'))) per = '1d';
   if (src === 'omni' && (per === '30d' || per === 'monthly' || per === '7d' || per === 'mtd' || per === 'ytd')) {
     per = 'epoch';
   }
   if (!per) per = src === 'omni' ? 'epoch' : '1d';
 
-  const win = volumeWindow(src, per, Date.now());
+  const win = volumeWindow(src, per === 'last' ? 'epoch' : per, Date.now());
   const stored = await chrome.storage.local.get(['hsWidgetSync']);
   const payload = synced || stored.hsWidgetSync || null;
 
@@ -2609,10 +2629,12 @@ async function computeVolumeReport(source, period, slotId, epochStart) {
     const slot = pickVolumeSlot(legs, slotId);
     const epochs = listOmniEpochs(payload, slot, Date.now());
     const epochInfo = omniEpochInfo(payload, slot, Date.now());
-    const effectiveWin =
-      per === 'epoch'
-        ? resolveOmniEpochWindow(payload, slot, epochStart, Date.now())
-        : win;
+    let effectiveWin = win;
+    if (per === 'epoch') {
+      effectiveWin = resolveOmniEpochWindow(payload, slot, epochStart, Date.now());
+    } else if (per === 'last') {
+      effectiveWin = resolveLastOmniEpochWindow(payload, slot, Date.now());
+    }
     if (!payload || !legs.length) {
       return {
         ok: true,
@@ -2639,7 +2661,7 @@ async function computeVolumeReport(source, period, slotId, epochStart) {
       legs,
       epochs,
       epochInfo,
-      epochStart: per === 'epoch' ? effectiveWin.start : 0,
+      epochStart: per === 'epoch' || per === 'last' ? effectiveWin.start : 0,
       volume: agg.volume,
       count: agg.count,
       window: effectiveWin,

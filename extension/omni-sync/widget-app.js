@@ -18,7 +18,6 @@
   var volEpochStartLbl = document.getElementById("volEpochStartLbl");
   var volEpochEndLbl = document.getElementById("volEpochEndLbl");
   var volEpochCdEl = document.getElementById("volEpochCd");
-  var volEpochSel = document.getElementById("volEpochSel");
   var volValueEl = document.getElementById("volValue");
   var volMetaEl = document.getElementById("volMeta");
   var alertCard = document.getElementById("alertCard");
@@ -70,13 +69,11 @@
   var currentLang = "fr";
   var volSource = "omni";
   var volPeriod = "epoch";
-  var volEpochStart = 0;
   var volEpochEndAt = 0;
   var volCdTimer = null;
   var volSlotBySource = { omni: "all", hl: "all", xyz: "all" };
   var volReqId = 0;
   var volLegs = [];
-  var volEpochs = [];
   var alertPrefs = {
     enabled: false,
     scope: "total",
@@ -100,6 +97,8 @@
   }
 
   var VOL_PERIODS_OMNI = [
+    { id: "epoch", labelKey: "volEpochCurrent" },
+    { id: "last", labelKey: "volEpochLast" },
     { id: "1d", label: "1D" },
     { id: "all", label: "All" },
   ];
@@ -121,8 +120,8 @@
       volEpochStart: "Début",
       volEpochEnd: "Fin",
       volEpochEndsIn: "Fin dans",
-      volEpochNow: "en cours",
-      volEpochSelect: "Epoch",
+      volEpochCurrent: "Epoch en cours",
+      volEpochLast: "Last epoch",
       stepWalletTitle: "Wallet Hyperliquid",
       stepWalletHelp: "Adresse EVM pour charger les hedges HL / XYZ.",
       addWallet: "Ajouter",
@@ -280,8 +279,8 @@
       volEpochStart: "Start",
       volEpochEnd: "End",
       volEpochEndsIn: "Ends in",
-      volEpochNow: "live",
-      volEpochSelect: "Epoch",
+      volEpochCurrent: "Current epoch",
+      volEpochLast: "Last epoch",
       stepWalletTitle: "Hyperliquid wallet",
       stepWalletHelp: "EVM address used to load HL / XYZ hedges.",
       addWallet: "Add",
@@ -602,7 +601,7 @@
   function normalizeVolPeriod(src, period) {
     var p = String(period || "");
     if (src === "omni") {
-      if (p === "epoch" || p === "1d" || p === "all") return p;
+      if (p === "epoch" || p === "last" || p === "1d" || p === "all") return p;
       if (p === "7d" || p === "mtd" || p === "ytd" || p === "30d" || p === "monthly" || p === "week") {
         return "epoch";
       }
@@ -620,7 +619,6 @@
         [VOL_KEY]: {
           source: volSource,
           period: volPeriod,
-          epochStart: volEpochStart || 0,
           slotBySource: volSlotBySource,
         },
       });
@@ -669,73 +667,15 @@
   function syncVolEpochChrome() {
     var on = volSource === "omni";
     if (volEpochBar) volEpochBar.hidden = !on;
-    if (volEpochSel) {
-      volEpochSel.hidden = !on;
-      volEpochSel.classList.toggle("is-on", on);
-      volEpochSel.classList.toggle("is-active", on && volPeriod === "epoch");
+    if (!on && volCdTimer) {
+      clearInterval(volCdTimer);
+      volCdTimer = null;
     }
-    if (!on) {
-      if (volCdTimer) {
-        clearInterval(volCdTimer);
-        volCdTimer = null;
-      }
-    }
-  }
-
-  function epochOptionLabel(e) {
-    if (!e) return "—";
-    if (e.label) {
-      return String(e.label).replace(/ · now\b/i, " · " + t("volEpochNow"));
-    }
-    return String(e.start || "");
-  }
-
-  function renderVolEpochSelect() {
-    if (!volEpochSel) return;
-    syncVolEpochChrome();
-    if (volSource !== "omni") {
-      volEpochSel.innerHTML = "";
-      return;
-    }
-    var list = Array.isArray(volEpochs) ? volEpochs : [];
-    if (!list.length) {
-      volEpochSel.innerHTML =
-        '<option value="">' + esc(t("volEpochSelect")) + "</option>";
-      return;
-    }
-    var cur = Number(volEpochStart) || 0;
-    if (!(cur > 0) || !list.some(function (e) { return e.start === cur; })) {
-      var live = list.find(function (e) { return e.current; }) || list[0];
-      cur = live ? live.start : 0;
-      volEpochStart = cur;
-    }
-    volEpochSel.innerHTML = list
-      .map(function (e) {
-        return (
-          '<option value="' +
-          esc(String(e.start)) +
-          '"' +
-          (e.start === cur ? " selected" : "") +
-          ">" +
-          esc(epochOptionLabel(e)) +
-          "</option>"
-        );
-      })
-      .join("");
   }
 
   function applyVolEpochUi(res) {
     syncVolEpochChrome();
     if (volSource !== "omni") return;
-    if (res && Array.isArray(res.epochs)) {
-      volEpochs = res.epochs;
-      if (res.epochStart > 0 && volPeriod === "epoch") {
-        volEpochStart = Number(res.epochStart) || volEpochStart;
-      }
-      renderVolEpochSelect();
-    } else {
-      renderVolEpochSelect();
-    }
     var info = res && res.epochInfo;
     if (volEpochStartLbl) {
       volEpochStartLbl.textContent = (info && info.startLabel) || "—";
@@ -1067,13 +1007,14 @@
     volPeriodEl.innerHTML = list
       .map(function (p) {
         var on = p.id === volPeriod;
+        var label = p.labelKey ? t(p.labelKey) : p.label;
         return (
           '<button type="button" data-period="' +
           esc(p.id) +
           '"' +
           (on ? ' class="is-on"' : "") +
           ">" +
-          esc(p.label) +
+          esc(label) +
           "</button>"
         );
       })
@@ -1132,7 +1073,6 @@
           source: volSource,
           period: volPeriod,
           slotId: getVolSlot(),
-          epochStart: volSource === "omni" && volPeriod === "epoch" ? volEpochStart || 0 : 0,
         },
         function (res) {
           void chrome.runtime.lastError;
@@ -2334,12 +2274,10 @@
       if (!src || src === volSource) return;
       volSource = src;
       volLegs = [];
-      volEpochs = [];
       volPeriod = normalizeVolPeriod(volSource, volPeriod);
       persistVolPrefs();
       renderVolSource();
       renderVolPeriodPills();
-      renderVolEpochSelect();
       loadVolume();
     });
   }
@@ -2359,16 +2297,6 @@
       var p = btn.getAttribute("data-period");
       if (!p || p === volPeriod) return;
       volPeriod = p;
-      persistVolPrefs();
-      renderVolPeriodPills();
-      loadVolume();
-    });
-  }
-  if (volEpochSel) {
-    volEpochSel.addEventListener("change", function () {
-      var next = Number(volEpochSel.value) || 0;
-      volEpochStart = next;
-      volPeriod = "epoch";
       persistVolPrefs();
       renderVolPeriodPills();
       loadVolume();
@@ -2625,9 +2553,6 @@
           volSource = prefs.source;
         }
         if (prefs.period) volPeriod = normalizeVolPeriod(volSource, String(prefs.period));
-        if (prefs.epochStart != null && Number(prefs.epochStart) > 0) {
-          volEpochStart = Number(prefs.epochStart) || 0;
-        }
         if (prefs.slotBySource && typeof prefs.slotBySource === "object") {
           ["omni", "hl", "xyz"].forEach(function (k) {
             if (prefs.slotBySource[k]) volSlotBySource[k] = String(prefs.slotBySource[k]);
