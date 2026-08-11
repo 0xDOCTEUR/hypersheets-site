@@ -1884,17 +1884,8 @@
       e.preventDefault();
       if (collectBusy) return;
       var newLegLabel = desiredPositionLabel();
-      // Empty fileName → collector auto-names from wallet suffix / trades / points.
-      var asked = window.prompt(t("collectFileNamePrompt"), "");
-      if (asked === null) {
-        toast(t("collectFileNameCancel"), "");
-        return;
-      }
-      var fileName = String(asked || "").trim();
-      if (fileName) {
-        if (!/\.json$/i.test(fileName)) fileName += ".json";
-        fileName = fileName.replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_").slice(0, 120);
-      }
+      // Always auto-name the PC download (wallet / trades / points). No prompt.
+      var fileName = "";
       collectBusy = true;
       var collectWatchdog = setTimeout(function () {
         if (!collectBusy) return;
@@ -1920,7 +1911,8 @@
           (res.omniAddress ? t("omniAddrLabel") + " " + shortAddr(res.omniAddress) + " · " : "") +
           (res.marketsHint ? t("marketsOpenLabel") + " " + res.marketsHint + " · " : "") +
           (c.trades != null ? c.trades + " " + t("trades") : t("ok")) +
-          (c.points != null ? " · " + c.points + " " + t("epochs") : "");
+          (c.points != null ? " · " + c.points + " " + t("epochs") : "") +
+          (res.fileName ? " · " + res.fileName : "");
         if (res.duplicateLabel) {
           msg += " · " + t("collectDupWarn").replace("{label}", res.duplicateLabel);
         }

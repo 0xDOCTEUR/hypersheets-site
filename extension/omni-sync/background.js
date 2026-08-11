@@ -984,6 +984,14 @@ async function runOmniCollect(preferredLabel, fileName) {
 
   if (!result || !result.ok || !result.payload) return result;
 
+  const exportFileName = buildExportFileName(result.payload, fileName || result.fileName || '');
+  let dl = null;
+  try {
+    dl = await downloadExportToPc(result.payload, exportFileName);
+  } catch (_) {
+    dl = { ok: false };
+  }
+
   try {
     // Keep a slim last-export (competition board can be huge and block storage)
     const slim = slimPayloadForStorage(result.payload);
@@ -992,7 +1000,7 @@ async function runOmniCollect(preferredLabel, fileName) {
         at: Date.now(),
         counts: result.counts || null,
         payload: slim,
-        fileName: fileName || result.fileName || null,
+        fileName: exportFileName,
       },
     });
   } catch (_) {}
@@ -1033,7 +1041,7 @@ async function runOmniCollect(preferredLabel, fileName) {
   return {
     ok: true,
     counts: result.counts,
-    mb: result.mb,
+    mb: (dl && dl.mb) || result.mb,
     warnings: result.warnings || result.payload.warnings || [],
     hsTabs: null,
     widgetSynced: true,
@@ -1044,7 +1052,8 @@ async function runOmniCollect(preferredLabel, fileName) {
     marketsHint: applied.marketsHint,
     omniAddress: applied.omniAddress || omniAddress,
     duplicateSlot: applied.duplicateSlot,
-    fileName: fileName || result.fileName || null,
+    fileName: exportFileName,
+    downloadOk: !!(dl && dl.ok),
     duplicateLabel: applied.duplicateLabel,
   };
 }
@@ -1553,6 +1562,81 @@ function suggestLabelFromCsv(bundle) {
   open.sort((a, b) => (b.notional || 0) - (a.notional || 0));
   if (open.length === 1) return open[0].market;
   return open.slice(0, 2).map((p) => p.market).join('+');
+}
+
+function buildExportFileName(payload, preferred) {
+  const preferredName = String(preferred || '').trim();
+  const isGeneric = !preferredName
+    || /^variational-export(-\d{4}-\d{2}-\d{2})?(\.json)?$/i.test(preferredName)
+    || /^variational-export-ext(\.json)?$/i.test(preferredName);
+  if (!isGeneric) {
+    let name = preferredName;
+    if (!/\.json$/i.test(name)) name += '.json';
+    return name.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_').slice(0, 120);
+  }
+  const stamp = new Date().toISOString().slice(0, 10);
+  const parts = ['variational-export'];
+  try {
+    const addr = extractOmniAddress(payload) || '';
+    if (addr.length >= 2) parts.push(addr.slice(-2).toUpperCase());
+  } catch (_) {}
+  try {
+    const n = (payload && payload.counts && payload.counts.trades)
+      || (payload && payload.trades && payload.trades.length)
+      || 0;
+    if (n > 0) parts.push(n + 't');
+  } catch (_) {}
+  try {
+    const sum = payload && payload.points_summary;
+    const pts = parseFloat((sum && (sum.total_points || sum.self_points)) || 0);
+    if (pts > 0) parts.push(Math.round(pts) + 'pts');
+  } catch (_) {}
+  parts.push(stamp);
+  return parts.join('-') + '.json';
+}
+
+/** Save JSON to the user's Downloads folder with an explicit filename. */
+function downloadExportToPc(payload, fileName) {
+  return new Promise((resolve) => {
+    try {
+      if (!chrome.downloads || !chrome.downloads.download) {
+        resolve({ ok: false, error: 'downloads API unavailable' });
+        return;
+      }
+      const name = String(fileName || 'variational-export.json')
+        .replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_')
+        .slice(0, 120);
+      const json = JSON.stringify(payload);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      chrome.downloads.download(
+        {
+          url,
+          filename: name,
+          saveAs: false,
+          conflictAction: 'uniquify',
+        },
+        (downloadId) => {
+          setTimeout(() => {
+            try { URL.revokeObjectURL(url); } catch (_) {}
+          }, 60000);
+          const err = chrome.runtime.lastError;
+          if (err || downloadId == null) {
+            resolve({ ok: false, error: (err && err.message) || 'download failed', mb: null });
+            return;
+          }
+          resolve({
+            ok: true,
+            downloadId,
+            fileName: name,
+            mb: (json.length / 1048576).toFixed(2),
+          });
+        }
+      );
+    } catch (e) {
+      resolve({ ok: false, error: String(e && e.message || e) });
+    }
+  });
 }
 
 function extractOmniAddress(payload) {

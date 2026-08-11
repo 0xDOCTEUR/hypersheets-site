@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Hypersheets Omni Live",
-  "version": "2.9.42",
+  "version": "2.9.43",
   "description": "Positions Omni + HL en live · volumes Epoch/1D/7D · referral Omni & Hyperliquid.",
   "icons": {
     "16": "icons/16.png",
@@ -19,7 +19,7 @@
   "side_panel": {
     "default_path": "widget.html"
   },
-  "permissions": ["storage", "alarms", "activeTab", "windows", "sidePanel", "tabs", "scripting", "notifications", "offscreen"],
+  "permissions": ["storage", "alarms", "activeTab", "windows", "sidePanel", "tabs", "scripting", "notifications", "offscreen", "downloads"],
   "web_accessible_resources": [
     {
       "resources": ["icons/logo.png", "icons/48.png", "icons/128.png", "icons/variational-logo.png", "icons/hyperliquid-logo.png", "icons/tradexyz-logo.png"],

@@ -3,7 +3,7 @@
  * Triggered by the Hypersheets extension panel (1 click).
  */
 (function () {
-  const COLLECT_SCRIPT_VERSION = 4;
+  const COLLECT_SCRIPT_VERSION = 5;
   // Re-injects bump this so stale listeners from older injects ignore messages.
   window.__hsOmniCollectVersion = COLLECT_SCRIPT_VERSION;
   const VERSION = 3;
@@ -262,11 +262,12 @@
           || /^variational-export(-\d{4}-\d{2}-\d{2})?(\.json)?$/i.test(downloadName.trim())
           || /^variational-export-ext(\.json)?$/i.test(downloadName.trim());
         const finalName = isGeneric ? autoName : downloadName;
-        const mb = downloadJson(payload, finalName);
+        // Do NOT download here — background uses chrome.downloads so the
+        // filename on the user's PC is guaranteed (a.download is unreliable).
         sendResponse({
           ok: true,
           payload,
-          mb,
+          mb: null,
           counts: payload.counts,
           warnings: payload.warnings || [],
           fileName: finalName,
