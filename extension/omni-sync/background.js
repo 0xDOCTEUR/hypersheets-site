@@ -965,13 +965,10 @@ async function ensureTargetImportSlot(opts) {
 async function runOmniCollect(preferredLabel, fileName) {
   const tab = await ensureOmniTab();
   if (!tab || tab.id == null) return { ok: false, error: 'Could not open Omni tab' };
-  // Hard reload Omni so any stale collector (old a.download date name) is gone.
-  try {
-    await chrome.tabs.reload(tab.id, { bypassCache: true });
-  } catch (_) {}
-  await waitTabComplete(tab.id, 25000);
-  // Give Omni SPA a moment after "complete"
-  await new Promise((r) => setTimeout(r, 1500));
+  // Do NOT hard-reload Omni before collect: reload reconnects the wallet (often a
+  // different MetaMask account) while HTTP cookies keep the previous company —
+  // competition.self then mismatches trades (e.g. C6 data labeled 0F).
+  // Re-inject the collector instead (version-gated listeners ignore stale copies).
 
   const collectOpts = { fileName: fileName || '' };
   // Always re-inject so collector updates apply without relying on manifest content_scripts.
@@ -988,7 +985,9 @@ async function runOmniCollect(preferredLabel, fileName) {
 
   if (!result || !result.ok || !result.payload) return result;
 
-  const exportFileName = buildExportFileName(result.payload, fileName || result.fileName || '');
+  const exportFileName = await buildExportFileName(result.payload, fileName || result.fileName || '');
+  // Keep company→suffix map fresh when the page wallet was the source.
+  try { await rememberCompanySuffix(result.payload); } catch (_) {}
   let dl = null;
   try {
     dl = await downloadExportToPc(result.payload, exportFileName, tab.id);
@@ -1578,7 +1577,7 @@ function suggestLabelFromCsv(bundle) {
   return open.slice(0, 2).map((p) => p.market).join('+');
 }
 
-function buildExportFileName(payload, preferred) {
+async function buildExportFileName(payload, preferred) {
   const preferredName = String(preferred || '').trim();
   const isGeneric = !preferredName
     || /^variational-export(-\d{4}-\d{2}-\d{2})?(\.json)?$/i.test(preferredName)
@@ -1590,7 +1589,7 @@ function buildExportFileName(payload, preferred) {
     return name.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_').slice(0, 120);
   }
   const stamp = new Date().toISOString().slice(0, 10);
-  const suffix = walletSuffixFromPayload(payload) || 'XX';
+  const suffix = await resolveExportSuffix(payload);
   let trades = 0;
   try {
     trades = (payload && payload.counts && payload.counts.trades)
@@ -1603,6 +1602,21 @@ function buildExportFileName(payload, preferred) {
     pts = Math.round(parseFloat((sum && (sum.total_points || sum.self_points)) || 0)) || 0;
   } catch (_) {}
   return `omni-${suffix}_${trades}t_${pts}pts_${stamp}.json`;
+}
+
+/** Prefer page-connected wallet; fall back to remembered company→suffix over stale competition.self. */
+async function resolveExportSuffix(payload) {
+  const stamped = walletSuffixFromPayload(payload) || '';
+  const src = String((payload && payload.wallet_suffix_source) || '');
+  const fromPage = /^page/i.test(src);
+  if (fromPage && stamped && stamped !== 'XX') {
+    try { await rememberCompanySuffix(payload); } catch (_) {}
+    return stamped;
+  }
+  const remembered = await companySuffixHint(payload);
+  if (remembered) return remembered;
+  if (stamped && stamped !== 'XX') return stamped;
+  return 'XX';
 }
 
 /** Pending PC download name — forced via onDeterminingFilename. */
@@ -1738,6 +1752,9 @@ function extractOmniAddress(payload) {
     if (payload.omni_address) candidates.push(payload.omni_address);
   } catch (_) {}
   try {
+    if (payload.omni_address_raw) candidates.push(payload.omni_address_raw);
+  } catch (_) {}
+  try {
     const self = payload.competition && payload.competition.self;
     if (self && self.address) candidates.push(self.address);
   } catch (_) {}
@@ -1776,15 +1793,63 @@ function omniAddrSuffix(addr) {
   return '';
 }
 
+function payloadCompanyId(payload) {
+  try {
+    if (payload && payload.company) return String(payload.company);
+  } catch (_) {}
+  try {
+    const c = payload && payload.points_summary && payload.points_summary.company;
+    if (c) return String(c);
+  } catch (_) {}
+  try {
+    const t = payload && payload.trades && payload.trades[0];
+    if (t && t.company) return String(t.company);
+  } catch (_) {}
+  return '';
+}
+
 function walletSuffixFromPayload(payload) {
   if (!payload || typeof payload !== 'object') return '';
   if (payload.wallet_suffix && /^[a-f0-9]{2}$/i.test(String(payload.wallet_suffix))) {
     return String(payload.wallet_suffix).toUpperCase();
   }
-  return omniAddrSuffix(extractOmniAddress(payload))
+  return omniAddrSuffix(payload.omni_address)
+    || omniAddrSuffix(payload.omni_address_raw)
+    || omniAddrSuffix(extractOmniAddress(payload))
     || omniAddrSuffix(payload.competition && payload.competition.self && payload.competition.self.address)
     || omniAddrSuffix(payload.points_summary && payload.points_summary.address)
     || '';
+}
+
+/** Remember company → suffix so a bad competition.self cannot rename a known wallet. */
+async function rememberCompanySuffix(payload) {
+  const company = payloadCompanyId(payload);
+  const suffix = walletSuffixFromPayload(payload);
+  if (!company || !suffix || suffix === 'XX') return;
+  // Only trust page-discovered wallets — competition.self alone can be wrong.
+  const src = String((payload && payload.wallet_suffix_source) || '');
+  if (!/^page/i.test(src)) return;
+  try {
+    const data = await chrome.storage.local.get(['hsOmniCompanySuffix']);
+    const map = (data && data.hsOmniCompanySuffix && typeof data.hsOmniCompanySuffix === 'object')
+      ? data.hsOmniCompanySuffix
+      : {};
+    if (map[company] === suffix) return;
+    map[company] = suffix;
+    await chrome.storage.local.set({ hsOmniCompanySuffix: map });
+  } catch (_) {}
+}
+
+async function companySuffixHint(payload) {
+  const company = payloadCompanyId(payload);
+  if (!company) return '';
+  try {
+    const data = await chrome.storage.local.get(['hsOmniCompanySuffix']);
+    const map = data && data.hsOmniCompanySuffix;
+    const s = map && map[company];
+    if (s && /^[a-f0-9]{2}$/i.test(String(s))) return String(s).toUpperCase();
+  } catch (_) {}
+  return '';
 }
 
 function shortOmniAddr(addr) {
