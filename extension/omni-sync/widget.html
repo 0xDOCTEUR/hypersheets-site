@@ -313,9 +313,7 @@
     .alert-field input:not([type="checkbox"]):focus {
       outline: none; border-color: rgba(110,231,255,.35);
     }
-    .alert-note {
-      margin-top: 7px; font-size: 10px; color: var(--muted); line-height: 1.35;
-    }
+    .alert-note { display: none; }
     .alert-card.is-off .alert-grid,
     .alert-card.is-off .alert-note { opacity: .55; }
     .alert-sep {
@@ -327,21 +325,16 @@
       color: #a7b0ba; margin-bottom: 7px;
     }
     .alert-subpanel {
-      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.025));
-      border: 1px solid rgba(255,255,255,.08);
-      border-radius: 12px;
-      padding: 8px 9px;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
+      background: transparent;
+      border: 0;
+      border-radius: 0;
+      padding: 0;
+      box-shadow: none;
     }
-    .alert-subhd {
-      display: flex; align-items: center; justify-content: space-between; gap: 8px;
-    }
-    .alert-subghost {
-      width: 52px;
-      flex-shrink: 0;
-    }
-    .alert-subbody { margin-top: 8px; }
-    .alert-subpanel.is-collapsed .alert-subbody { display: none; }
+    .alert-subhd { display: none; }
+    .alert-subghost { display: none; }
+    .alert-subbody { margin-top: 0; }
+    .alert-subpanel.is-collapsed .alert-subbody { display: block; }
     .alert-pos-list { display: flex; flex-direction: column; gap: 6px; }
     .alert-pos-item {
       border: 1px solid rgba(255,255,255,.08); border-radius: 8px;
@@ -352,6 +345,59 @@
       margin-bottom: 6px;
     }
     .alert-pos-name { font-size: 11px; font-weight: 700; color: var(--text); }
+    .wrap { position: relative; }
+    .settings-panel {
+      display: none;
+      position: absolute;
+      inset: 48px 8px 8px;
+      z-index: 40;
+      background: rgba(8, 12, 18, .97);
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 12px;
+      overflow: auto;
+      padding: 10px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.45);
+    }
+    .settings-panel.is-open { display: block; }
+    .settings-hd {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px; margin-bottom: 10px;
+    }
+    .settings-hd h2 {
+      margin: 0; font-size: 12px; font-weight: 800; letter-spacing: .04em;
+      text-transform: uppercase; color: var(--text);
+    }
+    .settings-close {
+      appearance: none; border: 1px solid var(--border); background: var(--panel);
+      color: var(--muted); width: 28px; height: 28px; border-radius: 8px;
+      cursor: pointer; display: grid; place-items: center; font-size: 14px; line-height: 1;
+    }
+    .settings-close:hover { color: var(--ac); border-color: rgba(110,231,255,.35); }
+    .settings-block {
+      background: rgba(255,255,255,.03);
+      border: 1px solid rgba(255,255,255,.07);
+      border-radius: 10px; padding: 8px; margin-bottom: 8px;
+    }
+    .settings-block h3 {
+      margin: 0 0 8px; font-size: 10px; font-weight: 800;
+      letter-spacing: .06em; text-transform: uppercase; color: var(--muted);
+    }
+    #settingsBtn.is-on {
+      color: var(--ac);
+      border-color: rgba(110,231,255,.4);
+      background: rgba(110,231,255,.1);
+    }
+    .alert-card {
+      background: transparent;
+      border: 0;
+      border-radius: 0;
+      padding: 0;
+      box-shadow: none;
+    }
+    .alert-card .alert-hd { display: none; }
+    .alert-card.is-collapsed .alert-body { display: block; }
+    .alert-rem-item .alert-field label,
+    .alert-pos-item .alert-field label { display: none; }
     .alert-pos-net { font-size: 10px; font-weight: 700; color: var(--muted); }
     .alert-pos-grid {
       display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
@@ -877,6 +923,12 @@
             <button type="button" data-lang="fr" class="is-on">FR</button>
             <button type="button" data-lang="en">EN</button>
           </div>
+          <button type="button" class="icon-btn" id="settingsBtn" title="Réglages" data-i18n-title="settingsTitle" aria-label="Settings">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" stroke="currentColor" stroke-width="1.85"/>
+              <path d="M19.4 13a7.8 7.8 0 0 0 .05-2l2-1.15-2-3.46-2.3.7a7.7 7.7 0 0 0-1.73-1L15 3.5h-6l-.42 2.59a7.7 7.7 0 0 0-1.73 1l-2.3-.7-2 3.46 2 1.15a7.8 7.8 0 0 0 0 2l-2 1.15 2 3.46 2.3-.7a7.7 7.7 0 0 0 1.73 1L9 20.5h6l.42-2.59a7.7 7.7 0 0 0 1.73-1l2.3.7 2-3.46-2-1.15Z" stroke="currentColor" stroke-width="1.85" stroke-linejoin="round"/>
+            </svg>
+          </button>
           <button type="button" class="icon-btn" id="popOut" title="Fenêtre libre" data-i18n-title="popoutTitle">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M14 4h6v6M20 4l-9 9" stroke="currentColor" stroke-width="1.85" stroke-linecap="round"/><path d="M10 6H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" stroke="currentColor" stroke-width="1.85" stroke-linecap="round"/></svg>
           </button>
@@ -885,6 +937,101 @@
       <div class="tabs" role="tablist">
         <button type="button" class="tab is-on" data-page="positions" id="tabPos" data-i18n="tabPositions">Positions</button>
         <button type="button" class="tab" data-page="collecte" id="tabCol" data-i18n="tabCollect">Collecte</button>
+      </div>
+    </div>
+
+    <div class="settings-panel" id="settingsPanel" hidden aria-hidden="true">
+      <div class="settings-hd">
+        <h2 data-i18n="settingsTitle">Réglages</h2>
+        <button type="button" class="settings-close" id="settingsClose" aria-label="Close">×</button>
+      </div>
+      <div class="settings-block">
+        <h3 data-i18n="alertTitle">PnL</h3>
+        <div class="alert-card is-off" id="alertCard">
+            <div class="alert-hd" hidden aria-hidden="true">
+              <button type="button" class="alert-fold" id="alertFold">▾</button>
+            </div>
+          <div class="alert-body" id="alertBody">
+            <div class="alert-grid">
+              <label class="alert-toggle">
+                <input type="checkbox" id="alertEnabled" />
+                <span data-i18n="alertEnabled">On</span>
+              </label>
+              <div class="alert-field">
+                <label for="alertScope" data-i18n="alertScope">Cible</label>
+                <select id="alertScope">
+                  <option value="total" data-i18n="alertScopeTotal">Total</option>
+                  <option value="position" data-i18n="alertScopePosition">Position</option>
+                </select>
+              </div>
+              <div class="alert-field">
+                <label for="alertDirection" data-i18n="alertDirection">Si</label>
+                <select id="alertDirection">
+                  <option value="above" data-i18n="alertDirectionAbove">></option>
+                  <option value="below" data-i18n="alertDirectionBelow"><</option>
+                </select>
+              </div>
+              <div class="alert-field">
+                <label for="alertThreshold" data-i18n="alertThreshold">$</label>
+                <input id="alertThreshold" type="number" step="0.01" inputmode="decimal" placeholder="100" />
+              </div>
+              <div class="alert-field">
+                <label for="alertSound" data-i18n="alertSound">Son</label>
+                <select id="alertSound">
+                  <option value="none" data-i18n="alertSoundNone">—</option>
+                  <option value="beep" data-i18n="alertSoundBeep">Beep</option>
+                  <option value="double" data-i18n="alertSoundDouble">Double</option>
+                  <option value="ping" data-i18n="alertSoundPing">Ping</option>
+                </select>
+              </div>
+            </div>
+            <div class="alert-sep">
+              <label class="alert-toggle">
+                <input type="checkbox" id="alertHlMissing" />
+                <span data-i18n="alertHlMissing">HL disparu</span>
+              </label>
+            </div>
+            <div class="alert-sep">
+              <div class="alert-mini-h" data-i18n="alertPositionsTitle">Par position</div>
+              <div class="alert-pos-list" id="alertPositions"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="settings-block" id="alertReminderWrap">
+        <h3 data-i18n="alertReminderSectionTitle">Rappels</h3>
+        <div class="alert-subpanel" id="alertReminderSection">
+          <div class="alert-subhd" hidden>
+            <button type="button" class="alert-fold" id="alertReminderFold">▾</button>
+          </div>
+          <div class="alert-subbody">
+            <div class="alert-rem-list" id="alertReminders"></div>
+            <div class="alert-rem-actions">
+              <button type="button" class="alert-add" id="alertAddReminder" data-i18n="alertReminderAdd">+</button>
+            </div>
+            <div class="alert-sep">
+              <div class="alert-mini-h" data-i18n="alertRedundancyTitle">Répéter</div>
+              <div class="alert-rem-grid">
+                <label class="alert-toggle">
+                  <input type="checkbox" id="alertRedundancyEnabled" />
+                  <span data-i18n="alertEnabled">On</span>
+                </label>
+                <div class="alert-field">
+                  <label data-i18n="alertRedundancyInterval">Toutes</label>
+                  <div class="row-in">
+                    <button type="button" class="btn" id="alertRedundancyMinus">-</button>
+                    <input id="alertRedundancyEvery" type="text" value="1H" readonly />
+                    <button type="button" class="btn" id="alertRedundancyPlus">+</button>
+                  </div>
+                </div>
+                <div class="alert-field" style="grid-column:1/-1">
+                  <label for="alertRedundancyTitleInput" data-i18n="alertReminderTitle">Nom</label>
+                  <input id="alertRedundancyTitleInput" type="text" maxlength="48" placeholder="Nom" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -912,103 +1059,6 @@
           <div class="vol-pills" id="volPeriod" role="tablist" aria-label="Période volume" style="margin-top:7px"></div>
           <div class="vol-val" id="volValue">—</div>
           <div class="vol-meta" id="volMeta"></div>
-        </div>
-      </div>
-      <div class="kpis" id="alertSection">
-        <div class="alert-card is-off is-collapsed" id="alertCard">
-          <div class="alert-hd">
-            <div class="alert-hd-main">
-              <button type="button" class="alert-fold" id="alertFold" title="Replier">▾</button>
-              <div class="l" data-i18n="alertTitle">Alerte PnL</div>
-            </div>
-            <label class="alert-toggle">
-              <input type="checkbox" id="alertEnabled" />
-              <span data-i18n="alertEnabled">Active</span>
-            </label>
-          </div>
-          <div class="alert-body" id="alertBody">
-            <div class="alert-grid">
-              <div class="alert-field">
-                <label for="alertScope" data-i18n="alertScope">Portee</label>
-                <select id="alertScope">
-                  <option value="total" data-i18n="alertScopeTotal">PnL total</option>
-                  <option value="position" data-i18n="alertScopePosition">PnL position</option>
-                </select>
-              </div>
-              <div class="alert-field">
-                <label for="alertDirection" data-i18n="alertDirection">Condition</label>
-                <select id="alertDirection">
-                  <option value="above" data-i18n="alertDirectionAbove">Au-dessus de</option>
-                  <option value="below" data-i18n="alertDirectionBelow">En-dessous de</option>
-                </select>
-              </div>
-              <div class="alert-field">
-                <label for="alertThreshold" data-i18n="alertThreshold">Seuil USD</label>
-                <input id="alertThreshold" type="number" step="0.01" inputmode="decimal" placeholder="100" />
-              </div>
-              <div class="alert-field">
-                <label for="alertSound" data-i18n="alertSound">Son</label>
-                <select id="alertSound">
-                  <option value="none" data-i18n="alertSoundNone">Aucun</option>
-                  <option value="beep" data-i18n="alertSoundBeep">Beep</option>
-                  <option value="double" data-i18n="alertSoundDouble">Double beep</option>
-                  <option value="ping" data-i18n="alertSoundPing">Ping</option>
-                </select>
-              </div>
-            </div>
-            <div class="alert-sep">
-              <div class="alert-mini-h" data-i18n="alertMonitorTitle">Surveillance</div>
-              <label class="alert-toggle">
-                <input type="checkbox" id="alertHlMissing" />
-                <span data-i18n="alertHlMissing">Alerte si une position HL disparait</span>
-              </label>
-            </div>
-            <div class="alert-sep">
-              <div class="alert-mini-h" data-i18n="alertPositionsTitle">Alertes par position</div>
-              <div class="alert-pos-list" id="alertPositions"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="kpis" id="alertReminderWrap">
-        <div class="alert-subpanel is-collapsed" id="alertReminderSection">
-          <div class="alert-subhd">
-            <div class="alert-hd-main">
-              <button type="button" class="alert-fold" id="alertReminderFold" title="Replier">▾</button>
-              <div class="alert-mini-h" data-i18n="alertReminderSectionTitle" style="margin-bottom:0">Rappels</div>
-            </div>
-            <span class="alert-subghost" aria-hidden="true"></span>
-          </div>
-          <div class="alert-subbody">
-            <div class="alert-rem-item" style="margin-bottom:8px">
-              <div class="alert-mini-h" data-i18n="alertRemindersTitle">Rappels quotidiens</div>
-              <div class="alert-rem-list" id="alertReminders"></div>
-              <div class="alert-rem-actions">
-                <button type="button" class="alert-add" id="alertAddReminder" data-i18n="alertReminderAdd">+ Rappel</button>
-              </div>
-            </div>
-            <div class="alert-rem-item">
-              <div class="alert-mini-h" data-i18n="alertRedundancyTitle">Redondance rappel</div>
-              <div class="alert-rem-grid">
-                <label class="alert-toggle">
-                  <input type="checkbox" id="alertRedundancyEnabled" />
-                  <span data-i18n="alertEnabled">Active</span>
-                </label>
-                <div class="alert-field">
-                  <label data-i18n="alertRedundancyInterval">Intervalle</label>
-                  <div class="row-in">
-                    <button type="button" class="btn" id="alertRedundancyMinus">-</button>
-                    <input id="alertRedundancyEvery" type="text" value="1H" readonly />
-                    <button type="button" class="btn" id="alertRedundancyPlus">+</button>
-                  </div>
-                </div>
-                <div class="alert-field" style="grid-column:1/-1">
-                  <label for="alertRedundancyTitleInput" data-i18n="alertReminderTitle">Titre</label>
-                  <input id="alertRedundancyTitleInput" type="text" maxlength="48" placeholder="Nom" />
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
       <div class="scroll" id="posScroll"></div>
@@ -1071,6 +1121,6 @@
 
     <div class="foot" id="foot">Positions · Collecte</div>
   </div>
-  <script src="widget-app.js?v=2.9.59"></script>
+  <script src="widget-app.js?v=2.9.60"></script>
 </body>
 </html>

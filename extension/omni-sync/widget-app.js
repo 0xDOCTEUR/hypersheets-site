@@ -34,6 +34,9 @@
   var alertRedundancyMinusEl = document.getElementById("alertRedundancyMinus");
   var alertRedundancyPlusEl = document.getElementById("alertRedundancyPlus");
   var alertRedundancyTitleInputEl = document.getElementById("alertRedundancyTitleInput");
+  var settingsBtn = document.getElementById("settingsBtn");
+  var settingsPanel = document.getElementById("settingsPanel");
+  var settingsClose = document.getElementById("settingsClose");
   var posScroll = document.getElementById("posScroll");
   var foot = document.getElementById("foot");
   var walletsList = document.getElementById("walletsList");
@@ -220,40 +223,41 @@
       clickTargetLeg: "Cliquer pour cibler cette jambe",
       removeWallet: "Retirer",
       allTime: "All",
-      alertTitle: "Alerte PnL",
-      alertEnabled: "Active",
-      alertScope: "Portee",
-      alertScopeTotal: "PnL total",
-      alertScopePosition: "PnL position",
-      alertDirection: "Condition",
-      alertDirectionAbove: "Au-dessus de",
-      alertDirectionBelow: "En-dessous de",
-      alertThreshold: "Seuil USD",
+      alertTitle: "PnL",
+      alertEnabled: "On",
+      alertScope: "Cible",
+      alertScopeTotal: "Total",
+      alertScopePosition: "Position",
+      alertDirection: "Si",
+      alertDirectionAbove: ">",
+      alertDirectionBelow: "<",
+      alertThreshold: "$",
       alertSound: "Son",
-      alertSoundNone: "Aucun",
+      alertSoundNone: "—",
       alertSoundBeep: "Beep",
-      alertSoundDouble: "Double beep",
+      alertSoundDouble: "Double",
       alertSoundPing: "Ping",
-      alertHlMissing: "Alerte si une position HL disparait",
-      alertMonitorTitle: "Surveillance",
-      alertPositionsTitle: "Alertes par position",
-      alertPositionsEmpty: "Ajoute ou collecte une position pour definir une alerte dediee.",
+      alertHlMissing: "HL disparu",
+      alertMonitorTitle: "",
+      alertPositionsTitle: "Par position",
+      alertPositionsEmpty: "Aucune position",
       alertReminderSectionTitle: "Rappels",
-      alertRemindersTitle: "Rappels quotidiens",
-      alertRedundancyTitle: "Redondance rappel",
-      alertRedundancyInterval: "Intervalle",
-      alertRemindersEmpty: "Aucun rappel configure.",
-      alertReminderAdd: "+ Rappel",
+      alertRemindersTitle: "Rappels",
+      alertRedundancyTitle: "Répéter",
+      alertRedundancyInterval: "Toutes",
+      alertRemindersEmpty: "Aucun",
+      alertReminderAdd: "+",
       alertReminderTime: "Heure",
-      alertReminderHour: "Heure",
-      alertReminderMinute: "Minute",
-      alertReminderTitle: "Titre",
-      alertReminderPosition: "Position optionnelle",
-      alertReminderRemove: "Supprimer",
-      alertTestSound: "Tester",
-      alertReminderActive: "Rappel actif",
-      alertNote: "Notification bureau unique quand le seuil est franchi. L'alerte se rearme quand le PnL repasse de l'autre cote.",
-      alertSaved: "Alerte PnL mise a jour",
+      alertReminderHour: "H",
+      alertReminderMinute: "M",
+      alertReminderTitle: "Nom",
+      alertReminderPosition: "Position",
+      alertReminderRemove: "✕",
+      alertTestSound: "♪",
+      alertReminderActive: "On",
+      alertNote: "",
+      alertSaved: "OK",
+      settingsTitle: "Réglages",
     },
     en: {
       popoutTitle: "Free window",
@@ -371,40 +375,41 @@
       clickTargetLeg: "Click to target this leg",
       removeWallet: "Remove",
       allTime: "All",
-      alertTitle: "PnL alert",
-      alertEnabled: "Enabled",
-      alertScope: "Scope",
-      alertScopeTotal: "Total PnL",
-      alertScopePosition: "Position PnL",
-      alertDirection: "Condition",
-      alertDirectionAbove: "Above",
-      alertDirectionBelow: "Below",
-      alertThreshold: "USD threshold",
+      alertTitle: "PnL",
+      alertEnabled: "On",
+      alertScope: "Target",
+      alertScopeTotal: "Total",
+      alertScopePosition: "Position",
+      alertDirection: "If",
+      alertDirectionAbove: ">",
+      alertDirectionBelow: "<",
+      alertThreshold: "$",
       alertSound: "Sound",
-      alertSoundNone: "None",
+      alertSoundNone: "—",
       alertSoundBeep: "Beep",
-      alertSoundDouble: "Double beep",
+      alertSoundDouble: "Double",
       alertSoundPing: "Ping",
-      alertHlMissing: "Alert when an HL position disappears",
-      alertMonitorTitle: "Monitoring",
-      alertPositionsTitle: "Per-position alerts",
-      alertPositionsEmpty: "Add or collect a position to configure a dedicated alert.",
+      alertHlMissing: "HL gone",
+      alertMonitorTitle: "",
+      alertPositionsTitle: "Per position",
+      alertPositionsEmpty: "None",
       alertReminderSectionTitle: "Reminders",
-      alertRemindersTitle: "Daily reminders",
-      alertRedundancyTitle: "Reminder redundancy",
-      alertRedundancyInterval: "Interval",
-      alertRemindersEmpty: "No reminder configured yet.",
-      alertReminderAdd: "+ Reminder",
+      alertRemindersTitle: "Reminders",
+      alertRedundancyTitle: "Repeat",
+      alertRedundancyInterval: "Every",
+      alertRemindersEmpty: "None",
+      alertReminderAdd: "+",
       alertReminderTime: "Time",
-      alertReminderHour: "Hour",
-      alertReminderMinute: "Minute",
-      alertReminderTitle: "Title",
-      alertReminderPosition: "Optional position",
-      alertReminderRemove: "Remove",
-      alertTestSound: "Test",
-      alertReminderActive: "Reminder active",
-      alertNote: "One desktop notification when the threshold is crossed. The alert rearms once PnL moves back across the line.",
-      alertSaved: "PnL alert updated",
+      alertReminderHour: "H",
+      alertReminderMinute: "M",
+      alertReminderTitle: "Name",
+      alertReminderPosition: "Position",
+      alertReminderRemove: "✕",
+      alertTestSound: "♪",
+      alertReminderActive: "On",
+      alertNote: "",
+      alertSaved: "OK",
+      settingsTitle: "Settings",
     },
   };
 
@@ -713,15 +718,13 @@
                 '<span>' + esc(t("alertEnabled")) + "</span>" +
               "</label>" +
               '<div class="alert-field">' +
-                '<label data-i18n="alertDirection">' + esc(t("alertDirection")) + "</label>" +
                 '<select data-alert-pos-direction="' + esc(item.id) + '">' +
                   '<option value="above"' + (item.rule.direction === "above" ? " selected" : "") + ">" + esc(t("alertDirectionAbove")) + "</option>" +
                   '<option value="below"' + (item.rule.direction === "below" ? " selected" : "") + ">" + esc(t("alertDirectionBelow")) + "</option>" +
                 "</select>" +
               "</div>" +
               '<div class="alert-field" style="grid-column:1/-1">' +
-                '<label>' + esc(t("alertThreshold")) + "</label>" +
-                '<input type="number" step="0.01" inputmode="decimal" data-alert-pos-threshold="' + esc(item.id) + '" value="' + esc(String(item.rule.threshold)) + '" />' +
+                '<input type="number" step="0.01" inputmode="decimal" data-alert-pos-threshold="' + esc(item.id) + '" value="' + esc(String(item.rule.threshold)) + '" placeholder="$" />' +
               "</div>" +
             "</div>" +
           "</div>"
@@ -759,18 +762,15 @@
               '<span>' + esc(t("alertEnabled")) + "</span>" +
             "</label>" +
             '<div class="alert-field">' +
-              '<label>' + esc(t("alertReminderTime")) + "</label>" +
               '<div class="row-in">' +
                 '<select data-reminder-hour="' + esc(item.id) + '">' + timeHourOptionsHtml(hh) + "</select>" +
                 '<select data-reminder-minute="' + esc(item.id) + '">' + timeMinuteOptionsHtml(mm) + "</select>" +
               "</div>" +
             "</div>" +
             '<div class="alert-field" style="grid-column:1/-1">' +
-              '<label>' + esc(t("alertReminderTitle")) + "</label>" +
-              '<input type="text" maxlength="48" data-reminder-title="' + esc(item.id) + '" value="' + esc(item.title) + '" placeholder="Open / Close" />' +
+              '<input type="text" maxlength="48" data-reminder-title="' + esc(item.id) + '" value="' + esc(item.title) + '" placeholder="' + esc(t("alertReminderTitle")) + '" />' +
             "</div>" +
             '<div class="alert-field">' +
-              '<label>' + esc(t("alertSound")) + "</label>" +
               '<div class="row-in">' +
                 '<select data-reminder-sound="' + esc(item.id) + '">' +
                   '<option value="none"' + (item.sound === "none" ? " selected" : "") + ">" + esc(t("alertSoundNone")) + "</option>" +
@@ -782,7 +782,6 @@
               "</div>" +
             "</div>" +
             '<div class="alert-field">' +
-              '<label>' + esc(t("alertReminderPosition")) + "</label>" +
               '<select data-reminder-position="' + esc(item.id) + '">' + alertPositionOptionsHtml(item.positionId) + "</select>" +
             "</div>" +
           "</div>" +
@@ -825,10 +824,8 @@
     if (alertRedundancyEveryEl) alertRedundancyEveryEl.value = String((alertPrefs.redundancy && alertPrefs.redundancy.everyHours) || 1) + "H";
     if (alertRedundancyTitleInputEl) alertRedundancyTitleInputEl.value = alertPrefs.redundancy && alertPrefs.redundancy.title ? alertPrefs.redundancy.title : "";
     if (alertCard) alertCard.classList.toggle("is-off", !alertPrefs.enabled);
-    if (alertCard) alertCard.classList.toggle("is-collapsed", !!alertPrefs.collapsed);
-    if (alertFoldEl) alertFoldEl.textContent = alertPrefs.collapsed ? "▸" : "▾";
-    if (alertReminderSectionEl) alertReminderSectionEl.classList.toggle("is-collapsed", !!alertPrefs.remindersCollapsed);
-    if (alertReminderFoldEl) alertReminderFoldEl.textContent = alertPrefs.remindersCollapsed ? "▸" : "▾";
+    if (alertCard) alertCard.classList.remove("is-collapsed");
+    if (alertReminderSectionEl) alertReminderSectionEl.classList.remove("is-collapsed");
     if (rebuildLists) {
       renderAlertPositionList(!!opts.forceLists);
       renderReminderList(!!opts.forceLists);
@@ -1099,6 +1096,7 @@
 
   function setPage(name) {
     if (name === "points") name = "positions";
+    setSettingsOpen(false);
     document.querySelectorAll(".page").forEach(function (el) {
       el.classList.toggle("is-on", el.getAttribute("data-page") === name);
     });
@@ -2194,6 +2192,37 @@
     });
   }
 
+  function setSettingsOpen(open) {
+    if (!settingsPanel) return;
+    settingsPanel.classList.toggle("is-open", !!open);
+    settingsPanel.hidden = !open;
+    settingsPanel.setAttribute("aria-hidden", open ? "false" : "true");
+    if (settingsBtn) {
+      settingsBtn.classList.toggle("is-on", !!open);
+      settingsBtn.setAttribute("aria-expanded", open ? "true" : "false");
+    }
+    if (open) {
+      try { renderAlertPrefs({ rebuildLists: true, forceLists: true }); } catch (_) {}
+    }
+  }
+
+  function bindSettingsPanel() {
+    if (settingsBtn) {
+      settingsBtn.addEventListener("click", function () {
+        var open = !(settingsPanel && settingsPanel.classList.contains("is-open"));
+        setSettingsOpen(open);
+      });
+    }
+    if (settingsClose) {
+      settingsClose.addEventListener("click", function () {
+        setSettingsOpen(false);
+      });
+    }
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") setSettingsOpen(false);
+    });
+  }
+
   function bindAlertPrefs() {
     if (alertFoldEl) {
       alertFoldEl.addEventListener("click", function () {
@@ -2376,6 +2405,7 @@
     }
   }
   bindAlertPrefs();
+  bindSettingsPanel();
 
   document.getElementById("langSwitch")?.addEventListener("click", function (e) {
     var btn = e.target && e.target.closest("button[data-lang]");
