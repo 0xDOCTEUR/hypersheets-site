@@ -3,6 +3,9 @@
  * Triggered by the Hypersheets extension panel (1 click).
  */
 (function () {
+  const COLLECT_SCRIPT_VERSION = 4;
+  // Re-injects bump this so stale listeners from older injects ignore messages.
+  window.__hsOmniCollectVersion = COLLECT_SCRIPT_VERSION;
   const VERSION = 3;
   const HOST = 'omni.variational.io';
 
@@ -234,6 +237,7 @@
   let busy = false;
 
   chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+    if (window.__hsOmniCollectVersion !== COLLECT_SCRIPT_VERSION) return undefined;
     if (!msg || msg.type !== 'HS_OMNI_COLLECT') return undefined;
     if (busy) {
       sendResponse({ ok: false, error: 'Collection already running' });
@@ -253,14 +257,19 @@
           } catch (_) {}
         });
         const autoName = buildAutoFileName(payload);
-        const mb = downloadJson(payload, downloadName || autoName);
+        // Prefer auto name unless the user typed a custom (non-generic) name.
+        const isGeneric = !downloadName
+          || /^variational-export(-\d{4}-\d{2}-\d{2})?(\.json)?$/i.test(downloadName.trim())
+          || /^variational-export-ext(\.json)?$/i.test(downloadName.trim());
+        const finalName = isGeneric ? autoName : downloadName;
+        const mb = downloadJson(payload, finalName);
         sendResponse({
           ok: true,
           payload,
           mb,
           counts: payload.counts,
           warnings: payload.warnings || [],
-          fileName: downloadName || undefined,
+          fileName: finalName,
         });
       } catch (e) {
         sendResponse({

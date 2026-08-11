@@ -970,6 +970,9 @@ async function runOmniCollect(preferredLabel, fileName) {
   await new Promise((r) => setTimeout(r, 1200));
 
   const collectOpts = { fileName: fileName || '' };
+  // Always re-inject so collector updates (auto filename, etc.) apply without reloading Omni.
+  await injectOmniCollector(tab.id);
+  await new Promise((r) => setTimeout(r, 200));
   let result = await sendCollect(tab.id, collectOpts);
   if (!result.ok && /Receiving end does not exist|Could not establish connection/i.test(String(result.error || ''))) {
     const injected = await injectOmniCollector(tab.id);

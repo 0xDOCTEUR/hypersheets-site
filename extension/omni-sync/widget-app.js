@@ -125,7 +125,7 @@
       positionNameLabel: "Nom de la nouvelle position",
       positionNamePlaceholder: "Ex. Variational, Hedge BTC…",
       collectOmni: "Collecter Omni",
-      collectFileNamePrompt: "Nom du fichier JSON a telecharger",
+      collectFileNamePrompt: "Nom du fichier JSON (vide = auto: suffixe wallet / trades / points)",
       collectFileNameCancel: "Collecte annulee",
       dropTitle: "Deposer JSON / CSV (par compte)",
       dropHintDefault: "ajoute des CSV a la biblio · menu deroulant pour lier a chaque position",
@@ -276,7 +276,7 @@
       positionNameLabel: "New position name",
       positionNamePlaceholder: "e.g. Variational, BTC hedge…",
       collectOmni: "Collect Omni",
-      collectFileNamePrompt: "JSON download file name",
+      collectFileNamePrompt: "JSON file name (blank = auto: wallet suffix / trades / points)",
       collectFileNameCancel: "Collection cancelled",
       dropTitle: "Drop JSON / CSV (per account)",
       dropHintDefault: "add CSVs to the library · dropdown to link one per position",
@@ -1884,16 +1884,17 @@
       e.preventDefault();
       if (collectBusy) return;
       var newLegLabel = desiredPositionLabel();
-      var stamp = new Date().toISOString().slice(0, 10);
-      var defaultName = "variational-export-" + stamp + ".json";
-      var asked = window.prompt(t("collectFileNamePrompt"), defaultName);
+      // Empty fileName → collector auto-names from wallet suffix / trades / points.
+      var asked = window.prompt(t("collectFileNamePrompt"), "");
       if (asked === null) {
         toast(t("collectFileNameCancel"), "");
         return;
       }
-      var fileName = String(asked || "").trim() || defaultName;
-      if (!/\.json$/i.test(fileName)) fileName += ".json";
-      fileName = fileName.replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_").slice(0, 120);
+      var fileName = String(asked || "").trim();
+      if (fileName) {
+        if (!/\.json$/i.test(fileName)) fileName += ".json";
+        fileName = fileName.replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_").slice(0, 120);
+      }
       collectBusy = true;
       var collectWatchdog = setTimeout(function () {
         if (!collectBusy) return;
