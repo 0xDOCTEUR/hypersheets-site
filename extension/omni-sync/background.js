@@ -965,19 +965,23 @@ async function ensureTargetImportSlot(opts) {
 async function runOmniCollect(preferredLabel, fileName) {
   const tab = await ensureOmniTab();
   if (!tab || tab.id == null) return { ok: false, error: 'Could not open Omni tab' };
+  // Hard reload Omni so any stale collector (old a.download date name) is gone.
+  try {
+    await chrome.tabs.reload(tab.id, { bypassCache: true });
+  } catch (_) {}
   await waitTabComplete(tab.id, 25000);
   // Give Omni SPA a moment after "complete"
-  await new Promise((r) => setTimeout(r, 1200));
+  await new Promise((r) => setTimeout(r, 1500));
 
   const collectOpts = { fileName: fileName || '' };
-  // Always re-inject so collector updates (auto filename, etc.) apply without reloading Omni.
+  // Always re-inject so collector updates apply without relying on manifest content_scripts.
   await injectOmniCollector(tab.id);
-  await new Promise((r) => setTimeout(r, 200));
+  await new Promise((r) => setTimeout(r, 300));
   let result = await sendCollect(tab.id, collectOpts);
   if (!result.ok && /Receiving end does not exist|Could not establish connection/i.test(String(result.error || ''))) {
     const injected = await injectOmniCollector(tab.id);
     if (injected) {
-      await new Promise((r) => setTimeout(r, 200));
+      await new Promise((r) => setTimeout(r, 300));
       result = await sendCollect(tab.id, collectOpts);
     }
   }
@@ -987,7 +991,7 @@ async function runOmniCollect(preferredLabel, fileName) {
   const exportFileName = buildExportFileName(result.payload, fileName || result.fileName || '');
   let dl = null;
   try {
-    dl = await downloadExportToPc(result.payload, exportFileName);
+    dl = await downloadExportToPc(result.payload, exportFileName, tab.id);
   } catch (_) {
     dl = { ok: false };
   }
@@ -1599,19 +1603,77 @@ function buildExportFileName(payload, preferred) {
   return parts.join('-') + '.json';
 }
 
+/** Pending PC download name — forced via onDeterminingFilename. */
+let _pendingPcDownloadName = '';
+
+try {
+  if (chrome.downloads && chrome.downloads.onDeterminingFilename) {
+    chrome.downloads.onDeterminingFilename.addListener((item, suggest) => {
+      try {
+        if (item.byExtensionId === chrome.runtime.id && _pendingPcDownloadName) {
+          const name = _pendingPcDownloadName;
+          _pendingPcDownloadName = '';
+          suggest({ filename: name, conflictAction: 'uniquify' });
+          return;
+        }
+      } catch (_) {}
+      try { suggest(); } catch (__) {}
+    });
+  }
+} catch (_) {}
+
 /** Save JSON to the user's Downloads folder with an explicit filename. */
-function downloadExportToPc(payload, fileName) {
-  return new Promise((resolve) => {
+function downloadExportToPc(payload, fileName, tabId) {
+  return new Promise(async (resolve) => {
     try {
-      if (!chrome.downloads || !chrome.downloads.download) {
-        resolve({ ok: false, error: 'downloads API unavailable' });
-        return;
-      }
       const name = String(fileName || 'variational-export.json')
         .replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_')
         .slice(0, 120);
       const json = JSON.stringify(payload == null ? {} : payload);
-      // data: URL — blob: from a service worker is often ignored by chrome.downloads.
+      const mb = (json.length / 1048576).toFixed(2);
+
+      // 1) Prefer injecting a one-shot download in the Omni tab (same-origin blob honors a.download).
+      if (tabId != null && chrome.scripting && chrome.scripting.executeScript) {
+        try {
+          const injected = await chrome.scripting.executeScript({
+            target: { tabId },
+            world: 'ISOLATED',
+            func: (jsonStr, file) => {
+              try {
+                const blob = new Blob([jsonStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = file;
+                a.rel = 'noopener';
+                a.style.display = 'none';
+                (document.body || document.documentElement).appendChild(a);
+                a.click();
+                setTimeout(() => {
+                  try { URL.revokeObjectURL(url); } catch (_) {}
+                  try { a.remove(); } catch (_) {}
+                }, 4000);
+                return { ok: true, file };
+              } catch (e) {
+                return { ok: false, error: String(e && e.message || e) };
+              }
+            },
+            args: [json, name],
+          });
+          const res = injected && injected[0] && injected[0].result;
+          if (res && res.ok) {
+            resolve({ ok: true, fileName: name, mb, via: 'inject' });
+            return;
+          }
+        } catch (_) {}
+      }
+
+      // 2) Fallback: chrome.downloads + onDeterminingFilename to force the name.
+      if (!chrome.downloads || !chrome.downloads.download) {
+        resolve({ ok: false, error: 'downloads API unavailable', mb });
+        return;
+      }
+      _pendingPcDownloadName = name;
       let binary = '';
       const bytes = new TextEncoder().encode(json);
       const chunk = 0x8000;
@@ -1629,6 +1691,7 @@ function downloadExportToPc(payload, fileName) {
         (downloadId) => {
           const err = chrome.runtime.lastError;
           if (err || downloadId == null) {
+            _pendingPcDownloadName = '';
             resolve({ ok: false, error: (err && err.message) || 'download failed', mb: null });
             return;
           }
@@ -1636,11 +1699,13 @@ function downloadExportToPc(payload, fileName) {
             ok: true,
             downloadId,
             fileName: name,
-            mb: (json.length / 1048576).toFixed(2),
+            mb,
+            via: 'downloads-api',
           });
         }
       );
     } catch (e) {
+      _pendingPcDownloadName = '';
       resolve({ ok: false, error: String(e && e.message || e) });
     }
   });
