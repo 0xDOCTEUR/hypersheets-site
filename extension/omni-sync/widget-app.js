@@ -2478,6 +2478,12 @@
 
   loadState();
   try {
+    var man = chrome.runtime.getManifest();
+    if (foot && man && man.version) {
+      foot.textContent = (foot.textContent || "") + " · ext v" + man.version;
+    }
+  } catch (_) {}
+  try {
     chrome.runtime.sendMessage({ type: "HS_WIDGET_REFRESH" }, function () {
       void chrome.runtime.lastError;
     });
