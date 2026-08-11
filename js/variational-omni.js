@@ -8349,6 +8349,46 @@
     </div>`;
     host.innerHTML = chips + slotsHtml + actions;
     try { varUpdateImportDdBadge(acc, ids, filled); } catch (_) {}
+    try { varRenderTopScopeChips(acc, ids, active, scope, filled); } catch (_) {}
+  }
+
+  function varRenderTopScopeChips(acc, ids, active, scope, filled) {
+    const host = document.getElementById('varTopScopeChips');
+    if (!host) return;
+    acc = acc || varAccountsLoad();
+    ids = ids || varOmniSlotIds(acc);
+    active = active || varAccountsActiveId();
+    scope = scope || varCsvScopeLoad();
+    if (typeof filled !== 'number') {
+      filled = ids.filter((id) => (acc.slots[id]?.csv?.trades || []).length > 0).length;
+    }
+    host.innerHTML = `
+      <button type="button" class="wallet-chip${scope === 'all' ? ' active' : ''}" data-top-scope="all"${filled < 2 ? ' disabled' : ''}>${varT('var.csvScopeAll') || 'Tous'}</button>
+      ${ids.map((id, i) => {
+        const s = acc.slots[id];
+        const nTrades = (s.csv?.trades || []).length;
+        const label = s.label || varOmniLabelForIndex(i);
+        const on = scope === 'active' && id === active;
+        return `<button type="button" class="wallet-chip${on ? ' active' : ''}" data-top-pick="${id}" title="${nTrades} trades">${varEsc(label)}${nTrades ? ` · ${nTrades}` : ''}</button>`;
+      }).join('')}`;
+    if (!host._hsBound) {
+      host._hsBound = true;
+      host.addEventListener('click', (e) => {
+        const all = e.target.closest('[data-top-scope]');
+        if (all) {
+          e.preventDefault();
+          if (all.disabled) return;
+          varSetCsvScope('all');
+          return;
+        }
+        const pick = e.target.closest('[data-top-pick]');
+        if (pick) {
+          e.preventDefault();
+          varCsvScopeSave('active');
+          varAccountsSetActiveImport(pick.getAttribute('data-top-pick'));
+        }
+      });
+    }
   }
 
   function varUpdateImportDdBadge(acc, ids, filled) {

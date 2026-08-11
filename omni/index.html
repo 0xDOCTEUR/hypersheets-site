@@ -809,6 +809,16 @@ const HS_CONFIG = {
           color: var(--muted);
         }
         .var-live-ready-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+        .var-top-scope-chips {
+          display: inline-flex;
+          flex-wrap: wrap;
+          gap: 4px;
+          align-items: center;
+        }
+        .var-top-scope-chips .wallet-chip {
+          padding: 5px 10px;
+          font-size: .72rem;
+        }
         .var-import-dd { position: relative; z-index: 40; }
         .var-import-dd-btn {
           display: inline-flex; align-items: center; gap: 6px;
@@ -11407,6 +11417,7 @@ try {
                 <p id="varOmniSyncStatus" class="var-guide-note" style="margin:4px 0 0"></p>
               </div>
               <div class="var-live-ready-actions">
+                <div id="varTopScopeChips" class="var-top-scope-chips"></div>
                 <div class="var-import-dd" id="varImportDd">
                   <button type="button" class="btn btn-ac text-xs var-import-dd-btn" id="varImportDdBtn" aria-expanded="false" aria-haspopup="true" aria-controls="varImportDdPanel">
                     <span data-i18n="var.importMenu">Import</span>
@@ -33218,7 +33229,7 @@ document.addEventListener('DOMContentLoaded', () => {
   </div>
 </div>
 <script src="../js/variational-omni-collector.js"></script>
-<script src="../js/variational-omni.js?v=20260811farmkpis"></script>
+<script src="../js/variational-omni.js?v=20260811topchips"></script>
 <script>
 (function hsLoadCfWebAnalytics() {
   var token = (typeof HS_CONFIG !== 'undefined' && HS_CONFIG.cfWebAnalyticsToken) || '';
