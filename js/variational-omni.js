@@ -4932,6 +4932,204 @@
     return bestDist < 36 * 3600 * 1000 ? best : null;
   }
 
+  function varFmtSuiviUsd(n) {
+    const v = Number(n);
+    if (!isFinite(v)) return '—';
+    if (v === 0) return '0$';
+    const abs = Math.abs(v);
+    const body = Math.round(abs).toLocaleString(varLoc().startsWith('fr') ? 'fr-FR' : 'en-US');
+    return (v < 0 ? '-' : '') + body + '$';
+  }
+
+  function varFarmWalletLifetimeStats(w) {
+    const csv = w.csv || null;
+    const stats = csv
+      ? varEpochWindowSummary(csv, 0, Date.now() + 14 * 864e5)
+      : { volume: 0, trades: 0, realizedPnl: 0, funding: 0, fees: 0, pnl: 0 };
+    const sum = w.points?.points_summary || {};
+    let points = parseFloat(sum.total_points);
+    if (!isFinite(points)) points = parseFloat(sum.self_points);
+    if (!isFinite(points)) {
+      points = 0;
+      for (const h of w.points?.points_history || []) {
+        const s = Date.parse(h.start_window || 0);
+        const e = Date.parse(h.end_window || 0);
+        if (!isFinite(s) || !isFinite(e)) continue;
+        const days = (e - s) / 864e5;
+        if (days < 6.5 || days > 7.5) continue;
+        points += parseFloat(h.total_points || h.self_points || 0) || 0;
+      }
+    }
+    const pnl = stats.pnl != null
+      ? stats.pnl
+      : (Number(stats.realizedPnl || 0) + Number(stats.funding || 0) + Number(stats.fees || 0));
+    return {
+      label: w.label,
+      color: w.color,
+      isHl: false,
+      points: points || 0,
+      volume: stats.volume || 0,
+      trades: stats.trades || 0,
+      realized: Number(stats.realizedPnl || 0) || 0,
+      funding: Number(stats.funding || 0) || 0,
+      fees: Number(stats.fees || 0) || 0,
+      pnl: pnl || 0,
+    };
+  }
+
+  function varFarmHlLifetimeStats(hl) {
+    let volume = 0;
+    let trades = 0;
+    let realized = 0;
+    let funding = 0;
+    let fees = 0;
+    let pnl = 0;
+    for (const e of hl.epochs || []) {
+      if (e && e.farming === false) continue;
+      volume += Number(e.volume || 0) || 0;
+      trades += Number(e.trades || 0) || 0;
+      realized += Number(e.realized || 0) || 0;
+      funding += Number(e.funding || 0) || 0;
+      fees += Number(e.fees || 0) || 0;
+      pnl += Number(e.pnl != null
+        ? e.pnl
+        : (Number(e.realized || 0) + Number(e.funding || 0) + Number(e.fees || 0))) || 0;
+    }
+    return {
+      label: hl.label || 'HL',
+      color: hl.color,
+      isHl: true,
+      points: 0,
+      volume,
+      trades,
+      realized,
+      funding,
+      fees,
+      pnl,
+    };
+  }
+
+  /** Lifetime KPIs + wallet cards — same formulas as Suivi header. */
+  function varFarmComputeGlobal(wallets, hlWallets, pricePerPt) {
+    const variaStats = (wallets || []).map(varFarmWalletLifetimeStats);
+    const hlStats = (hlWallets || []).map(varFarmHlLifetimeStats);
+    let points = 0;
+    let volume = 0;
+    let pnl = 0;
+    let realized = 0;
+    let funding = 0;
+    let fees = 0;
+    let trades = 0;
+    let hlPnl = 0;
+    for (const s of variaStats) {
+      points += s.points || 0;
+      volume += s.volume || 0;
+      pnl += s.pnl || 0;
+      realized += s.realized || 0;
+      funding += s.funding || 0;
+      fees += s.fees || 0;
+      trades += s.trades || 0;
+    }
+    for (const s of hlStats) {
+      volume += s.volume || 0;
+      pnl += s.pnl || 0;
+      realized += s.realized || 0;
+      funding += s.funding || 0;
+      fees += s.fees || 0;
+      trades += s.trades || 0;
+      hlPnl += s.pnl || 0;
+    }
+    const pp = pricePerPt != null ? Number(pricePerPt) : varPricePerPoint();
+    const est = points * (isFinite(pp) ? pp : 0);
+    const costPerPt = (points > 0 && pnl < 0) ? (Math.abs(pnl) / points) : null;
+    return {
+      variaStats,
+      hlStats,
+      points,
+      totalPts: points,
+      volume,
+      pnl,
+      realized,
+      funding,
+      fees,
+      trades,
+      hlPnl,
+      est,
+      estNet: est + pnl,
+      costPerPt,
+      pricePerPt: isFinite(pp) ? pp : 0,
+    };
+  }
+
+  function varFarmKpisHtml(g) {
+    const costDisp = g.costPerPt != null ? varFarmEpochCostDisp(g.costPerPt) : '—';
+    const items = [
+      {
+        label: varT('var.epochPoints'),
+        value: varFmtPoints(g.totalPts),
+        accent: true,
+        tip: `Volume ${varFmtCompactUsd(g.volume)} · ${g.trades} trades`,
+      },
+      {
+        label: varT('var.epochPnlCombined'),
+        value: varFmtSuiviUsd(g.pnl),
+        cls: g.pnl < 0 ? 'is-neg' : (g.pnl > 0 ? 'is-pos' : ''),
+        tip: `R ${varFmtSignedUsdExact(g.realized)} · F ${varFmtSignedUsdExact(g.funding)} · Fees ${varFmtSignedUsdExact(g.fees)} · HL ${varFmtSignedUsdExact(g.hlPnl)}`,
+      },
+      {
+        label: varT('var.epochCostPt'),
+        value: costDisp,
+        cls: g.costPerPt != null ? 'is-neg' : '',
+        tip: g.costPerPt != null
+          ? `|PnL| ÷ pts = ${varFmtSuiviUsd(Math.abs(g.pnl))} ÷ ${varFmtPoints(g.totalPts)}`
+          : varT('var.epochCostPtHint'),
+      },
+      {
+        label: varT('var.epochEst'),
+        value: varFmtSuiviUsd(g.est),
+        tip: `${varFmtPoints(g.totalPts)} × ${g.pricePerPt}$/pt`,
+      },
+      {
+        label: varT('var.epochEstNet'),
+        value: varFmtSuiviUsd(g.estNet),
+        cls: g.estNet < 0 ? 'is-neg' : (g.estNet > 0 ? 'is-pos' : ''),
+        tip: `${varFmtSuiviUsd(g.est)} + ${varFmtSuiviUsd(g.pnl)}`,
+      },
+    ];
+    return `<div class="var-farm-suivi-kpis">${items.map((i) => `
+      <div class="var-farm-suivi-kpi${i.accent ? ' is-accent' : ''}" title="${varEsc(i.tip)}">
+        <div class="lbl">${varEsc(i.label)}</div>
+        <div class="val mono ${i.cls || ''}">${i.value}</div>
+      </div>`).join('')}</div>`;
+  }
+
+  function varFarmWalletsHtml(g) {
+    const cards = [];
+    (g.variaStats || []).forEach((s) => cards.push(s));
+    (g.hlStats || []).forEach((s) => cards.push(s));
+    if (!cards.length) return '';
+    return `<div class="var-farm-suivi-wallets-h">${varEsc(varT('var.epochWallets'))}</div>
+      <div class="var-farm-suivi-wallets">${cards.map((c) => {
+        const tip = [
+          `Volume ${varFmtCompactUsd(c.volume || 0)}`,
+          c.isHl ? `${c.trades || 0} fills` : `${varFmtPoints(c.points)} pts`,
+          `R ${varFmtSignedUsdExact(c.realized)}`,
+          `F ${varFmtSignedUsdExact(c.funding)}`,
+          `Fees ${varFmtSignedUsdExact(c.fees)}`,
+          `PnL ${varFmtSignedUsdExact(c.pnl)}`,
+        ].join('\n');
+        const pnlCls = c.pnl < 0 ? 'is-neg' : (c.pnl > 0 ? 'is-pos' : '');
+        const sub = c.isHl
+          ? `${c.trades || 0} fills`
+          : `${varFmtPoints(c.points)} pts`;
+        return `<div class="var-farm-suivi-wallet" style="border-top-color:${varEsc(c.color)}" title="${varEsc(tip)}">
+          <div class="tag" style="color:${varEsc(c.color)}">${varEsc(c.label)}</div>
+          <div class="pnl mono ${pnlCls}">${varFmtSuiviUsd(c.pnl)}</div>
+          <div class="pts">${varEsc(sub)}</div>
+        </div>`;
+      }).join('')}</div>`;
+  }
+
   /** Compact recent epochs on Farm overview — Suivi "Par epoch" layout. */
   function varRenderFarmEpochMini() {
     const el = document.getElementById('varFarmEpochMini');
@@ -4951,6 +5149,10 @@
       return;
     }
 
+    const pp = varPricePerPoint();
+    const global = varFarmComputeGlobal(wallets, hlWallets, pp);
+    const summaryHtml = `${varFarmKpisHtml(global)}${varFarmWalletsHtml(global)}`;
+
     let epochRows = [];
     try {
       epochRows = varBuildEpochRows(points, bundle || { trades: [] }).slice(0, 4);
@@ -4958,11 +5160,11 @@
       epochRows = [];
     }
     if (!epochRows.length) {
-      el.innerHTML = `<div class="var-pos-empty">${varEsc(varT('var.farmEpochsEmpty'))}</div>`;
+      el.innerHTML = summaryHtml
+        || `<div class="var-pos-empty">${varEsc(varT('var.farmEpochsEmpty'))}</div>`;
       return;
     }
 
-    const pp = varPricePerPoint();
     const head = `<thead><tr>
       <th>${varEsc(varT('var.epochWeek'))}</th>
       <th>${varEsc(varT('var.epochWallet'))}</th>
@@ -5092,7 +5294,9 @@
       </tr>${lines.join('')}`;
     }).join('');
 
-    el.innerHTML = `<div class="var-farm-epoch-table-wrap"><table class="var-farm-epoch-table">${head}<tbody>${body}</tbody></table></div>`;
+    el.innerHTML = `${summaryHtml}
+      <div class="var-farm-suivi-epochs-h">${varEsc(varT('var.epochParEpoch'))}</div>
+      <div class="var-farm-epoch-table-wrap"><table class="var-farm-epoch-table">${head}<tbody>${body}</tbody></table></div>`;
   }
 
   function varRenderFarmOverview() {

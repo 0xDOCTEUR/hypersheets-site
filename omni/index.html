@@ -1189,6 +1189,86 @@ const HS_CONFIG = {
           overflow-x: auto;
           margin: 0 -4px;
         }
+        .var-farm-suivi-kpis {
+          display: grid;
+          grid-template-columns: repeat(5, minmax(0, 1fr));
+          gap: 8px;
+          margin: 0 0 14px;
+        }
+        @media (max-width: 900px) {
+          .var-farm-suivi-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        }
+        @media (max-width: 560px) {
+          .var-farm-suivi-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        .var-farm-suivi-kpi {
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          padding: 10px 12px;
+          background: color-mix(in srgb, var(--muted) 4%, transparent);
+          min-width: 0;
+        }
+        .var-farm-suivi-kpi.is-accent {
+          border-color: color-mix(in srgb, var(--var-accent,#4c9af8) 45%, var(--border));
+          background: linear-gradient(160deg, color-mix(in srgb, var(--var-accent,#4c9af8) 14%, transparent), transparent);
+        }
+        .var-farm-suivi-kpi .lbl {
+          color: var(--muted);
+          font-size: .62rem;
+          text-transform: uppercase;
+          letter-spacing: .05em;
+          font-weight: 700;
+        }
+        .var-farm-suivi-kpi .val {
+          margin-top: 6px;
+          font-size: 1.15rem;
+          font-weight: 650;
+          letter-spacing: -0.02em;
+          font-variant-numeric: tabular-nums;
+        }
+        .var-farm-suivi-kpi .is-pos { color: var(--success); }
+        .var-farm-suivi-kpi .is-neg { color: var(--danger); }
+        .var-farm-suivi-wallets-h,
+        .var-farm-suivi-epochs-h {
+          margin: 4px 0 8px;
+          font-size: .72rem;
+          font-weight: 700;
+          letter-spacing: .05em;
+          text-transform: uppercase;
+          color: var(--muted);
+        }
+        .var-farm-suivi-epochs-h { margin-top: 14px; }
+        .var-farm-suivi-wallets {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+          gap: 8px;
+          margin: 0 0 4px;
+        }
+        .var-farm-suivi-wallet {
+          border: 1px solid var(--border);
+          border-top: 3px solid var(--border);
+          border-radius: 10px;
+          padding: 10px 12px;
+          background: color-mix(in srgb, var(--muted) 4%, transparent);
+          min-width: 0;
+        }
+        .var-farm-suivi-wallet .tag {
+          font-size: .78rem;
+          font-weight: 700;
+        }
+        .var-farm-suivi-wallet .pnl {
+          margin-top: 6px;
+          font-size: 1.05rem;
+          font-weight: 650;
+          font-variant-numeric: tabular-nums;
+        }
+        .var-farm-suivi-wallet .pts {
+          margin-top: 4px;
+          font-size: .72rem;
+          color: var(--muted);
+        }
+        .var-farm-suivi-wallet .is-pos { color: var(--success); }
+        .var-farm-suivi-wallet .is-neg { color: var(--danger); }
         .var-farm-epoch-table {
           width: 100%;
           border-collapse: collapse;
@@ -12621,6 +12701,10 @@ const I18N = {
     'var.epochRealized': 'Realized',
     'var.epochFees': 'Fees',
     'var.epochWallet': 'Wallet',
+    'var.epochWallets': 'Wallets',
+    'var.epochParEpoch': 'By epoch',
+    'var.epochPnlCombined': 'Combined PnL',
+    'var.epochCostPtHint': 'Shown only when combined PnL < 0',
     'var.epochHlOff': 'off farm',
     'var.pricePerPoint': '$/pt',
     'var.epochPtsPer': 'Pts / $1M',
@@ -13770,6 +13854,10 @@ const I18N = {
     'var.epochRealized': 'Realized',
     'var.epochFees': 'Fees',
     'var.epochWallet': 'Wallet',
+    'var.epochWallets': 'Wallets',
+    'var.epochParEpoch': 'Par epoch',
+    'var.epochPnlCombined': 'PnL combiné',
+    'var.epochCostPtHint': 'Affiché seulement si PnL combiné < 0',
     'var.epochHlOff': 'hors farm',
     'var.pricePerPoint': '$/pt',
     'var.epochPtsPer': 'Pts / $1M',
@@ -33130,7 +33218,7 @@ document.addEventListener('DOMContentLoaded', () => {
   </div>
 </div>
 <script src="../js/variational-omni-collector.js"></script>
-<script src="../js/variational-omni.js?v=20260811slotrename"></script>
+<script src="../js/variational-omni.js?v=20260811farmkpis"></script>
 <script>
 (function hsLoadCfWebAnalytics() {
   var token = (typeof HS_CONFIG !== 'undefined' && HS_CONFIG.cfWebAnalyticsToken) || '';
