@@ -239,15 +239,27 @@
       { label: 'trades', onProgress: (l, n) => progress(l, n) }
     );
     progress('transfers', 0);
-    const transfersRes = await softPageAll(
-      '/api/transfers',
-      { order_by: 'created_at', order: 'desc' },
-      { label: 'transfers', onProgress: (l, n) => progress(l, n) }
-    );
-    const transfers = transfersRes.rows;
+    // Transfers are required for Omni PnL (Suivi uses the same /api/transfers rows).
+    // Retry harder than softPageAll — a single 429 used to leave Hypersheets at $0 PnL.
+    let transfers = [];
+    let transfersSkipped = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const transfersRes = await softPageAll(
+        '/api/transfers',
+        { order_by: 'created_at', order: 'desc' },
+        { label: 'transfers', onProgress: (l, n) => progress(l, n) }
+      );
+      transfers = transfersRes.rows || [];
+      if (transfers.length) {
+        transfersSkipped = null;
+        break;
+      }
+      transfersSkipped = transfersRes.skipped || 'empty';
+      await sleep(1500 * (attempt + 1));
+    }
     const warnings = [];
     if (refundsRes.skipped) warnings.push('refunds: ' + refundsRes.skipped);
-    if (transfersRes.skipped) warnings.push('transfers: ' + transfersRes.skipped);
+    if (transfersSkipped) warnings.push('transfers: ' + transfersSkipped);
 
     // Wallet identity for PC filename + jambe label.
     // Prefer the address connected on the page; competition.self is truncated and can

@@ -4988,6 +4988,7 @@
         color: varFarmEpochWalletColor(out.length),
         csv,
         points,
+        omniAddress: String(slot.omniAddress || ''),
         isHl: false,
       });
     });
@@ -5080,6 +5081,25 @@
         epochs: w.epochs || [],
         isHl: true,
       }));
+  }
+
+  function varFarmFindVariaEpoch(w, start, end) {
+    const s = varFarmVariaStateLoad();
+    const list = Object.values((s && s.variaWallets) || {});
+    if (!list.length) return null;
+    const addr = String(w.omniAddress || '').toLowerCase();
+    const lab = String(w.label || '').trim().toUpperCase();
+    const wallet = list.find((v) => {
+      if (!v) return false;
+      const va = String(v.address || '').toLowerCase();
+      if (addr && va && (addr === va || addr.slice(-2) === va.slice(-2))) return true;
+      const vl = String(v.label || '').trim().toUpperCase();
+      if (lab && vl && lab === vl) return true;
+      if (lab && va && varOmniAddrSuffix(va) === lab) return true;
+      return false;
+    });
+    if (!wallet) return null;
+    return varFarmEpochFindHlEpoch({ epochs: wallet.epochs || [] }, start, end);
   }
 
   function varFarmEpochFindHlEpoch(hlSrc, start, end) {
@@ -5363,9 +5383,30 @@
       let tPnl = 0;
 
       wallets.forEach((w) => {
-        const stats = w.csv
+        let stats = w.csv
           ? varEpochWindowSummary(w.csv, r.start, r.end)
-          : { volume: 0, realizedPnl: 0, funding: 0, fees: 0, pnl: 0, trades: 0, hasPnlData: false };
+          : { volume: 0, realizedPnl: 0, funding: 0, fees: 0, pnl: 0, trades: 0, hasPnlData: false, cashRows: 0 };
+        // Prefer Suivi (farm-varia) precomputed cash when Live CSV has volume but no transfers.
+        try {
+          const variaE = varFarmFindVariaEpoch(w, r.start, r.end);
+          const csvCashWeak = !(stats.cashRows > 0) || !(Math.abs(Number(stats.pnl) || 0) > 1e-9);
+          if (variaE && csvCashWeak) {
+            const vr = Number(variaE.realized != null ? variaE.realized : variaE.realizedRaw) || 0;
+            const vf = Number(variaE.funding != null ? variaE.funding : variaE.fundingRaw) || 0;
+            const vfee = Number(variaE.fees != null ? variaE.fees : variaE.feesRaw) || 0;
+            const vp = Number(variaE.pnl != null ? variaE.pnl : (vr + vf + vfee)) || 0;
+            stats = {
+              ...stats,
+              realizedPnl: vr,
+              funding: vf,
+              fees: vfee,
+              pnl: vp,
+              hasPnlData: true,
+              cashRows: Math.max(stats.cashRows || 0, 1),
+              volume: (stats.volume > 0) ? stats.volume : (Number(variaE.volume) || 0),
+            };
+          }
+        } catch (_) {}
         let pts = varSlotPointsInEpoch(w.points, r.start, r.end);
         if (!(pts > 0) && (r.inProgress || r.finalising || r.estimated) && w.csv) {
           try {
@@ -6115,7 +6156,8 @@
     ].join(':');
   }
 
-  /** Suivi-style epoch cash: Realized + Funding + Fees (signed qty). */
+  /** Suivi-style epoch cash: Realized + Funding + Fees (signed qty).
+   *  Scan funding / realizedPnl / transfers with id-dedupe — same math as farm-varia-dashboard. */
   function varEpochWindowSummary(bundle, start, exclusiveEnd) {
     const ck = varEpochSumCacheKey(bundle);
     if (!_varEpochSumCache || _varEpochSumCache.key !== ck) {
@@ -6141,36 +6183,33 @@
     let realizedPnl = 0;
     let funding = 0;
     let fees = 0;
+    const seenCash = new Set();
     const applyRow = (t, forcedType) => {
+      if (!t || typeof t !== 'object') return;
+      // Suivi: only confirmed. Missing status still accepted (API quirks).
       if (t.status && t.status !== 'confirmed') return;
       const ts = Date.parse(t.created_at || 0);
       if (!(ts >= start && ts < exclusiveEnd)) return;
+      const tt = String(forcedType || t.transfer_type || '').toLowerCase();
+      if (tt !== 'realized_pnl' && tt !== 'funding' && tt !== 'fee') return;
       const qty = varTransferQty(t);
-      const tt = forcedType || String(t.transfer_type || '').toLowerCase();
+      const id = t.id != null && t.id !== ''
+        ? 'id:' + String(t.id)
+        : [tt, t.created_at || '', qty, t.underlying || t.asset || ''].join('|');
+      if (seenCash.has(id)) return;
+      seenCash.add(id);
       if (tt === 'realized_pnl') realizedPnl += qty;
       else if (tt === 'funding') funding += qty;
       else if (tt === 'fee') fees += qty;
     };
+    // Always read every bucket (split export OR raw transfers-only, like Suivi).
     for (const t of bundle?.funding || []) applyRow(t, 'funding');
     for (const t of bundle?.realizedPnl || []) applyRow(t, 'realized_pnl');
-    const hasSplitFund = !!(bundle?.funding && bundle.funding.length);
-    const hasSplitPnl = !!(bundle?.realizedPnl && bundle.realizedPnl.length);
-    for (const t of bundle?.transfers || []) {
-      const tt = String(t.transfer_type || '').toLowerCase();
-      if (tt === 'fee') applyRow(t, 'fee');
-      else if (tt === 'funding' && !hasSplitFund) applyRow(t, 'funding');
-      else if (tt === 'realized_pnl' && !hasSplitPnl) applyRow(t, 'realized_pnl');
-    }
+    for (const t of bundle?.transfers || []) applyRow(t, null);
 
     const pnl = realizedPnl + funding + fees;
-    const hasPnlData = !!(realizedPnl !== 0 || funding !== 0 || fees !== 0
-      || (bundle?.funding && bundle.funding.length)
-      || (bundle?.realizedPnl && bundle.realizedPnl.length)
-      || (bundle?.transfers && bundle.transfers.some(t => {
-        const tt = String(t.transfer_type || '').toLowerCase();
-        return tt === 'funding' || tt === 'realized_pnl' || tt === 'fee';
-      }))
-    );
+    const cashRows = seenCash.size;
+    const hasPnlData = cashRows > 0 || realizedPnl !== 0 || funding !== 0 || fees !== 0;
     const out = {
       volume,
       trades: tradeCount,
@@ -6179,6 +6218,7 @@
       fees,
       pnl,
       hasPnlData,
+      cashRows,
       winRate: null,
       avgOi: 0,
       peakOi: 0,
