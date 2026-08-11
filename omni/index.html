@@ -872,26 +872,26 @@ const HS_CONFIG = {
         }
         .var-live-hedge-card {
           border: 1px solid var(--border);
-          border-radius: 14px;
+          border-radius: 12px;
           background: var(--surface-1, var(--bg));
           overflow: hidden;
         }
         .var-live-hedge-card-hd {
           display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between;
-          gap: 8px 14px;
-          padding: 12px 14px 10px;
+          gap: 6px 12px;
+          padding: 9px 12px 8px;
           border-bottom: 1px solid var(--border);
         }
         .var-live-hedge-card-title {
           display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
-          font-size: .95rem; font-weight: 700;
+          font-size: .88rem; font-weight: 700;
         }
         .var-live-hedge-card-title .acct {
-          font-size: .68rem; font-weight: 700; padding: 2px 7px; border-radius: 999px;
+          font-size: .62rem; font-weight: 700; padding: 1px 6px; border-radius: 999px;
           background: rgba(76,154,248,.16); color: var(--var-accent,#4c9af8);
         }
         .var-live-hedge-card-meta {
-          font-size: .72rem; color: var(--muted); font-weight: 500;
+          font-size: .68rem; color: var(--muted); font-weight: 500;
         }
         .var-live-hedge-card-net {
           text-align: right; font-variant-numeric: tabular-nums;
@@ -901,15 +901,15 @@ const HS_CONFIG = {
           text-transform: uppercase; color: var(--muted); margin-bottom: 2px;
         }
         .var-live-hedge-card-net .val {
-          font-size: 1.05rem; font-weight: 700;
+          font-size: .92rem; font-weight: 700;
         }
         .var-live-hedge-grid {
           display: grid;
           grid-template-columns: 72px 88px minmax(64px,1fr) minmax(64px,1fr) minmax(72px,1fr) minmax(72px,1fr) minmax(80px,1fr);
           gap: 0 8px;
           align-items: center;
-          padding: 0 14px;
-          font-size: .78rem;
+          padding: 0 12px;
+          font-size: .72rem;
         }
         @media (max-width: 760px) {
           .var-live-hedge-grid {
@@ -928,22 +928,22 @@ const HS_CONFIG = {
           .var-live-hedge-cols .c-qty { display: none; }
         }
         .var-live-hedge-cols {
-          padding-top: 8px; padding-bottom: 4px;
+          padding-top: 6px; padding-bottom: 3px;
           color: var(--muted);
-          font-size: .62rem;
+          font-size: .56rem;
           font-weight: 700;
           letter-spacing: .05em;
           text-transform: uppercase;
         }
         .var-live-hedge-row {
-          padding-top: 10px; padding-bottom: 10px;
+          padding-top: 7px; padding-bottom: 7px;
           border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
         }
         .var-live-hedge-row:first-of-type { border-top: none; }
         .var-live-hedge-row.is-omni { background: rgba(76,154,248,.04); }
         .var-live-hedge-row.is-trade { background: rgba(230,168,23,.04); }
         .var-live-hedge-row.is-missing {
-          color: var(--muted); font-size: .78rem; padding: 12px 14px;
+          color: var(--muted); font-size: .72rem; padding: 9px 12px;
         }
         .var-live-hedge-grid .mono { font-variant-numeric: tabular-nums; }
         .var-live-hedge-grid .c-upnl { font-weight: 700; text-align: right; }
@@ -958,8 +958,8 @@ const HS_CONFIG = {
         .var-live-hedge-cols .c-mark { text-align: right; }
         .var-live-venue {
           display: inline-flex; align-items: center; justify-content: center;
-          min-width: 44px; padding: 2px 7px; border-radius: 6px;
-          font-size: .68rem; font-weight: 700; letter-spacing: .02em;
+          min-width: 38px; padding: 1px 6px; border-radius: 6px;
+          font-size: .6rem; font-weight: 700; letter-spacing: .02em;
         }
         .var-live-venue.is-omni {
           background: rgba(76,154,248,.18); color: var(--var-accent,#4c9af8);
