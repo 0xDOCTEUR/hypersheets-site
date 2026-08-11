@@ -208,6 +208,29 @@
     };
   }
 
+  function buildAutoFileName(payload) {
+    const stamp = new Date().toISOString().slice(0, 10);
+    const parts = ['variational-export'];
+    try {
+      const addr =
+        (payload.competition && payload.competition.self && payload.competition.self.address) ||
+        (payload.points_summary && payload.points_summary.address) ||
+        '';
+      if (addr && addr.length >= 2) parts.push(addr.slice(-2).toUpperCase());
+    } catch (_) {}
+    try {
+      const n = (payload.counts && payload.counts.trades) || (payload.trades && payload.trades.length) || 0;
+      if (n > 0) parts.push(n + 't');
+    } catch (_) {}
+    try {
+      const sum = payload.points_summary;
+      const pts = parseFloat(sum && (sum.total_points || sum.self_points) || 0);
+      if (pts > 0) parts.push(Math.round(pts) + 'pts');
+    } catch (_) {}
+    parts.push(stamp);
+    return parts.join('-') + '.json';
+  }
+
   let busy = false;
 
   chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
@@ -229,7 +252,8 @@
             });
           } catch (_) {}
         });
-        const mb = downloadJson(payload, downloadName);
+        const autoName = buildAutoFileName(payload);
+        const mb = downloadJson(payload, downloadName || autoName);
         sendResponse({
           ok: true,
           payload,
