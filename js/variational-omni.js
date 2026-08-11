@@ -4945,7 +4945,7 @@
     const csv = w.csv || null;
     const stats = csv
       ? varEpochWindowSummary(csv, 0, Date.now() + 14 * 864e5)
-      : { volume: 0, trades: 0, realizedPnl: 0, funding: 0, fees: 0, pnl: 0 };
+      : { volume: 0, trades: 0, realizedPnl: 0, funding: 0, fees: 0, pnl: 0, hasPnlData: false };
     const sum = w.points?.points_summary || {};
     let points = parseFloat(sum.total_points);
     if (!isFinite(points)) points = parseFloat(sum.self_points);
@@ -4960,20 +4960,22 @@
         points += parseFloat(h.total_points || h.self_points || 0) || 0;
       }
     }
-    const pnl = stats.pnl != null
-      ? stats.pnl
-      : (Number(stats.realizedPnl || 0) + Number(stats.funding || 0) + Number(stats.fees || 0));
+    const hasPnl = !!stats.hasPnlData;
+    const pnl = hasPnl
+      ? (stats.pnl != null ? stats.pnl : (Number(stats.realizedPnl || 0) + Number(stats.funding || 0) + Number(stats.fees || 0)))
+      : null;
     return {
       label: w.label,
       color: w.color,
       isHl: false,
+      hasPnlData: hasPnl,
       points: points || 0,
       volume: stats.volume || 0,
       trades: stats.trades || 0,
-      realized: Number(stats.realizedPnl || 0) || 0,
-      funding: Number(stats.funding || 0) || 0,
-      fees: Number(stats.fees || 0) || 0,
-      pnl: pnl || 0,
+      realized: hasPnl ? (Number(stats.realizedPnl || 0) || 0) : 0,
+      funding: hasPnl ? (Number(stats.funding || 0) || 0) : 0,
+      fees: hasPnl ? (Number(stats.fees || 0) || 0) : 0,
+      pnl: pnl != null ? (pnl || 0) : 0,
     };
   }
 
@@ -5189,7 +5191,7 @@
       wallets.forEach((w) => {
         const stats = w.csv
           ? varEpochWindowSummary(w.csv, r.start, r.end)
-          : { volume: 0, realizedPnl: 0, funding: 0, fees: 0, pnl: 0, trades: 0 };
+          : { volume: 0, realizedPnl: 0, funding: 0, fees: 0, pnl: 0, trades: 0, hasPnlData: false };
         let pts = varSlotPointsInEpoch(w.points, r.start, r.end);
         if (!(pts > 0) && (r.inProgress || r.finalising || r.estimated) && w.csv) {
           try {
@@ -5199,24 +5201,29 @@
         }
         // Live week without published points: Suivi shows 0 farm points.
         if (r.inProgress && !(varSlotPointsInEpoch(w.points, r.start, r.end) > 0)) pts = 0;
-        const pnl = stats.pnl != null
-          ? stats.pnl
-          : (Number(stats.realizedPnl || 0) + Number(stats.funding || 0) + Number(stats.fees || 0));
+        const pnl = stats.hasPnlData
+          ? (stats.pnl != null ? stats.pnl : (Number(stats.realizedPnl || 0) + Number(stats.funding || 0) + Number(stats.fees || 0)))
+          : null;
         const s = varEpochSuiviMetrics(pts, { ...stats, pnl }, pp);
         tVol += stats.volume || 0;
         tPts += pts || 0;
-        tReal += s.realized;
-        tFund += s.funding;
-        tFees += s.fees;
-        tPnl += s.pnl;
-        const tip = `R ${varFmtSignedUsdExact(s.realized)} · F ${varFmtSignedUsdExact(s.funding)} · Fees ${varFmtSignedUsdExact(s.fees)}`;
-        const pnlCls = s.pnl > 0 ? 'is-pos' : (s.pnl < 0 ? 'is-neg' : '');
+        if (pnl != null) {
+          tReal += s.realized;
+          tFund += s.funding;
+          tFees += s.fees;
+          tPnl += s.pnl;
+        }
+        const pnlDisp = pnl != null ? varFmtSignedUsdExact(s.pnl) : '—';
+        const tip = pnl != null
+          ? `R ${varFmtSignedUsdExact(s.realized)} · F ${varFmtSignedUsdExact(s.funding)} · Fees ${varFmtSignedUsdExact(s.fees)}`
+          : '';
+        const pnlCls = pnl != null ? (s.pnl > 0 ? 'is-pos' : (s.pnl < 0 ? 'is-neg' : '')) : 'muted';
         lines.push(`<tr class="var-farm-epoch-wrow">
           <td></td>
           <td class="left"><span class="var-farm-epoch-pill" style="color:${varEsc(w.color)};background:color-mix(in srgb, ${varEsc(w.color)} 16%, transparent)">${varEsc(w.label)}</span></td>
           <td class="text-right mono">${stats.volume > 0 ? varFmtCompactUsd(stats.volume) : '—'}</td>
           <td class="text-right mono">${varFmtPoints(pts)}</td>
-          <td class="text-right mono ${pnlCls}" title="${varEsc(tip)}">${varFmtSignedUsdExact(s.pnl)}</td>
+          <td class="text-right mono ${pnlCls}" title="${varEsc(tip)}">${pnlDisp}</td>
           <td class="text-right mono ${s.costPerPt != null ? 'is-neg' : 'muted'}">${varFarmEpochCostDisp(s.costPerPt)}</td>
           <td class="muted"></td>
           <td class="muted"></td>
@@ -5965,6 +5972,14 @@
     }
 
     const pnl = realizedPnl + funding + fees;
+    const hasPnlData = !!(realizedPnl !== 0 || funding !== 0 || fees !== 0
+      || (bundle?.funding && bundle.funding.length)
+      || (bundle?.realizedPnl && bundle.realizedPnl.length)
+      || (bundle?.transfers && bundle.transfers.some(t => {
+        const tt = String(t.transfer_type || '').toLowerCase();
+        return tt === 'funding' || tt === 'realized_pnl' || tt === 'fee';
+      }))
+    );
     const out = {
       volume,
       trades: tradeCount,
@@ -5972,6 +5987,7 @@
       funding,
       fees,
       pnl,
+      hasPnlData,
       winRate: null,
       avgOi: 0,
       peakOi: 0,
