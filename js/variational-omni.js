@@ -923,11 +923,31 @@
   }
 
   function varOmniRenumberLabels(acc) {
+    // Keep custom wallet names — only sync slotOrder after add/remove.
     const ids = varOmniSlotIds(acc);
-    ids.forEach((id, i) => {
-      if (acc.slots[id]) acc.slots[id].label = varOmniLabelForIndex(i);
-    });
     acc.slotOrder = ids.slice();
+    ids.forEach((id, i) => {
+      const slot = acc.slots[id];
+      if (!slot) return;
+      const cur = String(slot.label || '').trim();
+      if (!cur) slot.label = varOmniLabelForIndex(i);
+    });
+  }
+
+  function varAccountsRenameSlot(id, rawLabel) {
+    const acc = varAccountsLoad();
+    const ids = varOmniSlotIds(acc);
+    if (!ids.includes(id) || !acc.slots[id]) return null;
+    const idx = ids.indexOf(id);
+    let next = String(rawLabel || '').trim().slice(0, 16);
+    if (!next) next = varOmniLabelForIndex(idx >= 0 ? idx : 0);
+    if (acc.slots[id].label === next) return next;
+    acc.slots[id].label = next;
+    varAccountsSave(acc);
+    try { varRenderOmniSlotsUi(); } catch (_) {}
+    try { varRenderFarmEpochMini(); } catch (_) {}
+    try { varRenderFarmOverview(); } catch (_) {}
+    return next;
   }
 
   function varAccountsEmpty() {
@@ -7972,7 +7992,18 @@
     if (host._hsOmniSlotsOnClick) {
       host.removeEventListener('click', host._hsOmniSlotsOnClick);
     }
+    if (host._hsOmniSlotsOnChange) {
+      host.removeEventListener('change', host._hsOmniSlotsOnChange);
+    }
+    if (host._hsOmniSlotsOnKeydown) {
+      host.removeEventListener('keydown', host._hsOmniSlotsOnKeydown);
+    }
     host._hsOmniSlotsOnClick = function (e) {
+      // Don't treat label edits as jambe selection.
+      if (e.target.closest('[data-omni-rename]')) {
+        e.stopPropagation();
+        return;
+      }
       const scopeBtn = e.target.closest('[data-omni-scope]');
       if (scopeBtn) {
         e.preventDefault();
@@ -8024,7 +8055,34 @@
         varAccountsSetActiveImport(slot.getAttribute('data-slot'));
       }
     };
+    host._hsOmniSlotsOnChange = function (e) {
+      const inp = e.target.closest('[data-omni-rename]');
+      if (!inp) return;
+      e.stopPropagation();
+      const id = inp.getAttribute('data-omni-rename');
+      const next = varAccountsRenameSlot(id, inp.value);
+      if (next != null) inp.value = next;
+    };
+    host._hsOmniSlotsOnKeydown = function (e) {
+      const inp = e.target.closest('[data-omni-rename]');
+      if (!inp) return;
+      e.stopPropagation();
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        inp.blur();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        const id = inp.getAttribute('data-omni-rename');
+        const acc = varAccountsLoad();
+        const ids = varOmniSlotIds(acc);
+        const idx = ids.indexOf(id);
+        inp.value = acc.slots[id]?.label || varOmniLabelForIndex(idx >= 0 ? idx : 0);
+        inp.blur();
+      }
+    };
     host.addEventListener('click', host._hsOmniSlotsOnClick);
+    host.addEventListener('change', host._hsOmniSlotsOnChange);
+    host.addEventListener('keydown', host._hsOmniSlotsOnKeydown);
   }
 
   function varRenderOmniSlotsUi() {
@@ -8066,7 +8124,12 @@
         <div class="var-omni-slot-top">
           <input type="radio" name="varOmniImportSlot" value="${id}" ${checked} tabindex="-1" />
           <div class="var-omni-slot-copy">
-            <strong>${varEsc(label)}</strong>
+            <input type="text" class="var-omni-slot-rename" data-omni-rename="${id}"
+              value="${varEsc(label)}" maxlength="16"
+              spellcheck="false" autocomplete="off"
+              title="${varEsc(varT('var.slotRenameTip'))}"
+              placeholder="${varEsc(varT('var.slotRenamePh'))}"
+              aria-label="${varEsc(varT('var.slotRenameTip'))}" />
             <span>${status}</span>
           </div>
         </div>

@@ -638,6 +638,31 @@ const HS_CONFIG = {
           overflow: hidden;
           text-overflow: ellipsis;
         }
+        .var-omni-slot-rename {
+          display: block;
+          width: 100%;
+          max-width: 100%;
+          box-sizing: border-box;
+          margin: 0;
+          padding: 2px 6px;
+          border: 1px solid transparent;
+          border-radius: 6px;
+          background: transparent;
+          color: var(--text);
+          font: inherit;
+          font-size: .82rem;
+          font-weight: 650;
+          line-height: 1.25;
+        }
+        .var-omni-slot-rename:hover {
+          border-color: var(--border);
+          background: rgba(0,0,0,.12);
+        }
+        .var-omni-slot-rename:focus {
+          outline: none;
+          border-color: rgba(76,154,248,.55);
+          background: rgba(0,0,0,.18);
+        }
         .var-omni-slot-copy span {
           display: block;
           font-size: .7rem;
@@ -12560,6 +12585,8 @@ const I18N = {
     'var.slotAddHint': 'Up to {max} legs — select a leg then import',
     'var.slotRemove': 'Remove leg',
     'var.slotRemoved': '{label} removed',
+    'var.slotRenameTip': 'Rename this wallet',
+    'var.slotRenamePh': 'Label',
     'var.slotAdded': '{label} added — select it then import',
     'var.slotMax': 'Maximum {n} Omni legs',
     'var.slotMin': 'Keep at least {n} legs',
@@ -13707,6 +13734,8 @@ const I18N = {
     'var.slotAddHint': 'Jusqu’à {max} jambes — sélectionne une jambe puis importe',
     'var.slotRemove': 'Retirer la jambe',
     'var.slotRemoved': '{label} retirée',
+    'var.slotRenameTip': 'Renommer ce wallet',
+    'var.slotRenamePh': 'Label',
     'var.slotAdded': '{label} ajoutée — sélectionne-la puis importe',
     'var.slotMax': 'Maximum {n} jambes Omni',
     'var.slotMin': 'Garde au moins {n} jambes',
@@ -33101,7 +33130,7 @@ document.addEventListener('DOMContentLoaded', () => {
   </div>
 </div>
 <script src="../js/variational-omni-collector.js"></script>
-<script src="../js/variational-omni.js?v=20260811epochsuivi2"></script>
+<script src="../js/variational-omni.js?v=20260811slotrename"></script>
 <script>
 (function hsLoadCfWebAnalytics() {
   var token = (typeof HS_CONFIG !== 'undefined' && HS_CONFIG.cfWebAnalyticsToken) || '';
