@@ -1153,15 +1153,14 @@
   function varAccountsSetActiveImport(id) {
     const acc = varAccountsLoad();
     if (!varOmniSlotIds(acc).includes(id)) return;
-    if (acc.activeImportSlot !== id) {
-      acc.activeImportSlot = id;
-      varAccountsSave(acc);
-    }
+    acc.activeImportSlot = id;
     // Leaving "Tous" / switching jambe must always rebind CSV + points to this slot.
     varCsvScopeSave('active');
+    varAccountsSave(acc);
     varInvalidateViewCaches();
     varAccountsPaintActiveSlot(id);
     try { varRenderOmniSlotsUi(); } catch (_) {}
+    try { varRenderFarmOverview(); } catch (_) {}
     varAccountsScheduleActivityRefresh();
   }
 
@@ -4751,18 +4750,17 @@
       ? totalPts
       : ((isFinite(selfPts) ? selfPts : 0) + (isFinite(refPts) ? refPts : 0));
 
-    // Volume: competition.self.volume when single, else all trades (Tous) or active CSV.
+    // Volume: always prefer the selected jambe CSV (so JSON switches update $ even if points lag).
     let volume = NaN;
-    if (!multi && self && isFinite(parseFloat(self.volume))) {
+    try {
+      const bundle = varCsvLoadForView();
+      if (bundle) {
+        const dash = varBuildDashAnalytics(bundle, 'all', { light: true });
+        if (dash && isFinite(dash.volume) && dash.volume > 0) volume = dash.volume;
+      }
+    } catch (_) {}
+    if (!(volume > 0) && !multi && self && isFinite(parseFloat(self.volume))) {
       volume = parseFloat(self.volume);
-    } else {
-      try {
-        const bundle = varCsvLoadForView();
-        if (bundle) {
-          const dash = varBuildDashAnalytics(bundle, 'all', { light: true });
-          if (dash && isFinite(dash.volume)) volume = dash.volume;
-        }
-      } catch (_) {}
     }
 
     const kpiPts = document.getElementById('varFarmKpiPoints');
@@ -7102,8 +7100,11 @@
     } catch (_) {}
   }
 
-  function varApplyExtPoints(points) {
+  function varApplyExtPoints(points, fromSlotId) {
     if (!varPointsHasData(points)) return false;
+    const activeId = varAccountsActiveId();
+    // Never paint another jambe's points onto the selected wallet.
+    if (fromSlotId && String(fromSlotId) !== String(activeId)) return false;
     const cur = varPointsLoad();
     const merged = varMergePointsPreferRich(cur, points);
     if (!merged) return false;
@@ -7132,7 +7133,7 @@
       p.classList.toggle('is-on', on);
       p.style.display = on ? 'block' : 'none';
     });
-    // Ask the extension for points if the page slot is empty / thin.
+    // Ask the extension for points only for the active jambe when that jambe is empty.
     try {
       const cur = varPointsLoad();
       if (!varPointsHasData(cur) || !(cur.points_history && cur.points_history.length)) {
@@ -7141,6 +7142,7 @@
     } catch (_) {}
     const points = varPointsLoad();
     varRenderJsonMeta(points);
+    try { varRenderFarmScore(points); } catch (_) {}
     // Heavy CSV scans (epoch estimates / Lab OI) only on the tabs that need them —
     // Competition used to freeze the tab by also rebuilding every epoch + Lab pool.
     if (view === 'points') {
@@ -7900,7 +7902,8 @@
       }
       if (data.type === 'HS_OMNI_POINTS_STATE') {
         try {
-          if (data.ok && data.points && varApplyExtPoints(data.points)) {
+          if (data.ok && data.points && varApplyExtPoints(data.points, data.slotId)) {
+            try { varRenderFarmOverview(); } catch (_) {}
             if (varIsPointsTab(_varSub)) renderVarPoints();
           }
         } catch (_) {}

@@ -150,6 +150,8 @@ function normalizeCsvLibrary(raw) {
       importedAt: Number(e.importedAt) || Date.now(),
       tradeCount: Array.isArray(bundle.trades) ? bundle.trades.length : (Number(e.tradeCount) || 0),
       marketsHint: typeof e.marketsHint === 'string' ? e.marketsHint : '',
+      // Keep Omni points/rank/comp with the library row so JSON switches rebind KPIs.
+      points: e.points && typeof e.points === 'object' ? e.points : null,
       bundle,
     });
     if (out.length >= MAX_CSV_LIBRARY * 3) break; // allow temp headroom before dedupe
@@ -193,6 +195,7 @@ function upsertCsvLibraryEntry(library, bundle, meta) {
       hit.label = label;
       if (addr) hit.omniAddress = addr;
       if (company) hit.company = company;
+      if (opts.points) hit.points = opts.points;
       return hit;
     }
   }
@@ -210,6 +213,7 @@ function upsertCsvLibraryEntry(library, bundle, meta) {
     importedAt: Date.now(),
     tradeCount,
     marketsHint,
+    points: opts.points || null,
     bundle: bundle || emptyCsv(),
   };
   list.unshift(entry);
@@ -504,14 +508,20 @@ function mergeAccountsFromHypersheets(localRaw, remoteRaw, guardRaw) {
     const locAt = Number(l.importedAt) || 0;
     if (remScore > 0 && remAt > locAt && remAt > clearAt) {
       out.slots[id].csv = r.csv;
+      out.slots[id].csvIds = Array.isArray(r.csvIds) ? r.csvIds.slice() : out.slots[id].csvIds;
       out.slots[id].importedAt = r.importedAt;
       if (r.points) out.slots[id].points = r.points;
+      if (r.omniAddress) out.slots[id].omniAddress = r.omniAddress;
       if (cleared[id]) delete cleared[id];
     }
     if (!out.slots[id].hlWallet && r.hlWallet) out.slots[id].hlWallet = r.hlWallet;
     if (!out.slots[id].label && r.label) out.slots[id].label = r.label;
   });
 
+  // Hypersheets chip selection is source of truth for the active jambe.
+  if (remote.activeImportSlot && out.slots[remote.activeImportSlot]) {
+    out.activeImportSlot = remote.activeImportSlot;
+  }
   if (!out.slots[out.activeImportSlot] && out.slotOrder[0]) {
     out.activeImportSlot = out.slotOrder[0];
   }
@@ -545,12 +555,20 @@ function hydrateCsvLibrary(state) {
       const entry = upsertCsvLibraryEntry(library, slot.csv, {
         label: slot.label || '',
         omniAddress: slot.omniAddress || '',
+        points: slot.points || null,
       });
       if (!known.has(entry.id)) known.add(entry.id);
       ids = [entry.id];
     }
 
     ids = ids.filter((cid) => known.has(cid) || library.some((e) => e.id === cid));
+    // Backfill library points from the jambe when the CSV row has none yet.
+    if (slot.points && ids.length) {
+      for (const cid of ids) {
+        const e = library.find((x) => x.id === cid);
+        if (e && !e.points) e.points = slot.points;
+      }
+    }
     const rebuilt = rebuildSlotCsvFromIds(
       Object.assign({}, slot, { csvIds: ids }),
       library
@@ -1295,6 +1313,7 @@ async function applyLocalOmniBundle(bundle, origin, points, preferredSlotId, pre
     omniAddress: omniAddress || '',
     company,
     forceNew,
+    points: nextPoints || null,
   });
 
   // One CSV linked per position (dropdown) — joining adds to library then selects it
@@ -3891,8 +3910,24 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         );
         if (nextLabel) accounts.slots[id].label = nextLabel;
         else if (isGenericOmniLabel(accounts.slots[id].label)) accounts.slots[id].label = '';
+        // Rebind points/rank/comp to the selected JSON wallet (never keep previous jambe KPIs).
+        let pts = entry && entry.points ? entry.points : null;
+        if (!pts && accounts.slots[id].omniAddress) {
+          const want = String(accounts.slots[id].omniAddress).toLowerCase();
+          for (const sid of omniSlotIds(accounts)) {
+            if (sid === id) continue;
+            const other = accounts.slots[sid];
+            if (!other || !other.points) continue;
+            if (String(other.omniAddress || '').toLowerCase() === want) {
+              pts = other.points;
+              break;
+            }
+          }
+        }
+        accounts.slots[id].points = pts;
       } else {
         accounts.slots[id].omniAddress = '';
+        accounts.slots[id].points = null;
       }
     })
       .then((res) => {
