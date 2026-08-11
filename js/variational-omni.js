@@ -1881,6 +1881,36 @@
     return { ...t, underlying };
   }
 
+  function varExtractOmniAddress(data) {
+    if (!data || typeof data !== 'object') return '';
+    const candidates = [];
+    try {
+      const self = data.competition && !Array.isArray(data.competition) ? data.competition.self : null;
+      if (self && self.address) candidates.push(self.address);
+    } catch (_) {}
+    try {
+      const sum = data.points_summary;
+      if (sum && sum.address) candidates.push(sum.address);
+      if (sum && sum.user && sum.user.address) candidates.push(sum.user.address);
+      if (sum && sum.wallet) candidates.push(sum.wallet);
+    } catch (_) {}
+    try {
+      if (data.address) candidates.push(data.address);
+      if (data.wallet) candidates.push(data.wallet);
+    } catch (_) {}
+    for (const c of candidates) {
+      const a = String(c || '').toLowerCase().trim();
+      if (/^0x[a-f0-9]{40}$/i.test(a)) return a;
+    }
+    return '';
+  }
+
+  function varOmniAddrSuffix(addr) {
+    const a = String(addr || '');
+    if (a.length < 2) return '';
+    return a.slice(-2).toUpperCase();
+  }
+
   function varApplyOmniExport(data, fileName) {
     const trades = (data.trades || []).map(varNormalizeOmniTrade);
     const transfersRaw = (data.transfers || []).map(varNormalizeOmniTransfer);
@@ -1919,6 +1949,21 @@
       sourceFile: fileName || null,
       importedAt: Date.now(),
     });
+    // Auto chip label = last 2 chars of wallet from the JSON.
+    try {
+      const addr = varExtractOmniAddress(data);
+      if (addr) {
+        const acc = varAccountsLoad();
+        const id = varAccountsActiveId();
+        if (acc.slots[id]) {
+          acc.slots[id].omniAddress = addr;
+          acc.slots[id].label = varOmniAddrSuffix(addr);
+          varAccountsSave(acc);
+          try { varRenderOmniSlotsUi(); } catch (_) {}
+          try { varRenderTopScopeChips(); } catch (_) {}
+        }
+      }
+    } catch (_) {}
     if (data.positions != null || data.positions_meta != null) {
       varApplyLivePositions(data);
     }

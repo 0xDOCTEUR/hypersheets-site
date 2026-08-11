@@ -1144,10 +1144,7 @@ async function applyLocalOmniBundle(bundle, origin, points, preferredSlotId, pre
     options.forceNew === true ||
     (!!origin && /drop|import/i.test(String(origin)));
   const entry = upsertCsvLibraryEntry(library, incoming, {
-    // Library dropdown: prefer wallet suffix / keep prior — not "GOOGL" position/market name.
-    label: (omniAddress && omniAddress.length >= 2
-      ? String(omniAddress).slice(-2).toUpperCase()
-      : '')
+    label: omniAddrSuffix(omniAddress)
       || (options.fileName ? String(options.fileName).replace(/\.json$/i, '').slice(0, 48) : '')
       || prevSlot.label
       || '',
@@ -1171,19 +1168,9 @@ async function applyLocalOmniBundle(bundle, origin, points, preferredSlotId, pre
   }
   if (!resolvedOmni) resolvedOmni = prevSlot.omniAddress || '';
 
-  // Slot / chip label = last 2 chars of Omni wallet (C6, 0F…) — not position name
-  // or open-market ticker (GOOGL). Position name stays a widget-only hint.
-  const addrSuffix = resolvedOmni && resolvedOmni.length >= 2
-    ? String(resolvedOmni).slice(-2).toUpperCase()
-    : '';
-  const prevLabel = String(prevSlot.label || '').trim();
-  const looksLikeMarketTicker = /^[A-Z]{2,10}(\+[A-Z]{2,10})?$/i.test(prevLabel)
-    && !/^(Omni\s*\d+|0x)/i.test(prevLabel);
-  const label = addrSuffix
-    || (!looksLikeMarketTicker && prevLabel)
-    || autoLabel
-    || requestedLabel
-    || '';
+  // Slot / chip label = ALWAYS last 2 chars of Omni wallet from the JSON.
+  const addrSuffix = omniAddrSuffix(resolvedOmni);
+  const label = addrSuffix || autoLabel || requestedLabel || String(prevSlot.label || '').trim() || '';
 
   // Warn if this Omni wallet was already collected into another jambe
   let duplicateSlot = null;
@@ -1605,7 +1592,7 @@ function buildExportFileName(payload, preferred) {
   let suffix = 'XX';
   try {
     const addr = extractOmniAddress(payload) || '';
-    if (addr.length >= 2) suffix = addr.slice(-2).toUpperCase();
+    if (addr.length >= 2) suffix = omniAddrSuffix(addr);
   } catch (_) {}
   let trades = 0;
   try {
@@ -1749,12 +1736,42 @@ async function downloadExportToPc(payload, fileName, tabId) {
 }
 
 function extractOmniAddress(payload) {
-  const self = payload && payload.competition && payload.competition.self;
-  if (self && self.address) return String(self.address).toLowerCase();
-  const sum = payload && payload.points_summary;
-  if (sum && sum.address) return String(sum.address).toLowerCase();
-  if (sum && sum.user && sum.user.address) return String(sum.user.address).toLowerCase();
+  if (!payload || typeof payload !== 'object') return '';
+  const candidates = [];
+  try {
+    const self = payload.competition && payload.competition.self;
+    if (self && self.address) candidates.push(self.address);
+  } catch (_) {}
+  try {
+    const sum = payload.points_summary;
+    if (sum && sum.address) candidates.push(sum.address);
+    if (sum && sum.user && sum.user.address) candidates.push(sum.user.address);
+    if (sum && sum.wallet) candidates.push(sum.wallet);
+  } catch (_) {}
+  try {
+    if (payload.address) candidates.push(payload.address);
+    if (payload.wallet) candidates.push(payload.wallet);
+    if (payload.omniAddress) candidates.push(payload.omniAddress);
+  } catch (_) {}
+  // Fallback: filename like C6_225t_… or variational-export-C6-…
+  try {
+    const name = String(payload._hsFileName || payload.sourceFile || '');
+    const m = name.match(/(?:^|[_\-])([0-9A-Fa-f]{2})(?:_|\.json)/);
+    if (m) {
+      // Not a full address — ignore here; suffix-only handled by caller if needed
+    }
+  } catch (_) {}
+  for (const c of candidates) {
+    const a = String(c || '').toLowerCase().trim();
+    if (/^0x[a-f0-9]{40}$/i.test(a)) return a;
+  }
   return '';
+}
+
+function omniAddrSuffix(addr) {
+  const a = String(addr || '');
+  if (a.length < 2) return '';
+  return a.slice(-2).toUpperCase();
 }
 
 function shortOmniAddr(addr) {

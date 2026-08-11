@@ -123,7 +123,7 @@
       collectDupWarn: "Attention: meme wallet Omni deja sur « {label} »",
       collectedInto: "dans « {label} »",
       positionNameLabel: "Nom de la position (optionnel)",
-      positionNamePlaceholder: "Ex. Farm A — le chip reste C6 / 0F…",
+      positionNamePlaceholder: "Ex. Farm A, Hedge BTC…",
       collectOmni: "Collecter Omni",
       collectFileNamePrompt: "Nom du fichier JSON (vide = auto: suffixe wallet / trades / points)",
       collectFileNameCancel: "Collecte annulee",
@@ -274,7 +274,7 @@
       collectDupWarn: "Warning: same Omni wallet already on \"{label}\"",
       collectedInto: "into \"{label}\"",
       positionNameLabel: "Position name (optional)",
-      positionNamePlaceholder: "e.g. Farm A — chip stays C6 / 0F…",
+      positionNamePlaceholder: "e.g. Farm A, BTC hedge…",
       collectOmni: "Collect Omni",
       collectFileNamePrompt: "JSON file name (blank = auto: wallet suffix / trades / points)",
       collectFileNameCancel: "Collection cancelled",
@@ -1066,31 +1066,24 @@
   function syncActiveRenameInput() {
     if (!activePositionRename || collectBusy) return;
     if (document.activeElement === activePositionRename) return;
-    var acc = accountsState && accountsState.accounts;
     var id = activeSlotId();
-    var slot = id && acc && acc.slots && acc.slots[id];
-    activePositionRename.value = (slot && slot.label) || "";
     activePositionRename.disabled = !id;
+    // Never suggest wallet suffixes (C6, 0F…) here — chips are labeled from JSON automatically.
+    // Keep whatever the user typed; only clear when empty/untouched.
+    if (!activePositionRename.dataset.userEdited) {
+      activePositionRename.value = "";
+    }
   }
 
   function commitActiveRename() {
-    if (!activePositionRename || collectBusy) return;
-    var id = activeSlotId();
-    if (!id) return;
-    var label = activePositionRename.value.trim().slice(0, 32);
-    var acc = accountsState && accountsState.accounts;
-    var slot = acc && acc.slots && acc.slots[id];
-    var current = (slot && slot.label) || "";
-    if (label === current) return;
-    if (!label) {
-      activePositionRename.value = current;
-      return;
+    // Collect-page name is optional metadata for the next collect only.
+    // Do not rename the active slot from this field (avoids overwriting auto wallet chips).
+    if (!activePositionRename) return;
+    if (activePositionRename.value.trim()) {
+      activePositionRename.dataset.userEdited = "1";
+    } else {
+      delete activePositionRename.dataset.userEdited;
     }
-    send("HS_WIDGET_RENAME_SLOT", { slotId: id, label: label }, function () {
-      chrome.runtime.sendMessage({ type: "HS_WIDGET_REFRESH" }, function () {
-        void chrome.runtime.lastError;
-      });
-    });
   }
 
   function toast(msg, kind) {
@@ -1925,6 +1918,10 @@
           " · " + msg,
           (warns.length || res.duplicateLabel || res.downloadOk === false) ? "err" : "ok"
         );
+        if (activePositionRename) {
+          activePositionRename.value = "";
+          delete activePositionRename.dataset.userEdited;
+        }
         loadState();
         setPage("positions");
         setTimeout(function () {
@@ -1936,13 +1933,18 @@
   }
 
   if (activePositionRename) {
+    activePositionRename.addEventListener("input", function () {
+      if (activePositionRename.value.trim()) activePositionRename.dataset.userEdited = "1";
+      else delete activePositionRename.dataset.userEdited;
+    });
     activePositionRename.addEventListener("keydown", function (e) {
       if (e.key === "Enter") {
         e.preventDefault();
         activePositionRename.blur();
       } else if (e.key === "Escape") {
         e.preventDefault();
-        syncActiveRenameInput();
+        activePositionRename.value = "";
+        delete activePositionRename.dataset.userEdited;
         activePositionRename.blur();
       }
     });
