@@ -113,11 +113,11 @@
       stepWalletHelp: "Adresse EVM pour charger les hedges HL / XYZ.",
       addWallet: "Ajouter",
       stepCollectTitle: "Collecter Omni",
-      collectStep1Before: "Connecte-toi au BON wallet Omni sur",
+      collectStep1Before: "Connecte-toi à ton wallet Omni sur",
       collectStep1After: ".",
-      collectStep2: "Optionnel. Le chip Hypersheets = 2 derniers caracteres du wallet (pas ce nom).",
-      collectStep3: "Collecter Omni → ce wallet va dans SA jambe (cree une nouvelle si autre wallet).",
-      collectStep4: "Change de wallet sur Omni, re-collecte: la 1re jambe est conservee.",
+      collectStep2: "",
+      collectStep3: "",
+      collectStep4: "",
       omniAddrLabel: "Omni",
       marketsOpenLabel: "Ouvert",
       collectDupWarn: "Attention: meme wallet Omni deja sur « {label} »",
@@ -264,11 +264,11 @@
       stepWalletHelp: "EVM address used to load HL / XYZ hedges.",
       addWallet: "Add",
       stepCollectTitle: "Collect Omni",
-      collectStep1Before: "Sign in with the RIGHT Omni wallet on",
+      collectStep1Before: "Connect to your Omni wallet on",
       collectStep1After: ".",
-      collectStep2: "Optional. Hypersheets chip = last 2 chars of the wallet (not this name).",
-      collectStep3: "Collect Omni → this wallet goes to ITS leg (creates a new one if different wallet).",
-      collectStep4: "Switch Omni wallet, collect again: the first leg is kept.",
+      collectStep2: "",
+      collectStep3: "",
+      collectStep4: "",
       omniAddrLabel: "Omni",
       marketsOpenLabel: "Open",
       collectDupWarn: "Warning: same Omni wallet already on \"{label}\"",
@@ -1457,7 +1457,7 @@
   function updateHints() {
     var label = activeLegLabel();
     syncActiveRenameInput();
-    if (activeRenameRow) activeRenameRow.hidden = !!collectBusy;
+    if (activeRenameRow) activeRenameRow.hidden = true;
     if (collectStatus && !collectBusy) {
       collectStatus.textContent = "";
       collectStatus.className = "status";
@@ -1860,7 +1860,7 @@
     if (collectBtn) collectBtn.disabled = !!state.busy;
     if (collectLabel && text != null) collectLabel.textContent = text;
     if (collectProgress) collectProgress.hidden = !state.busy;
-    if (activeRenameRow) activeRenameRow.hidden = !!state.busy;
+    if (activeRenameRow) activeRenameRow.hidden = true;
     if (collectStatus) {
       collectStatus.textContent = status || "";
       collectStatus.className = "status" + (state.ok ? " ok" : state.err ? " err" : "");

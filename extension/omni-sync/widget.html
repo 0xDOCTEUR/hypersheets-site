@@ -1032,59 +1032,35 @@
 
           <div class="step">
             <div class="step-h"><span class="step-n">2</span><span data-i18n="stepCollectTitle">Collecter Omni</span></div>
-            <ol class="how">
-              <li>
-                <span class="how-n">a</span>
-                <div class="how-body">
-                  <p class="how-txt">
-                    <span data-i18n="collectStep1Before">Connecte-toi a ton wallet sur</span>
-                    <a href="https://omni.variational.io/?ref=OMNILD9IBR89" target="_blank" rel="noopener noreferrer">Omni</a><span data-i18n="collectStep1After">.</span>
-                  </p>
-                </div>
-              </li>
-              <li>
-                <span class="how-n">b</span>
-                <div class="how-body">
-                  <p class="how-txt" data-i18n="collectStep2">Donne un nom a la position active (optionnel).</p>
-                  <div class="active-rename" id="activeRenameRow">
-                    <label class="field-label" for="activePositionRename" data-i18n="positionNameLabel">Nom de la position</label>
-                    <input
-                      id="activePositionRename"
-                      type="text"
-                      maxlength="32"
-                      spellcheck="false"
-                      autocomplete="off"
-                      data-i18n-placeholder="positionNamePlaceholder"
-                      placeholder="Ex. Variational, Hedge BTC…"
-                      title="Renommer la position active"
-                      data-i18n-title="rename"
-                    />
-                  </div>
-                </div>
-              </li>
-              <li>
-                <span class="how-n">c</span>
-                <div class="how-body">
-                  <p class="how-txt" data-i18n="collectStep3">Clique pour collecter automatiquement toutes tes datas Omni en CSV.</p>
-                  <button type="button" class="btn btn-ac btn-block" id="collectOmni">
-                    <span id="collectLabel" data-i18n="collectOmni">Collecter Omni</span>
-                  </button>
-                  <p class="status" id="collectStatus"></p>
-                  <div class="progress" id="collectProgress" hidden><span></span></div>
-                </div>
-              </li>
-              <li>
-                <span class="how-n">d</span>
-                <div class="how-body">
-                  <p class="how-txt" data-i18n="collectStep4">Sinon, depose un export JSON / CSV manuellement.</p>
-                  <label class="drop" id="dropZone" for="dropFile">
-                    <strong data-i18n="dropTitle">Déposer JSON / CSV (par compte)</strong>
-                    <span id="dropHint" data-i18n="dropHintDefault">vers la jambe active · ou nouvelle jambe si déjà remplie</span>
-                    <input type="file" id="dropFile" accept=".json,.csv,application/json,text/csv" multiple />
-                  </label>
-                </div>
-              </li>
-            </ol>
+            <p class="help">
+              <span data-i18n="collectStep1Before">Connecte-toi à ton wallet Omni sur</span>
+              <a href="https://omni.variational.io/?ref=OMNILD9IBR89" target="_blank" rel="noopener noreferrer">Omni</a><span data-i18n="collectStep1After">.</span>
+            </p>
+            <button type="button" class="btn btn-ac btn-block" id="collectOmni">
+              <span id="collectLabel" data-i18n="collectOmni">Collecter Omni</span>
+            </button>
+            <p class="status" id="collectStatus"></p>
+            <div class="progress" id="collectProgress" hidden><span></span></div>
+            <label class="drop" id="dropZone" for="dropFile" style="margin-top:10px">
+              <strong data-i18n="dropTitle">Déposer JSON / CSV (par compte)</strong>
+              <span id="dropHint" data-i18n="dropHintDefault">vers la jambe active · ou nouvelle jambe si déjà remplie</span>
+              <input type="file" id="dropFile" accept=".json,.csv,application/json,text/csv" multiple />
+            </label>
+            <!-- Keep rename input in DOM for existing JS; hidden — chip = wallet suffix -->
+            <div class="active-rename" id="activeRenameRow" hidden>
+              <label class="field-label" for="activePositionRename" data-i18n="positionNameLabel">Nom de la position</label>
+              <input
+                id="activePositionRename"
+                type="text"
+                maxlength="32"
+                spellcheck="false"
+                autocomplete="off"
+                data-i18n-placeholder="positionNamePlaceholder"
+                placeholder="Ex. Variational, Hedge BTC…"
+                title="Renommer la position active"
+                data-i18n-title="rename"
+              />
+            </div>
           </div>
 
           <div class="step-div"></div>
