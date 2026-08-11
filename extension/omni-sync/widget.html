@@ -46,7 +46,7 @@
 
     .top {
       flex-shrink: 0;
-      padding: 10px 12px 0;
+      padding: 10px 12px 8px;
       display: flex; flex-direction: column; gap: 10px;
       background: linear-gradient(180deg, #0d1117, transparent);
     }
@@ -142,16 +142,32 @@
 
     .tabs {
       display: grid; grid-template-columns: 1fr 1fr; gap: 4px;
+      flex-shrink: 0;
+      margin: 0 12px 10px;
       padding: 3px; border-radius: 10px;
       background: rgba(255,255,255,.04); border: 1px solid var(--border);
     }
     .tab {
       appearance: none; border: 0; background: transparent;
       color: var(--muted); font: 700 12px/1 inherit;
-      padding: 9px 8px; border-radius: 8px; cursor: pointer;
+      padding: 11px 8px; border-radius: 8px; cursor: pointer;
     }
     .tab.is-on {
       background: rgba(110,231,255,.12); color: var(--ac);
+    }
+    .omni-logo-link {
+      display: inline-flex; align-items: center; vertical-align: middle;
+      margin: 0 2px; text-decoration: none;
+      border-radius: 5px; overflow: hidden;
+      border: 1px solid rgba(76,154,248,.35);
+      line-height: 0;
+    }
+    .omni-logo-link img {
+      width: 20px; height: 20px; object-fit: cover; display: block;
+    }
+    .omni-logo-link:hover {
+      border-color: rgba(76,154,248,.7);
+      box-shadow: 0 0 0 2px rgba(76,154,248,.15);
     }
 
     .toast {
@@ -356,7 +372,7 @@
     .settings-panel {
       display: none;
       position: absolute;
-      inset: 48px 8px 8px;
+      inset: 52px 8px 64px;
       z-index: 40;
       background: rgba(8, 12, 18, .97);
       border: 1px solid rgba(255,255,255,.1);
@@ -937,10 +953,6 @@
           </button>
         </div>
       </div>
-      <div class="tabs" role="tablist">
-        <button type="button" class="tab is-on" data-page="positions" id="tabPos" data-i18n="tabPositions">Positions</button>
-        <button type="button" class="tab" data-page="collecte" id="tabCol" data-i18n="tabCollect">Collecte</button>
-      </div>
     </div>
 
     <div class="settings-panel" id="settingsPanel" hidden aria-hidden="true">
@@ -1094,7 +1106,9 @@
             <div class="step-h"><span class="step-n">2</span><span data-i18n="stepCollectTitle">Collecter Omni</span></div>
             <p class="help">
               <span data-i18n="collectStep1Before">Connecte-toi à ton wallet Omni sur</span>
-              <a href="https://omni.variational.io/?ref=OMNILD9IBR89" target="_blank" rel="noopener noreferrer">Omni</a><span data-i18n="collectStep1After">.</span>
+              <a class="omni-logo-link" href="https://omni.variational.io/?ref=OMNILD9IBR89" target="_blank" rel="noopener noreferrer" title="Omni / Variational">
+                <img src="icons/variational-logo.png" alt="Variational" width="20" height="20" decoding="async" />
+              </a>
             </p>
             <button type="button" class="btn btn-ac btn-block" id="collectOmni">
               <span id="collectLabel" data-i18n="collectOmni">Collecter Omni</span>
@@ -1130,7 +1144,11 @@
     </div>
 
     <div class="foot" id="foot">Positions · Collecte</div>
+    <div class="tabs" role="tablist">
+      <button type="button" class="tab is-on" data-page="positions" id="tabPos" data-i18n="tabPositions">Positions</button>
+      <button type="button" class="tab" data-page="collecte" id="tabCol" data-i18n="tabCollect">Collecte</button>
+    </div>
   </div>
-  <script src="widget-app.js?v=2.9.62"></script>
+  <script src="widget-app.js?v=2.9.63"></script>
 </body>
 </html>
