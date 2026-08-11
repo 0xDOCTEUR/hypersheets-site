@@ -4,7 +4,7 @@
  * PC file download is handled by the background service worker (chrome.downloads).
  */
 (function () {
-  const COLLECT_SCRIPT_VERSION = 6;
+  const COLLECT_SCRIPT_VERSION = 7;
   // Re-injects bump this so stale listeners from older injects ignore messages.
   window.__hsOmniCollectVersion = COLLECT_SCRIPT_VERSION;
   const VERSION = 3;
@@ -167,10 +167,23 @@
     if (refundsRes.skipped) warnings.push('refunds: ' + refundsRes.skipped);
     if (transfersRes.skipped) warnings.push('transfers: ' + transfersRes.skipped);
 
+    // Stamp wallet identity once — used for PC filename + jambe label.
+    let omniAddress = '';
+    try {
+      if (board && board.self && board.self.address) omniAddress = String(board.self.address);
+      else if (summary && summary.address) omniAddress = String(summary.address);
+      else if (summary && summary.user && summary.user.address) omniAddress = String(summary.user.address);
+    } catch (_) {}
+    omniAddress = omniAddress.toLowerCase().trim();
+    if (!/^0x[a-f0-9]{40}$/i.test(omniAddress)) omniAddress = '';
+    const walletSuffix = omniAddress ? omniAddress.slice(-2).toUpperCase() : 'XX';
+
     return {
       format: 'variational-dashboard-export',
       version: VERSION,
       exported_at: new Date().toISOString(),
+      omni_address: omniAddress || undefined,
+      wallet_suffix: walletSuffix,
       counts: {
         trades: trades.length,
         transfers: transfers.length,
@@ -190,14 +203,17 @@
 
   function buildAutoFileName(payload) {
     const stamp = new Date().toISOString().slice(0, 10);
-    let suffix = 'XX';
+    let suffix = (payload && payload.wallet_suffix) || 'XX';
     try {
-      const addr =
-        (payload.competition && payload.competition.self && payload.competition.self.address) ||
-        (payload.points_summary && payload.points_summary.address) ||
-        (payload.points_summary && payload.points_summary.user && payload.points_summary.user.address) ||
-        '';
-      if (addr && addr.length >= 2) suffix = String(addr).slice(-2).toUpperCase();
+      if (!suffix || suffix === 'XX') {
+        const addr =
+          (payload && payload.omni_address) ||
+          (payload.competition && payload.competition.self && payload.competition.self.address) ||
+          (payload.points_summary && payload.points_summary.address) ||
+          (payload.points_summary && payload.points_summary.user && payload.points_summary.user.address) ||
+          '';
+        if (addr && String(addr).length >= 2) suffix = String(addr).slice(-2).toUpperCase();
+      }
     } catch (_) {}
     let trades = 0;
     try {
@@ -208,7 +224,8 @@
       const sum = payload.points_summary;
       pts = Math.round(parseFloat((sum && (sum.total_points || sum.self_points)) || 0)) || 0;
     } catch (_) {}
-    return suffix + '_' + trades + 't_' + pts + 'pts_' + stamp + '.json';
+    // Explicit "omni-C6_…" so the wallet suffix is obvious in Downloads.
+    return 'omni-' + suffix + '_' + trades + 't_' + pts + 'pts_' + stamp + '.json';
   }
 
   let busy = false;

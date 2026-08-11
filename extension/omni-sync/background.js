@@ -1582,17 +1582,20 @@ function buildExportFileName(payload, preferred) {
   const preferredName = String(preferred || '').trim();
   const isGeneric = !preferredName
     || /^variational-export(-\d{4}-\d{2}-\d{2})?(\.json)?$/i.test(preferredName)
-    || /^variational-export-ext(\.json)?$/i.test(preferredName);
+    || /^variational-export-ext(\.json)?$/i.test(preferredName)
+    || /^(omni-)?[0-9A-F]{2}_\d+t_\d+pts_\d{4}-\d{2}-\d{2}(\.json)?$/i.test(preferredName);
   if (!isGeneric) {
     let name = preferredName;
     if (!/\.json$/i.test(name)) name += '.json';
     return name.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_').slice(0, 120);
   }
   const stamp = new Date().toISOString().slice(0, 10);
-  let suffix = 'XX';
+  let suffix = (payload && payload.wallet_suffix) || 'XX';
   try {
-    const addr = extractOmniAddress(payload) || '';
-    if (addr.length >= 2) suffix = omniAddrSuffix(addr);
+    if (!suffix || suffix === 'XX') {
+      const addr = extractOmniAddress(payload) || '';
+      if (addr.length >= 2) suffix = omniAddrSuffix(addr);
+    }
   } catch (_) {}
   let trades = 0;
   try {
@@ -1605,8 +1608,7 @@ function buildExportFileName(payload, preferred) {
     const sum = payload && payload.points_summary;
     pts = Math.round(parseFloat((sum && (sum.total_points || sum.self_points)) || 0)) || 0;
   } catch (_) {}
-  // Distinct from legacy "variational-export-DATE.json" so a wrong name is obvious.
-  return `${suffix}_${trades}t_${pts}pts_${stamp}.json`;
+  return `omni-${suffix}_${trades}t_${pts}pts_${stamp}.json`;
 }
 
 /** Pending PC download name — forced via onDeterminingFilename. */
@@ -1739,6 +1741,9 @@ function extractOmniAddress(payload) {
   if (!payload || typeof payload !== 'object') return '';
   const candidates = [];
   try {
+    if (payload.omni_address) candidates.push(payload.omni_address);
+  } catch (_) {}
+  try {
     const self = payload.competition && payload.competition.self;
     if (self && self.address) candidates.push(self.address);
   } catch (_) {}
@@ -1751,15 +1756,6 @@ function extractOmniAddress(payload) {
   try {
     if (payload.address) candidates.push(payload.address);
     if (payload.wallet) candidates.push(payload.wallet);
-    if (payload.omniAddress) candidates.push(payload.omniAddress);
-  } catch (_) {}
-  // Fallback: filename like C6_225t_… or variational-export-C6-…
-  try {
-    const name = String(payload._hsFileName || payload.sourceFile || '');
-    const m = name.match(/(?:^|[_\-])([0-9A-Fa-f]{2})(?:_|\.json)/);
-    if (m) {
-      // Not a full address — ignore here; suffix-only handled by caller if needed
-    }
   } catch (_) {}
   for (const c of candidates) {
     const a = String(c || '').toLowerCase().trim();
