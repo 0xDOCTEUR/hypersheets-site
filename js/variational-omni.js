@@ -4806,20 +4806,38 @@
           : varT('var.epochInProgress');
       } else if (r.estimated) badge = '~';
       const stats = varEpochWindowSummary(bundle, r.start, r.end);
+      const pts = r.estimated ? r.self : r.total;
+      const s = varEpochSuiviMetrics(pts, stats);
       const vol = stats.volume > 0 ? varFmtCompactUsd(stats.volume) : '—';
-      const ptsCls = r.self > 0 ? '' : 'muted';
+      const ptsCls = pts > 0 ? '' : 'muted';
+      const pnlCls = s.pnl > 0 ? 'is-pos' : (s.pnl < 0 ? 'is-neg' : '');
+      const tip = `R ${varFmtSignedUsdExact(s.realized)} · F ${varFmtSignedUsdExact(s.funding)} · Fees ${varFmtSignedUsdExact(s.fees)}`;
+      const costLbl = s.costPerPt != null ? varFmtCompactUsd(s.costPerPt) : '—';
+      const estNetCls = s.estNet > 0 ? 'is-pos' : (s.estNet < 0 ? 'is-neg' : '');
       return `<div class="var-farm-epoch-row">
         <div>
           <strong>${varEsc(label)}</strong>
           ${badge ? `<div class="muted">${varEsc(badge)}</div>` : ''}
         </div>
         <div class="text-right mono ${ptsCls}">
-          <strong>${varFmtPoints(r.self)}</strong>
-          <div class="muted">${varEsc(varT('var.epochSelf'))}</div>
+          <strong>${r.estimated ? '~' : ''}${varFmtPoints(pts)}</strong>
+          <div class="muted">${varEsc(varT('var.epochPoints'))}</div>
         </div>
         <div class="text-right mono">
           ${vol}
           <div class="muted">${varEsc(varT('var.epochVolume'))}</div>
+        </div>
+        <div class="text-right mono ${pnlCls}" title="${varEsc(tip)}">
+          <strong>${varFmtSignedUsd(s.pnl)}</strong>
+          <div class="muted">${varEsc(varT('var.epochPnl'))}</div>
+        </div>
+        <div class="text-right mono ${s.costPerPt != null ? 'is-neg' : 'muted'}">
+          ${costLbl}
+          <div class="muted">${varEsc(varT('var.epochCostPt'))}</div>
+        </div>
+        <div class="text-right mono ${estNetCls}">
+          ${varFmtSignedUsd(s.estNet)}
+          <div class="muted">${varEsc(varT('var.epochEstNet'))}</div>
         </div>
       </div>`;
     }).join('')}</div>`;
@@ -4887,6 +4905,7 @@
     let wins = 0;
     let pnlN = 0;
     let funding = 0;
+    let fees = 0;
     for (const t of transfersAll) {
       if (!inWindow(t.ts)) continue;
       if (t.type === 'realized_pnl') {
@@ -4899,8 +4918,21 @@
         }
       } else if (t.type === 'funding') {
         funding += t.qty;
+        const u = t.underlying;
+        if (u) {
+          if (!pairMap[u]) pairMap[u] = { market: u, volume: 0, trades: 0, pnl: 0 };
+          pairMap[u].pnl += t.qty;
+        }
+      } else if (t.type === 'fee') {
+        fees += t.qty;
+        const u = t.underlying;
+        if (u) {
+          if (!pairMap[u]) pairMap[u] = { market: u, volume: 0, trades: 0, pnl: 0 };
+          pairMap[u].pnl += t.qty;
+        }
       }
     }
+    const pnl = realizedPnl + funding + fees;
 
     const hourMs = 3600e3;
     const chartStart = Math.floor(start / hourMs) * hourMs;
@@ -4968,6 +5000,8 @@
       trades: winTrades.length,
       realizedPnl,
       funding,
+      fees,
+      pnl,
       winRate: pnlN ? (wins / pnlN) * 100 : null,
       avgOi,
       peakOi,
@@ -5352,7 +5386,15 @@
     const wr = stats.winRate != null
       ? varT('var.epochWinRate').replace('{pct}', stats.winRate.toFixed(1))
       : varT('var.epochWinRate').replace('{pct}', '—');
-    const fundCls = stats.funding > 0 ? 'is-pos' : (stats.funding < 0 ? 'is-neg' : '');
+    const pts = row.estimated ? row.self : row.total;
+    const s = varEpochSuiviMetrics(pts, stats);
+    const fundCls = s.funding > 0 ? 'is-pos' : (s.funding < 0 ? 'is-neg' : '');
+    const realCls = s.realized > 0 ? 'is-pos' : (s.realized < 0 ? 'is-neg' : '');
+    const feeCls = s.fees > 0 ? 'is-pos' : (s.fees < 0 ? 'is-neg' : '');
+    const pnlCls = s.pnl > 0 ? 'is-pos' : (s.pnl < 0 ? 'is-neg' : '');
+    const rate = row.estimated && row.estRate != null && isFinite(row.estRate)
+      ? row.estRate
+      : (stats.volume > 0 && pts > 0 ? (pts / stats.volume) * 1e6 : null);
     return `<div class="var-epoch-detail">
       <div class="var-epoch-detail-col var-epoch-oi-card">
         <div class="var-epoch-detail-h">${varEsc(varT('var.epochOiTitle'))}</div>
@@ -5363,7 +5405,13 @@
         </div>
         <div class="var-epoch-oi-extra">
           <div>${varEsc(wr)}</div>
-          <div>${varEsc(varT('var.epochFunding'))}: <span class="mono ${fundCls}">${varFmtSignedUsdExact(stats.funding)}</span></div>
+          <div>${varEsc(varT('var.epochRealized'))}: <span class="mono ${realCls}">${varFmtSignedUsdExact(s.realized)}</span></div>
+          <div>${varEsc(varT('var.epochFunding'))}: <span class="mono ${fundCls}">${varFmtSignedUsdExact(s.funding)}</span></div>
+          <div>${varEsc(varT('var.epochFees'))}: <span class="mono ${feeCls}">${varFmtSignedUsdExact(s.fees)}</span></div>
+          <div>${varEsc(varT('var.epochPnl'))}: <span class="mono ${pnlCls}">${varFmtSignedUsdExact(s.pnl)}</span></div>
+          <div>${varEsc(varT('var.epochPtsPer'))}: <span class="mono">${varFmtPtsRate(rate, !!row.estimated)}</span></div>
+          <div>${varEsc(varT('var.epochEst'))}: <span class="mono">${varFmtSignedUsdExact(s.est)}</span>
+            <span class="muted">(${s.pricePerPt}$/pt)</span></div>
         </div>
       </div>
       <div class="var-epoch-detail-col var-epoch-markets-card">
@@ -5407,11 +5455,13 @@
     return [
       trades.length,
       last?.created_at || '',
+      bundle?.funding?.length || 0,
       bundle?.realizedPnl?.length || 0,
       bundle?.transfers?.length || 0,
     ].join(':');
   }
 
+  /** Suivi-style epoch cash: Realized + Funding + Fees (signed qty). */
   function varEpochWindowSummary(bundle, start, exclusiveEnd) {
     const ck = varEpochSumCacheKey(bundle);
     if (!_varEpochSumCache || _varEpochSumCache.key !== ck) {
@@ -5433,23 +5483,39 @@
       volume += notional;
       tradeCount++;
     }
+
     let realizedPnl = 0;
-    const pushPnl = (rows) => {
-      for (const t of rows || []) {
-        const ts = Date.parse(t.created_at || 0);
-        if (!(ts >= start && ts < exclusiveEnd)) continue;
-        const tt = String(t.transfer_type || '').toLowerCase();
-        if (tt && tt !== 'realized_pnl') continue;
-        realizedPnl += parseFloat(t.qty || 0) || 0;
-      }
+    let funding = 0;
+    let fees = 0;
+    const applyRow = (t, forcedType) => {
+      if (t.status && t.status !== 'confirmed') return;
+      const ts = Date.parse(t.created_at || 0);
+      if (!(ts >= start && ts < exclusiveEnd)) return;
+      const qty = parseFloat(t.qty || 0) || 0;
+      const tt = forcedType || String(t.transfer_type || '').toLowerCase();
+      if (tt === 'realized_pnl') realizedPnl += qty;
+      else if (tt === 'funding') funding += qty;
+      else if (tt === 'fee') fees += qty;
     };
-    if (bundle?.realizedPnl?.length) pushPnl(bundle.realizedPnl);
-    else pushPnl(bundle?.transfers);
+    for (const t of bundle?.funding || []) applyRow(t, 'funding');
+    for (const t of bundle?.realizedPnl || []) applyRow(t, 'realized_pnl');
+    const hasSplitFund = !!(bundle?.funding && bundle.funding.length);
+    const hasSplitPnl = !!(bundle?.realizedPnl && bundle.realizedPnl.length);
+    for (const t of bundle?.transfers || []) {
+      const tt = String(t.transfer_type || '').toLowerCase();
+      if (tt === 'fee') applyRow(t, 'fee');
+      else if (tt === 'funding' && !hasSplitFund) applyRow(t, 'funding');
+      else if (tt === 'realized_pnl' && !hasSplitPnl) applyRow(t, 'realized_pnl');
+    }
+
+    const pnl = realizedPnl + funding + fees;
     const out = {
       volume,
       trades: tradeCount,
       realizedPnl,
-      funding: 0,
+      funding,
+      fees,
+      pnl,
       winRate: null,
       avgOi: 0,
       peakOi: 0,
@@ -5458,6 +5524,76 @@
     };
     _varEpochSumCache.map.set(mapKey, out);
     return out;
+  }
+
+  const VAR_PRICE_PER_POINT_KEY = 'hs-var-price-per-point';
+  const VAR_PRICE_PER_POINT_DEFAULT = 20;
+
+  function varPricePerPoint() {
+    try {
+      const v = parseFloat(localStorage.getItem(VAR_PRICE_PER_POINT_KEY) || '');
+      if (isFinite(v) && v >= 0) return v;
+    } catch (_) {}
+    return VAR_PRICE_PER_POINT_DEFAULT;
+  }
+
+  function varSetPricePerPoint(v) {
+    const n = parseFloat(v);
+    const next = isFinite(n) && n >= 0 ? n : VAR_PRICE_PER_POINT_DEFAULT;
+    try { localStorage.setItem(VAR_PRICE_PER_POINT_KEY, String(next)); } catch (_) {}
+    document.querySelectorAll('[data-var-price-per-point]').forEach((el) => {
+      if (el instanceof HTMLInputElement && String(el.value) !== String(next)) el.value = String(next);
+    });
+    return next;
+  }
+
+  /** Coût/pt = |PnL| ÷ points when PnL < 0 (Suivi). */
+  function varEpochCostPerPt(pts, pnl) {
+    const p = Number(pts);
+    const n = Number(pnl);
+    if (!(p > 0) || !(n < 0)) return null;
+    return Math.abs(n) / p;
+  }
+
+  function varEpochSuiviMetrics(pts, stats, pricePerPt) {
+    const pnl = stats?.pnl != null
+      ? Number(stats.pnl)
+      : (Number(stats?.realizedPnl || 0) + Number(stats?.funding || 0) + Number(stats?.fees || 0));
+    const pp = pricePerPt != null ? Number(pricePerPt) : varPricePerPoint();
+    const points = Number(pts) || 0;
+    const est = points * (isFinite(pp) ? pp : 0);
+    const costPerPt = varEpochCostPerPt(points, pnl);
+    return {
+      pnl: isFinite(pnl) ? pnl : 0,
+      realized: Number(stats?.realizedPnl || 0) || 0,
+      funding: Number(stats?.funding || 0) || 0,
+      fees: Number(stats?.fees || 0) || 0,
+      costPerPt,
+      est,
+      estNet: est + (isFinite(pnl) ? pnl : 0),
+      pricePerPt: isFinite(pp) ? pp : 0,
+    };
+  }
+
+  function varBindPricePerPointUi() {
+    document.querySelectorAll('[data-var-price-per-point]').forEach((el) => {
+      if (!(el instanceof HTMLInputElement) || el.dataset.bound === '1') return;
+      el.dataset.bound = '1';
+      el.value = String(varPricePerPoint());
+      const apply = () => {
+        varSetPricePerPoint(el.value);
+        try { varRenderFarmEpochMini(); } catch (_) {}
+        try {
+          if (_varSub === 'points' || _varSub === 'lab' || _varPointsView === 'points') {
+            varRenderEpochTable(varPointsLoad());
+          }
+        } catch (_) {}
+      };
+      el.addEventListener('change', apply);
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); apply(); el.blur(); }
+      });
+    });
   }
 
   function varRenderEpochTable(points) {
@@ -5478,7 +5614,7 @@
       return;
     }
     if (empty) empty.style.display = 'none';
-    heading.style.display = '';
+    heading.style.display = 'flex';
     wrap.style.display = '';
 
     // Keep rows collapsed on first paint — expanding runs O(hours×trades) OI analytics.
@@ -5495,6 +5631,9 @@
       return s;
     };
 
+    const pp = varPricePerPoint();
+    varBindPricePerPointUi();
+
     const body = rows.map(row => {
       const open = _varEpochExpanded.has(row.id);
       const stats = statsFor(row, open);
@@ -5502,13 +5641,7 @@
       const ptsLabel = row.estimated
         ? `~${varFmtPoints(pts)}`
         : varFmtPoints(pts);
-      // Show the rate used for ~estimates; published weeks keep the realized rate.
-      const rate = row.estimated && row.estRate != null && isFinite(row.estRate)
-        ? row.estRate
-        : (!row.estimated && stats.volume > 0 && pts > 0
-          ? (pts / stats.volume) * 1e6
-          : (stats.volume > 0 && pts > 0 ? (pts / stats.volume) * 1e6 : null));
-      const rateLabel = varFmtPtsRate(rate, !!row.estimated);
+      const s = varEpochSuiviMetrics(pts, stats, pp);
       let badge = '';
       if (row.inProgress) {
         badge = `<span class="var-epoch-badge">${varEsc(varT('var.epochInProgress'))}</span>`;
@@ -5517,8 +5650,16 @@
         const time = varFmtCountdown(left) || '—';
         badge = `<span class="var-epoch-badge is-finalising">${varEsc(varT('var.epochFinalising').replace('{time}', time))}</span>`;
       }
-      const netCls = stats.realizedPnl > 0 ? 'is-pos' : (stats.realizedPnl < 0 ? 'is-neg' : '');
+      const pnlCls = s.pnl > 0 ? 'is-pos' : (s.pnl < 0 ? 'is-neg' : '');
+      const estNetCls = s.estNet > 0 ? 'is-pos' : (s.estNet < 0 ? 'is-neg' : '');
+      const tip = `R ${varFmtSignedUsdExact(s.realized)} · F ${varFmtSignedUsdExact(s.funding)} · Fees ${varFmtSignedUsdExact(s.fees)}`;
       const tradesLbl = varT('var.epochTrades').replace('{n}', String(stats.trades));
+      const costDisp = s.costPerPt != null
+        ? ('$' + Math.abs(s.costPerPt).toLocaleString('en-US', {
+            maximumFractionDigits: s.costPerPt >= 100 ? 0 : 2,
+            minimumFractionDigits: 0,
+          }))
+        : '—';
       return `<div class="var-epoch-row${open ? ' is-open' : ''}${row.inProgress ? ' is-live' : ''}${row.finalising ? ' is-finalising' : ''}">
         <button type="button" class="var-epoch-summary" data-epoch-toggle="${varEsc(row.id)}" aria-expanded="${open ? 'true' : 'false'}">
           <div class="var-epoch-col-epoch">
@@ -5536,13 +5677,21 @@
             <div class="var-epoch-col-lbl">${varEsc(varT('var.epochVolume'))}</div>
             <div class="var-epoch-col-val mono">${stats.volume > 0 ? varFmtCompactUsd(stats.volume) : '—'}</div>
           </div>
-          <div class="var-epoch-col">
-            <div class="var-epoch-col-lbl">${varEsc(varT('var.epochNet'))}</div>
-            <div class="var-epoch-col-val mono ${netCls}">${varFmtSignedUsdExact(stats.realizedPnl)}</div>
+          <div class="var-epoch-col" title="${varEsc(tip)}">
+            <div class="var-epoch-col-lbl">${varEsc(varT('var.epochPnl'))}</div>
+            <div class="var-epoch-col-val mono ${pnlCls}">${varFmtSignedUsdExact(s.pnl)}</div>
           </div>
-          <div class="var-epoch-col var-epoch-col-rate">
-            <div class="var-epoch-col-lbl">${varEsc(varT('var.epochPtsPer'))}</div>
-            <div class="var-epoch-col-val mono">${rateLabel}</div>
+          <div class="var-epoch-col">
+            <div class="var-epoch-col-lbl">${varEsc(varT('var.epochCostPt'))}</div>
+            <div class="var-epoch-col-val mono ${s.costPerPt != null ? 'is-neg' : ''}">${costDisp}</div>
+          </div>
+          <div class="var-epoch-col">
+            <div class="var-epoch-col-lbl">${varEsc(varT('var.epochEst'))}</div>
+            <div class="var-epoch-col-val mono">${varFmtSignedUsdExact(s.est)}</div>
+          </div>
+          <div class="var-epoch-col">
+            <div class="var-epoch-col-lbl">${varEsc(varT('var.epochEstNet'))}</div>
+            <div class="var-epoch-col-val mono ${estNetCls}">${varFmtSignedUsdExact(s.estNet)}</div>
           </div>
           <span class="var-epoch-chev" aria-hidden="true"></span>
         </button>
@@ -5555,8 +5704,10 @@
         <span>${varEsc(varT('var.epochWeek'))}</span>
         <span class="text-right">${varEsc(varT('var.epochPoints'))}</span>
         <span class="text-right">${varEsc(varT('var.epochVolume'))}</span>
-        <span class="text-right">${varEsc(varT('var.epochNet'))}</span>
-        <span class="text-right var-epoch-col-rate">${varEsc(varT('var.epochPtsPer'))}</span>
+        <span class="text-right">${varEsc(varT('var.epochPnl'))}</span>
+        <span class="text-right">${varEsc(varT('var.epochCostPt'))}</span>
+        <span class="text-right">${varEsc(varT('var.epochEst'))}</span>
+        <span class="text-right">${varEsc(varT('var.epochEstNet'))}</span>
         <span></span>
       </div>
       ${body}
@@ -8032,6 +8183,7 @@
     varBindLegForm();
     varInitLegTickerPicker();
     varBindJsonDrop();
+    varBindPricePerPointUi();
     varApplyLivePanelsState();
     const bootSub = varNormalizeSub(_varSub || 'dashboard');
     varSetSub(bootSub, null);
