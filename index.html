@@ -21731,33 +21731,36 @@ let _lbConfettiCanvas = null
 const LB_CONFETTI_TOP_N = 10000
 
 function lbCreateConfettiBurst(cx, cy, count, opts) {
-  const colors = opts.colors || ['#6ee7ff', '#97FCE4', '#FBBF24', '#fde047', '#34d399', '#f472b6', '#a78bfa', '#ffffff']
-  const speedMin = opts.speedMin ?? 6
-  const speedMax = opts.speedMax ?? 18
-  const spread = opts.spread ?? 48
+  const colors = opts.colors || ['#6ee7ff', '#97FCE4', '#FBBF24', '#fde047', '#ffffff', '#a5f3fc']
+  const speedMin = opts.speedMin ?? 7
+  const speedMax = opts.speedMax ?? 16
+  const spread = opts.spread ?? 18
   const lifeMul = opts.lifeMul ?? 1
+  const a0 = opts.angleMin ?? 0
+  const a1 = opts.angleMax ?? Math.PI * 2
   const out = []
   for (let i = 0; i < count; i++) {
-    const angle = Math.random() * Math.PI * 2
+    const t = count <= 1 ? 0.5 : i / (count - 1)
+    const angle = a0 + (a1 - a0) * (0.15 + 0.7 * Math.random() + 0.05 * t)
     const speed = speedMin + Math.random() * (speedMax - speedMin)
     const kind = Math.random()
-    let w = 5 + Math.random() * 7
-    let h = 3 + Math.random() * 5
+    let w = 4.5 + Math.random() * 4.5
+    let h = 3 + Math.random() * 3.5
     let shape = 0
-    if (kind > 0.72) { shape = 1; w = h = 3 + Math.random() * 6 }
-    else if (kind > 0.45) { w = 2 + Math.random() * 3; h = 12 + Math.random() * 16; shape = 2 }
+    if (kind > 0.78) { shape = 1; w = h = 2.5 + Math.random() * 3.5 }
+    else if (kind > 0.28) { shape = 2; w = 1.6 + Math.random() * 1.8; h = 10 + Math.random() * 14 }
     out.push(
       cx + (Math.random() - 0.5) * spread,
       cy + (Math.random() - 0.5) * spread,
-      Math.cos(angle) * speed + (Math.random() - 0.5) * 2,
-      Math.sin(angle) * speed - 2 - Math.random() * 3,
+      Math.cos(angle) * speed,
+      Math.sin(angle) * speed,
       w, h, shape,
       (Math.random() * colors.length) | 0,
       Math.random() * Math.PI * 2,
-      (Math.random() - 0.5) * 0.28,
-      (Math.random() - 0.5) * 0.06,
+      (Math.random() - 0.5) * 0.42,
+      0.35 + Math.random() * 0.65,
       1,
-      (0.35 + Math.random() * 0.45) / lifeMul
+      (0.22 + Math.random() * 0.28) / lifeMul
     )
   }
   return out
@@ -21767,22 +21770,23 @@ function lbCreateConfettiRain(w, count, colorCount) {
   const out = []
   for (let i = 0; i < count; i++) {
     const kind = Math.random()
-    let shape = 0
-    let pw = 4 + Math.random() * 6
-    let ph = 3 + Math.random() * 4
-    if (kind > 0.6) { shape = 2; pw = 2 + Math.random() * 3; ph = 10 + Math.random() * 14 }
+    let shape = 2
+    let pw = 1.5 + Math.random() * 1.6
+    let ph = 9 + Math.random() * 12
+    if (kind > 0.72) { shape = 0; pw = 3.5 + Math.random() * 4; ph = 2.5 + Math.random() * 3 }
+    else if (kind > 0.9) { shape = 1; pw = ph = 2 + Math.random() * 2.5 }
     out.push(
       Math.random() * w,
-      -20 - Math.random() * w * 0.28,
-      (Math.random() - 0.5) * 2.5,
-      2 + Math.random() * 4.5,
+      -12 - Math.random() * 80,
+      (Math.random() - 0.5) * 1.2,
+      1.6 + Math.random() * 2.8,
       pw, ph, shape,
       (Math.random() * colorCount) | 0,
       Math.random() * Math.PI * 2,
-      (Math.random() - 0.5) * 0.18,
-      (Math.random() - 0.5) * 0.05,
+      (Math.random() - 0.5) * 0.22,
+      0.4 + Math.random() * 0.5,
       1,
-      0.28 + Math.random() * 0.35
+      0.2 + Math.random() * 0.22
     )
   }
   return out
@@ -21819,27 +21823,35 @@ function lbFireRankConfetti() {
   if (!ctx) { lbStopRankConfetti(); return }
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
 
-  const colors = ['#6ee7ff', '#97FCE4', '#FBBF24', '#fde047', '#34d399', '#f472b6', '#a78bfa', '#ffffff']
-  const cx = cssW / 2
-  const cy = cssH * 0.42
+  // Brand palette — cyan / mint / gold (no loud rainbow)
+  const colors = ['#6ee7ff', '#97FCE4', '#FBBF24', '#fde68a', '#ffffff', '#67e8f9']
   const mobile = cssW < 640
-  const scale = mobile ? 0.55 : 1
-  const burstOpts = { colors }
+  const scale = mobile ? 0.62 : 1
+  const leftX = cssW * 0.08
+  const rightX = cssW * 0.92
+  const baseY = cssH * 0.78
+  const leftOpts = { colors, angleMin: -1.35, angleMax: -0.25, speedMin: 9, speedMax: 17, spread: 10, lifeMul: 1.35 }
+  const rightOpts = { colors, angleMin: -2.9, angleMax: -1.8, speedMin: 9, speedMax: 17, spread: 10, lifeMul: 1.35 }
   let buf = [
-    ...lbCreateConfettiBurst(cx, cy, Math.round(110 * scale), { ...burstOpts, speedMin: 6, speedMax: 18, spread: 52, lifeMul: 1.25 }),
-    ...lbCreateConfettiBurst(cx, cy, Math.round(40 * scale), { ...burstOpts, speedMin: 2.5, speedMax: 8, spread: 20, lifeMul: 1.6 }),
+    ...lbCreateConfettiBurst(leftX, baseY, Math.round(48 * scale), leftOpts),
+    ...lbCreateConfettiBurst(rightX, baseY, Math.round(48 * scale), rightOpts),
   ]
   const STRIDE = 13
   const extras = [
-    { t: 0.12, fn: () => lbCreateConfettiBurst(cx, cy, Math.round(70 * scale), { ...burstOpts, speedMin: 5, speedMax: 15, spread: 44 }) },
-    { t: 0.28, fn: () => lbCreateConfettiBurst(cx, cy, Math.round(50 * scale), { ...burstOpts, speedMin: 4, speedMax: 12, spread: 36, lifeMul: 1.35 }) },
-    { t: 0.48, fn: () => lbCreateConfettiRain(cssW, Math.round(55 * scale), colors.length) },
-    { t: 0.72, fn: () => lbCreateConfettiRain(cssW, Math.round(35 * scale), colors.length) },
+    { t: 0.1, fn: () => [
+      ...lbCreateConfettiBurst(leftX, baseY, Math.round(28 * scale), { ...leftOpts, speedMin: 7, speedMax: 14, lifeMul: 1.2 }),
+      ...lbCreateConfettiBurst(rightX, baseY, Math.round(28 * scale), { ...rightOpts, speedMin: 7, speedMax: 14, lifeMul: 1.2 }),
+    ] },
+    { t: 0.22, fn: () => lbCreateConfettiBurst(cssW * 0.5, cssH * 0.38, Math.round(22 * scale), {
+      colors, angleMin: -Math.PI, angleMax: 0, speedMin: 3, speedMax: 9, spread: 40, lifeMul: 1.5,
+    }) },
+    { t: 0.4, fn: () => lbCreateConfettiRain(cssW, Math.round(32 * scale), colors.length) },
   ]
   let extraI = 0
   const start = performance.now()
   let last = start
-  const duration = 3.2
+  const duration = 2.85
+  const hasRoundRect = typeof ctx.roundRect === 'function'
 
   const tick = (now) => {
     const elapsed = (now - start) / 1000
@@ -21857,14 +21869,15 @@ function lbFireRankConfetti() {
     let write = 0
     let alive = 0
     const n = (buf.length / STRIDE) | 0
-    const grav = 420 * dt
-    const drag = Math.pow(0.986, dt * 60)
+    const grav = 280 * dt
+    const drag = Math.pow(0.991, dt * 60)
 
     for (let i = 0; i < n; i++) {
       const o = i * STRIDE
       let life = buf[o + 11] - buf[o + 12] * dt
       if (life <= 0) continue
-      let x = buf[o] + buf[o + 2] * dt * 60 + Math.sin(elapsed * 6 + buf[o + 8]) * buf[o + 10] * 18 * dt * 60
+      const sway = Math.sin(elapsed * 4.2 + buf[o + 8] * 3) * buf[o + 10] * 11 * dt * 60
+      let x = buf[o] + buf[o + 2] * dt * 60 + sway
       let y = buf[o + 1] + buf[o + 3] * dt * 60
       let vy = buf[o + 3] + grav
       let vx = buf[o + 2] * drag
@@ -21874,13 +21887,19 @@ function lbFireRankConfetti() {
       const shape = buf[o + 6]
       const color = colors[buf[o + 7]]
 
-      ctx.globalAlpha = life > 0.2 ? 1 : Math.max(0, life / 0.2)
+      // Soft fade: hold, then ease out
+      const alpha = life > 0.35 ? 0.92 : Math.max(0, (life / 0.35) * 0.92)
+      ctx.globalAlpha = alpha
       ctx.fillStyle = color
       ctx.setTransform(dpr, 0, 0, dpr, x * dpr, y * dpr)
       ctx.rotate(rot)
       if (shape === 1) {
         ctx.beginPath()
         ctx.arc(0, 0, ww / 2, 0, Math.PI * 2)
+        ctx.fill()
+      } else if (hasRoundRect && shape === 0) {
+        ctx.beginPath()
+        ctx.roundRect(-ww / 2, -hh / 2, ww, hh, 1.2)
         ctx.fill()
       } else {
         ctx.fillRect(-ww / 2, -hh / 2, ww, hh)
@@ -21898,7 +21917,7 @@ function lbFireRankConfetti() {
     ctx.globalAlpha = 1
     buf.length = write * STRIDE
 
-    if ((alive > 0 || elapsed < 0.9) && elapsed < duration) {
+    if ((alive > 0 || elapsed < 0.55) && elapsed < duration) {
       _lbConfettiRaf = requestAnimationFrame(tick)
     } else {
       _lbConfettiRaf = 0
