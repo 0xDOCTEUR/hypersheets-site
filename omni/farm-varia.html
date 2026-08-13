@@ -583,6 +583,40 @@
   .rank-board .src-pill.wallet { background: var(--accent-soft); color: var(--accent); }
   .rank-board .src-pill.seed { background: color-mix(in srgb, var(--muted) 14%, transparent); color: var(--muted); }
   .rank-board .src-pill.custom { background: color-mix(in srgb, var(--wc6) 16%, transparent); color: var(--wc6); }
+  .rank-board .rb-wallet-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    margin: 2px 0 12px;
+  }
+  .rank-board .rb-wallet-chips .wallet-chip {
+    appearance: none;
+    border: 1px solid rgba(232,238,247,.14);
+    background: #121a28;
+    color: #9aa8bc;
+    border-radius: 999px;
+    padding: 6px 11px;
+    font: inherit;
+    font-size: .74rem;
+    font-weight: 650;
+    cursor: pointer;
+    line-height: 1.2;
+    transition: color .12s, background .12s, border-color .12s;
+  }
+  .rank-board .rb-wallet-chips .wallet-chip:hover {
+    color: #e8eef7;
+    border-color: rgba(76,154,248,.4);
+  }
+  .rank-board .rb-wallet-chips .wallet-chip.active {
+    color: #fff;
+    background: rgba(76,154,248,.28);
+    border-color: rgba(76,154,248,.5);
+  }
+  .rank-board .rb-wallet-chips .rb-chips-empty {
+    font-size: .78rem;
+    color: var(--muted);
+  }
 
   /* —— Pages —— */
   .page-nav {
@@ -731,19 +765,19 @@ Omni ne publie pas le board points officiel.">Classement approx. (points)</h2>
       </div>
         <p class="rb-hint" style="margin:0 0 12px">
           Seuils Grok au <strong>10 août 2026</strong> (×1,019/sem), recalibrés log-log avec calages communauté + tes exports.
-          Le rang Omni reste <strong>par wallet</strong> — la somme A+B est indicative.
+          Le rang Omni reste <strong>par wallet</strong> — choisis un JSON (comme sur le Dashboard) ou Tous.
         </p>
       <div class="rb-grid">
         <div class="card">
           <h2>Calculateur</h2>
           <div class="card-pad">
+            <div class="rb-wallet-chips" id="rbWalletChips" aria-label="JSON Dashboard"></div>
             <div class="rb-row">
               <div class="rb-field">
                 <label>Points total</label>
                 <input id="rbCustomPts" type="number" min="0" step="0.01" placeholder="ex. 250" />
               </div>
               <button class="btn primary" type="button" id="rbCalcBtn">Estimer rang</button>
-              <button class="btn" type="button" id="rbUseSum">A+B</button>
             </div>
             <div class="rb-kpis" id="rbThresholdKpis"></div>
             <div class="rb-result" id="rbCalcResult">Saisis des points pour estimer un rang.</div>
@@ -2393,7 +2427,8 @@ function ensureRankBoard() {
   if (!state.rankBoard || typeof state.rankBoard !== 'object') {
     state.rankBoard = {
       weeks: 0, customObs: [], customPts: '',
-      fdvPreset: 'aster', fdvB: 4.7, airdropPct: 25, totalPool: 10000000
+      fdvPreset: 'aster', fdvB: 4.7, airdropPct: 25, totalPool: 10000000,
+      ptsSource: 'all'
     };
   }
   if (!Array.isArray(state.rankBoard.customObs)) state.rankBoard.customObs = [];
@@ -2402,6 +2437,7 @@ function ensureRankBoard() {
   if (state.rankBoard.fdvB == null || !(Number(state.rankBoard.fdvB) >= 0)) state.rankBoard.fdvB = 4.7;
   if (state.rankBoard.airdropPct == null || !(Number(state.rankBoard.airdropPct) >= 0)) state.rankBoard.airdropPct = 25;
   if (!(Number(state.rankBoard.totalPool) > 0)) state.rankBoard.totalPool = 10000000;
+  if (state.rankBoard.ptsSource == null) state.rankBoard.ptsSource = 'all';
 }
 
 function rbFmtSharePct(share) {
@@ -2463,18 +2499,17 @@ function rbCollectRows() {
   const weeks = num(state.rankBoard.weeks) || 0;
   const rows = [];
 
-  for (const w of variaList()) {
-    const st = variaWalletStats(w);
-    if (st.rank == null || !(st.total > 0)) continue;
-    const self = st.self != null ? st.self : null;
-    const ref = self != null ? Math.max(0, st.total - self) : null;
+  for (const w of myRankWallets()) {
+    if (w.rank == null || !(w.pts > 0)) continue;
+    const self = w.self != null ? w.self : null;
+    const ref = self != null ? Math.max(0, w.pts - self) : null;
     rows.push({
-      id: 'w:' + w.id,
+      id: w.id,
       note: w.label || 'Wallet',
-      pts: st.total,
+      pts: w.pts,
       self,
       ref,
-      rank: Number(st.rank),
+      rank: Number(w.rank),
       source: 'wallet',
       me: true
     });
@@ -2551,13 +2586,136 @@ function rbBandText(pts, samples, weeks) {
   return msg;
 }
 
-function sumMySummaryPts() {
+function omniDashAddrSuffix(addr) {
+  const a = String(addr || '').trim();
+  if (!a) return '';
+  const hex = a.replace(/[^a-fA-F0-9]/g, '');
+  if (hex.length >= 2) return hex.slice(-2).toUpperCase();
+  return '';
+}
+
+function omniDashSlotPts(slot) {
+  const p = slot && slot.points;
+  if (!p || typeof p !== 'object') return 0;
+  const sum = p.points_summary || {};
+  if (sum.total_points != null) return num(sum.total_points);
   let t = 0;
-  for (const w of variaList()) {
-    const st = variaWalletStats(w);
-    if (st && st.total > 0) t += st.total;
-  }
+  for (const h of (p.points_history || [])) t += num(h.total_points != null ? h.total_points : h.points);
   return t;
+}
+
+function omniDashSlotRank(slot) {
+  const sum = slot && slot.points && slot.points.points_summary;
+  if (sum && sum.rank != null && Number.isFinite(Number(sum.rank))) return Number(sum.rank);
+  try {
+    const self = slot.points && slot.points.competition && !Array.isArray(slot.points.competition)
+      ? slot.points.competition.self : null;
+    if (self && self.rank != null) return Number(self.rank);
+  } catch (_) {}
+  return null;
+}
+
+/** JSON wallets from Omni Dashboard (hs-var-omni-accounts) — same chips as Live. */
+function loadOmniDashWallets() {
+  try {
+    const raw = localStorage.getItem('hs-var-omni-accounts');
+    if (!raw) return [];
+    const acc = JSON.parse(raw);
+    const slots = acc && acc.slots && typeof acc.slots === 'object' ? acc.slots : {};
+    const order = Array.isArray(acc.slotOrder)
+      ? acc.slotOrder.map(String).filter((id) => Object.prototype.hasOwnProperty.call(slots, id))
+      : Object.keys(slots);
+    const ids = order.slice();
+    Object.keys(slots).forEach((id) => { if (!ids.includes(id)) ids.push(id); });
+    const out = [];
+    ids.forEach((id, i) => {
+      const s = slots[id];
+      if (!s) return;
+      const pts = omniDashSlotPts(s);
+      const nTrades = (s.csv && Array.isArray(s.csv.trades)) ? s.csv.trades.length : 0;
+      const hasPoints = !!(s.points && (s.points.points_summary || (s.points.points_history || []).length));
+      if (!(pts > 0) && !nTrades && !hasPoints) return;
+      let label = String(s.label || '').trim();
+      if (!label || /^omni\s*\d+$/i.test(label)) {
+        label = omniDashAddrSuffix(s.omniAddress) || ('J' + (i + 1));
+      }
+      out.push({
+        id: 'omni:' + id,
+        slotId: id,
+        label: label.slice(0, 16),
+        pts,
+        rank: omniDashSlotRank(s),
+        self: s.points?.points_summary?.self_points != null ? num(s.points.points_summary.self_points) : null,
+        source: 'omni',
+      });
+    });
+    return out;
+  } catch (_) {
+    return [];
+  }
+}
+
+/** Prefer Dashboard JSON; fall back to farm-varia imports. */
+function myRankWallets() {
+  const omni = loadOmniDashWallets();
+  if (omni.length) return omni;
+  return variaList().map((w) => {
+    const st = variaWalletStats(w);
+    return {
+      id: 'w:' + w.id,
+      slotId: w.id,
+      label: w.label || 'Wallet',
+      pts: st.total || 0,
+      rank: st.rank,
+      self: st.self,
+      source: 'wallet',
+    };
+  }).filter((w) => w.pts > 0 || w.rank != null);
+}
+
+function sumMySummaryPts() {
+  return myRankWallets().reduce((t, w) => t + (num(w.pts) || 0), 0);
+}
+
+function ptsForSource(src) {
+  const list = myRankWallets();
+  if (!list.length) return 0;
+  if (!src || src === 'all') return list.reduce((t, w) => t + (num(w.pts) || 0), 0);
+  const hit = list.find((w) => w.id === src || w.slotId === src);
+  return hit ? (num(hit.pts) || 0) : 0;
+}
+
+function applyPtsSource(src, opts) {
+  ensureRankBoard();
+  const list = myRankWallets();
+  const next = (!src || src === 'all') ? 'all' : src;
+  if (next !== 'all' && !list.some((w) => w.id === next || w.slotId === next)) return;
+  state.rankBoard.ptsSource = next;
+  const pts = ptsForSource(next);
+  state.rankBoard.customPts = pts > 0 ? String(Math.round(pts * 100) / 100) : '';
+  if (!(opts && opts.skipSave)) saveState();
+}
+
+function renderRbWalletChips() {
+  const host = $('rbWalletChips');
+  if (!host) return;
+  ensureRankBoard();
+  const list = myRankWallets();
+  const src = state.rankBoard.ptsSource || 'all';
+  if (!list.length) {
+    host.innerHTML = '<span class="rb-chips-empty">Importe des JSON dans le Dashboard (Import)</span>';
+    return;
+  }
+  const allOn = src === 'all';
+  host.innerHTML =
+    '<button type="button" class="wallet-chip' + (allOn ? ' active' : '') + '" data-rb-src="all">Tous</button>' +
+    list.map((w) => {
+      const on = !allOn && (src === w.id || src === w.slotId);
+      const ptsLbl = w.pts > 0 ? (' · ' + fmtPts(w.pts)) : '';
+      return '<button type="button" class="wallet-chip' + (on ? ' active' : '') +
+        '" data-rb-src="' + escHtml(w.id) + '" title="' + escHtml(w.label) + ptsLbl + '">' +
+        escHtml(w.label) + ptsLbl + '</button>';
+    }).join('');
 }
 
 function renderRankBoard() {
@@ -2601,12 +2759,20 @@ function renderRankBoard() {
   if (result) {
     if (pts > 0) {
       const mine = sumMySummaryPts();
+      const src = state.rankBoard.ptsSource || 'all';
+      const list = myRankWallets();
+      const picked = src === 'all' ? null : list.find((w) => w.id === src || w.slotId === src);
+      const srcLbl = src === 'all'
+        ? ('Tous (' + fmtPts(mine) + ' pts)')
+        : (picked ? (picked.label + ' · ' + fmtPts(picked.pts) + ' pts') : '');
       result.innerHTML = '<strong>' + fmtPts(pts) + ' pts</strong> → ' + escHtml(rbBandText(pts, samples, weeks)) +
-        (mine > 0 ? '<br><span class="muted">Tes wallets (somme A+B) : ' + fmtPts(mine) + ' pts · rang Omni = par wallet</span>' : '');
+        (srcLbl ? '<br><span class="muted">JSON : ' + escHtml(srcLbl) + ' · rang Omni = par wallet</span>' : '');
     } else {
-      result.textContent = 'Saisis des points pour estimer un rang.';
+      result.textContent = 'Saisis des points ou choisis un JSON pour estimer un rang.';
     }
   }
+
+  try { renderRbWalletChips(); } catch (_) {}
 
   const fdvTabs = $('rbFdvTabs');
   if (fdvTabs) {
@@ -2699,17 +2865,25 @@ function bindRankBoardEvents() {
   $('rbCustomPts')?.addEventListener('input', () => {
     ensureRankBoard();
     state.rankBoard.customPts = $('rbCustomPts').value;
+    state.rankBoard.ptsSource = 'custom';
     saveState();
     renderRankBoard();
   });
   $('rbCalcBtn')?.addEventListener('click', () => renderRankBoard());
-  $('rbUseSum')?.addEventListener('click', () => {
-    ensureRankBoard();
-    const mine = sumMySummaryPts();
-    state.rankBoard.customPts = String(Math.round(mine * 100) / 100);
-    saveState();
+  $('rbWalletChips')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-rb-src]');
+    if (!btn) return;
+    applyPtsSource(btn.getAttribute('data-rb-src'));
     renderRankBoard();
   });
+  // Keep chips in sync if Dashboard import updates accounts in another tab.
+  try {
+    window.addEventListener('storage', (e) => {
+      if (e && e.key === 'hs-var-omni-accounts') {
+        try { renderRankBoard(); } catch (_) {}
+      }
+    });
+  } catch (_) {}
   $('rbFdvTabs')?.addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-fdv]');
     if (!btn) return;
