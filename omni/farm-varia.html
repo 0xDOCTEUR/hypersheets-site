@@ -802,10 +802,6 @@ Tes wallets importés + observations manuelles.
 Omni ne publie pas le board points officiel.">Classement approx. (points)</h2>
         <div class="tabs" id="rankWeekTabs" aria-label="Horizon des seuils"></div>
       </div>
-        <p class="rb-hint" id="rbHorizonHint" style="margin:0 0 12px">
-          Seuils Grok (calage 10 août, ×1,019/sem) projetés à la date choisie. Les observations wallet restent à leurs pts/rang actuels.
-          Le rang Omni reste <strong>par wallet</strong> — choisis un JSON (comme sur le Dashboard) ou Tous.
-        </p>
       <div class="rb-grid">
         <div class="card">
           <h2>Calculateur</h2>
@@ -2808,16 +2804,6 @@ function renderRankBoard() {
         (Number(weeks) === o ? ' class="active"' : '') +
         ' title="' + escHtml(tip) + '">' + escHtml(label) + '</button>';
     }).join('');
-  }
-
-  const hint = $('rbHorizonHint');
-  if (hint) {
-    const when = rbFmtHorizonDate(weeks);
-    hint.innerHTML =
-      'Seuils Grok (calage 10 août, ×1,019/sem) projetés au <strong>' + escHtml(when) + '</strong>' +
-      (weeks === 0 ? ' (maintenant)' : '') +
-      '. Les observations wallet restent à leurs pts/rang actuels. ' +
-      'Le rang Omni reste <strong>par wallet</strong> — choisis un JSON (comme sur le Dashboard) ou Tous.';
   }
 
   const kpis = $('rbThresholdKpis');
