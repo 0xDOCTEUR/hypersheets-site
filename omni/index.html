@@ -13173,18 +13173,18 @@ const I18N = {
     'xyz.lbVolJson': 'File volume',
     'xyz.lbVolApi': 'Current volume',
     'xyz.lbVolJsonTip': 'Volume in the published weekly leaderboard file.',
-    'xyz.lbVolApiTip': 'Trade XYZ volume used for the estimate (file + trades since last file update).',
+    'xyz.lbVolApiTip': 'Same Trade XYZ volume as the Trade XYZ tab (all HIP-3 fills loaded for this wallet). Rank estimate uses this figure against the leaderboard snapshot.',
     'xyz.lbEstRank': 'Estimated rank (volume since update)',
     'xyz.lbEstRank7d': 'Estimated rank (7d)',
     'xyz.lbEstRankCurrent': 'Estimated rank (current volume)',
-    'xyz.lbEstRankCurrentHint': 'Approximate rank if the snapshot were sorted by volume at instant T: JSON volume (top 10k row, else 0) plus API fills since the file was updated, or all-time API volume when the address is not in the file. Rank = 1 + count of rows with higher total_volume_usd.',
-    'xyz.lbEstRankHint': 'Approximate rank: your file volume plus Trade XYZ trades since the file was last updated, compared to the snapshot.',
+    'xyz.lbEstRankCurrentHint': 'Approximate rank if the snapshot were sorted by your current Trade XYZ volume (same as the Trade XYZ tab). Rank = 1 + count of rows with higher total_volume_usd.',
+    'xyz.lbEstRankHint': 'Approximate rank from your current Trade XYZ volume vs the leaderboard snapshot.',
     'xyz.lbEstRankGlobal': 'Est. global rank',
     'xyz.lbEstRankRetail': 'Est. retail rank',
     'xyz.lbEstProjected': 'Projected volume',
     'xyz.lbVolTotalT': 'Total volume (instant T)',
-    'xyz.lbVolTotalTHintProjected': 'File {json} + since update ({delta})',
-    'xyz.lbVolTotalTHintApi': 'Not in file — all-time Trade XYZ volume (this session)',
+    'xyz.lbVolTotalTHintProjected': 'Snapshot fallback: file {json} + {delta} since update (API fills look incomplete).',
+    'xyz.lbVolTotalTHintApi': 'Trade XYZ volume (same source as Trade XYZ → All)',
     'xyz.lbVolTotalTHintJson': 'File volume only',
     'xyz.lbNoFileProd': 'Global trader ranking is not available yet. Connect a wallet to see your live Trade XYZ stats.',
     'xyz.lbVolMismatch': 'API volume is much higher than the imported JSON — the Hydromancer build may be incomplete (skipped days or partial S3 read). Regenerate leaderboard.json with --by-day.',
@@ -22899,13 +22899,34 @@ function getNextLeaderboardMilestone(rank) {
 function getLeaderboardCurrentVol(jsonVol, addrs) {
   const since = getApiVolSinceLeaderboardUpdate(addrs)
   const apiAll = getApiXyzVolumeForAddrs(addrs)
-  if (jsonVol > 0 && parseLeaderboardUpdatedAtMs() != null) {
-    const projected = jsonVol + since.vol
-    if (projected > 0) return { vol: projected, source: 'projected', delta: since.vol }
+  const hasFileTs = parseLeaderboardUpdatedAtMs() != null
+  const projected = (jsonVol > 0 && hasFileTs) ? (jsonVol + since.vol) : null
+
+  // Prefer the same all-time Trade XYZ fills volume as the Trade XYZ page KPI.
+  // Fall back to fichier+delta only when API fills look truncated vs the snapshot projection.
+  if (apiAll.vol > 0) {
+    if (projected != null && projected > apiAll.vol * 1.02 + 2500) {
+      return {
+        vol: projected,
+        source: 'projected',
+        delta: since.vol,
+        apiVol: apiAll.vol,
+        trades: apiAll.trades,
+      }
+    }
+    return {
+      vol: apiAll.vol,
+      source: 'api',
+      delta: 0,
+      apiVol: apiAll.vol,
+      trades: apiAll.trades,
+    }
   }
-  if (jsonVol > 0) return { vol: jsonVol, source: 'json', delta: 0 }
-  if (apiAll.vol > 0) return { vol: apiAll.vol, source: 'api', delta: 0 }
-  return { vol: 0, source: 'none', delta: 0 }
+  if (projected != null && projected > 0) {
+    return { vol: projected, source: 'projected', delta: since.vol, apiVol: 0, trades: since.trades }
+  }
+  if (jsonVol > 0) return { vol: jsonVol, source: 'json', delta: 0, apiVol: 0, trades: 0 }
+  return { vol: 0, source: 'none', delta: 0, apiVol: 0, trades: 0 }
 }
 
 function normalizeLbLookupAddr(raw) {
@@ -23142,7 +23163,7 @@ function renderLeaderboardPersonalBlock(opts) {
     <div${estGotoAttr}>
       <div class="lb-rank-section-title estimated">${t('xyz.lbRankEstimated')}</div>
       <div class="lb-hero-rank-num" style="color:${lbRankColor(estRank)}">${estRank ? '#' + estRank.toLocaleString() : '—'}</div>
-      <div class="lb-hero-rank-vol-label">${t('xyz.lbVolApi')}</div>
+      <div class="lb-hero-rank-vol-label" title="${t('xyz.lbVolApiTip').replace(/"/g, '&quot;')}">${t('xyz.lbVolApi')}</div>
       <div class="lb-hero-rank-vol">${displayVol > 0 ? fmtLbVol(displayVol) : (apiVol > 0 ? fmtLbVol(apiVol) : '—')}</div>
       ${estRank && altEstRank && altEstRank !== estRank
         ? `<div class="lb-hero-rank-meta">${altEstLabel} #${altEstRank.toLocaleString()}</div>`
