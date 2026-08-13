@@ -2223,6 +2223,13 @@ function ongoingNeedsReimport() {
 function updateSetupOpen() {
   const panel = $('setupPanel');
   if (!panel) return;
+  // Embed Classement: Import & Sync is on Omni Dashboard — keep panel closed/hidden.
+  if (document.documentElement.classList.contains('hs-fv-embed')) {
+    panel.open = false;
+    const banner = $('reimportBanner');
+    if (banner) banner.classList.remove('show');
+    return;
+  }
   const hasData = variaList().length > 0 || hlList().length > 0;
   const needImport = ongoingNeedsReimport();
   const needHl = hlList().some(hl => (hl.epochs || []).some(e => e.needsSync));
