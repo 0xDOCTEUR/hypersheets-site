@@ -12735,6 +12735,7 @@ const I18N = {
     'var.epochPnlCombined': 'Combined PnL',
     'var.epochCostPtHint': 'Shown only when combined PnL < 0',
     'var.epochHlOff': 'off farm',
+    'var.epochHlNoData': 'no week data — Sync HL',
     'var.pricePerPoint': '$/pt',
     'var.epochPtsPer': 'Pts / $1M',
     'var.epochInProgress': 'In progress',
@@ -13892,6 +13893,7 @@ const I18N = {
     'var.epochPnlCombined': 'PnL combiné',
     'var.epochCostPtHint': 'Affiché seulement si PnL combiné < 0',
     'var.epochHlOff': 'hors farm',
+    'var.epochHlNoData': 'pas de semaine — Sync HL',
     'var.pricePerPoint': '$/pt',
     'var.epochPtsPer': 'Pts / $1M',
     'var.epochInProgress': 'En cours',
@@ -33252,7 +33254,7 @@ document.addEventListener('DOMContentLoaded', () => {
   </div>
 </div>
 <script src="../js/variational-omni-collector.js"></script>
-<script src="../js/variational-omni.js?v=20260813pnlfix"></script>
+<script src="../js/variational-omni.js?v=20260813hlrow"></script>
 <script>
 (function hsLoadCfWebAnalytics() {
   var token = (typeof HS_CONFIG !== 'undefined' && HS_CONFIG.cfWebAnalyticsToken) || '';

@@ -5763,7 +5763,18 @@
 
       hlWallets.forEach((hl) => {
         const e = varFarmEpochFindHlEpoch(hl, r.start, r.end);
-        if (!e) return;
+        if (!e) {
+          // Always show the HL jambe — missing week usually means Sync HL is stale
+          // vs the Omni calendar (not that the extension address is wrong).
+          lines.push(`<tr class="var-farm-epoch-wrow">
+            <td></td>
+            <td class="left"><span class="var-farm-epoch-pill is-hl">${varEsc(hl.label)}</span> <span class="muted">${varEsc(varT('var.epochHlNoData'))}</span></td>
+            <td class="muted text-right">—</td><td class="muted text-right">—</td>
+            <td class="muted text-right">—</td><td class="muted text-right">—</td>
+            <td></td><td></td>
+          </tr>`);
+          return;
+        }
         if (e.farming === false) {
           lines.push(`<tr class="var-farm-epoch-wrow">
             <td></td>
