@@ -21604,15 +21604,16 @@ function estimateRankInRows(rows, projectedVol) {
   return above + 1
 }
 
-function getLeaderboardThresholdVol(rankN) {
-  const rows = _leaderboardAllRows
+function getLeaderboardThresholdVol(rankN, mode) {
+  const rows = mode === 'retail' ? getLeaderboardViewRows('retail') : _leaderboardAllRows
   if (!rows?.length || !(rankN > 0)) return null
   const idx = Math.min(rankN, rows.length) - 1
   return parseFloat(rows[idx]?.total_volume_usd || 0) || null
 }
 
 function getNextLeaderboardMilestone(rank) {
-  if (!rank || rank > 10000) return 10000
+  if (!(rank > 0)) return 10000
+  if (rank > 10000) return 10000
   for (let i = LEADERBOARD_MILESTONES.length - 1; i >= 0; i--) {
     if (rank > LEADERBOARD_MILESTONES[i]) return LEADERBOARD_MILESTONES[i]
   }
@@ -21953,7 +21954,7 @@ function renderLeaderboardPersonalBlock(opts) {
         : (estLoading ? `<div class="lb-hero-rank-meta">${isFr ? 'Volume Trade XYZ en cours de chargement' : 'Loading Trade XYZ volume'}</div>` : '')}
     </div>
   </div>
-  <div class="lb-hero-milestones">${renderLeaderboardMilestones(userVol, globalStats.rank, isFr, lookupAddrs)}</div>`
+  <div class="lb-hero-milestones">${renderLeaderboardMilestones(userVol, globalStats.rank, isFr, lookupAddrs, { mode, estRank: estLoading ? null : estRank, displayVol })}</div>`
   html += `</div>`
   return html
 }
@@ -22034,19 +22035,28 @@ function renderLeaderboardAddressLookup(isFr) {
   </div>`
 }
 
-function renderLeaderboardMilestones(jsonVol, jsonRank, isFr, addrs) {
+function renderLeaderboardMilestones(jsonVol, jsonRank, isFr, addrs, opts) {
   if (!_leaderboardAllRows?.length) return ''
   const targetAddrs = addrs?.length ? addrs.map(a => String(a).toLowerCase()) : getLeaderboardActiveAddrs()
   if (!targetAddrs.length) return ''
+  const mode = opts?.mode === 'retail' ? 'retail' : 'global'
   const cur = getLeaderboardCurrentVol(jsonVol, targetAddrs)
-  if (!(cur.vol > 0)) return ''
-  const effRank = jsonRank || estimateRankInRows(_leaderboardAllRows, cur.vol)
+  const vol = (opts?.displayVol > 0) ? opts.displayVol : cur.vol
+  if (!(vol > 0) && !(opts?.estRank > 0) && !(jsonRank > 0)) return ''
+  // Prefer estimated rank at current volume (what the user sees as RANG ESTIMÉ), not file rank.
+  const viewRows = getLeaderboardViewRows(mode)
+  let effRank = opts?.estRank > 0 ? opts.estRank : null
+  if (!(effRank > 0) && vol > 0) {
+    effRank = estimateRankInRows(viewRows, vol)
+  }
+  if (!(effRank > 0) && jsonRank > 0) effRank = jsonRank
+  if (!(effRank > 0)) return ''
   const nextM = getNextLeaderboardMilestone(effRank)
   let html = `<div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(251,191,36,.15)">
     <div style="font-size:.62rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">${t('xyz.lbMilestoneTitle')}</div>
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:${nextM ? '10px' : '0'}">`
   LEADERBOARD_MILESTONES.forEach(m => {
-    const inTier = effRank && effRank <= m
+    const inTier = effRank <= m
     const isNext = m === nextM
     const bg = isNext ? 'rgba(251,191,36,.14)' : inTier ? 'rgba(34,197,94,.08)' : 'rgba(255,255,255,.03)'
     const border = isNext ? 'rgba(251,191,36,.45)' : inTier ? 'rgba(34,197,94,.35)' : 'var(--border)'
@@ -22059,16 +22069,22 @@ function renderLeaderboardMilestones(jsonVol, jsonRank, isFr, addrs) {
     html += `<div style="font-size:.72rem;color:var(--success);font-weight:600">${t('xyz.lbMilestoneAllDone')}</div></div>`
     return html
   }
-  const threshold = getLeaderboardThresholdVol(nextM)
+  const threshold = getLeaderboardThresholdVol(nextM, mode)
   if (!(threshold > 0)) {
     html += `</div>`
     return html
   }
-  const need = Math.max(0, threshold - cur.vol)
-  const pct = Math.min(100, Math.max(0, Math.round((cur.vol / threshold) * 100)))
-  const needStr = fmtLbVol(need)
+  const need = Math.max(0, threshold - (vol || 0))
+  const pct = Math.min(100, Math.max(0, Math.round(((vol || 0) / threshold) * 100)))
+  // Volume already past threshold but rank not yet in tier → still show remaining 0 clearly.
+  const needStr = need > 0 ? fmtLbVol(need) : (isFr ? '0 $' : '$0')
+  const needLine = need > 0
+    ? t('xyz.lbMilestoneNeed').replace('{vol}', needStr).replace('{n}', String(nextM))
+    : (isFr
+      ? `Volume Top ${nextM} atteint — en attente du prochain snapshot pour valider le rang`
+      : `Top ${nextM} volume reached — waiting for next snapshot to lock the rank`)
   html += `<div style="font-size:.72rem;line-height:1.45;margin-bottom:6px">
-    <span style="font-weight:700;color:#FBBF24">${t('xyz.lbMilestoneNeed').replace('{vol}', needStr).replace('{n}', String(nextM))}</span>
+    <span style="font-weight:700;color:#FBBF24">${needLine}</span>
   </div>
   <div class="lb-milestone-progress-track">
     <div class="lb-milestone-progress-fill" style="width:${pct}%"></div>
