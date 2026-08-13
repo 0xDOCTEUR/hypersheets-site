@@ -407,7 +407,7 @@ const HS_CONFIG = {
           color: #4c9af8;
         }
         #page-variational {
-          --var-accent: var(--accent);
+          --var-accent: #4c9af8;
           --var-omni: #4c9af8;
           --var-hl: #5eead4;
         }
@@ -10085,8 +10085,8 @@ try {
     justify-content: flex-start;
     gap: 12px;
     padding: 16px 22px;
-    border-bottom: 1px solid rgba(255,255,255,.08);
-    background: #000;
+    border-bottom: 1px solid rgba(232,238,247,.12);
+    background: #0b1220;
     position: sticky;
     top: 0;
     z-index: 40;
@@ -10214,27 +10214,74 @@ try {
   }
   html.hs-omni-standalone #varDashboard .var-dash-nav .var-sub-tab.active {
     color: #fff;
-    background: rgba(76,154,248,.14);
-    border-color: rgba(76,154,248,.35);
-    box-shadow: inset 0 -2px 0 #4c9af8;
+    background: rgba(76,154,248,.28);
+    border-color: rgba(76,154,248,.45);
+    box-shadow: none;
   }
 
-  /* ── Dashboard polish ── */
+  /* ── Align Dashboard with Classement (farm-varia embed) tokens ── */
+  html.hs-omni-standalone #page-variational {
+    --var-omni: #4c9af8;
+    --var-accent: #4c9af8;
+    --accent: #4c9af8;
+    --accent-2: #6eb0ff;
+    --accent-soft: rgba(76, 154, 248, .16);
+    --accent-border: rgba(76, 154, 248, .45);
+    --accent-muted: #6eb0ff;
+    --bg: #0b1220;
+    --surface: #121a28;
+    --surface-2: #161e2c;
+    --border: rgba(232, 238, 247, .12);
+    --text: #e8eef7;
+    --muted: #9aa8bc;
+    --muted-2: #9aa8bc;
+    --hs-radius-tile: 14px;
+    --hs-radius-badge: 7px;
+    --danger: #f07167;
+    color: #e8eef7;
+    background:
+      radial-gradient(900px 420px at 10% -10%, rgba(76,154,248,.1), transparent 55%),
+      #0b1220 !important;
+    min-height: calc(100vh - 64px);
+  }
+  html.hs-omni-standalone #hsOmniTopbar {
+    background: #0b1220 !important;
+    border-bottom: 1px solid rgba(232,238,247,.12) !important;
+  }
+  html.hs-omni-standalone #varDashboard .var-dash-sticky-nav {
+    background: rgba(11,18,32,.88) !important;
+    border-bottom: 1px solid rgba(232,238,247,.12) !important;
+  }
+  html.hs-omni-standalone #varDashboard .var-dash-nav .var-sub-tab.active {
+    color: #fff;
+    background: rgba(76,154,248,.28);
+    border-color: rgba(76,154,248,.45);
+    box-shadow: none;
+  }
+
+  /* ── Dashboard polish (Classement card language) ── */
   html.hs-omni-standalone #varSecLive > .border-b {
     border-bottom: 0 !important;
-    padding: 18px 22px 28px !important;
+    padding: 14px 16px 24px !important;
   }
   html.hs-omni-standalone .var-live-ready {
-    gap: 20px;
+    gap: 16px;
   }
   html.hs-omni-standalone .var-live-ready-title {
-    font-size: clamp(1.25rem, 2.2vw, 1.55rem);
-    letter-spacing: -0.03em;
+    font-family: 'Raleway', system-ui, sans-serif;
+    font-size: clamp(1.1rem, 2vw, 1.35rem);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: #e8eef7;
+  }
+  html.hs-omni-standalone .var-live-ready-sub,
+  html.hs-omni-standalone .var-farm-lead {
+    color: #9aa8bc !important;
   }
   html.hs-omni-standalone .var-farm-score {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
+    gap: 8px;
   }
   @media (min-width: 900px) {
     html.hs-omni-standalone .var-farm-score {
@@ -10245,22 +10292,72 @@ try {
     }
   }
   html.hs-omni-standalone .var-farm-score .kpi,
-  html.hs-omni-standalone #varLiveKpis .kpi {
-    background: rgba(255,255,255,.025);
-    border: 1px solid rgba(255,255,255,.08);
-    border-radius: 12px;
-    padding: 14px 16px;
+  html.hs-omni-standalone #varLiveKpis .kpi,
+  html.hs-omni-standalone #varDashKpis .kpi,
+  html.hs-omni-standalone #varPointsKpis .kpi,
+  html.hs-omni-standalone .var-points-kpis .kpi,
+  html.hs-omni-standalone .var-points-kpis .card2,
+  html.hs-omni-standalone .var-farm-suivi-kpi,
+  html.hs-omni-standalone .var-farm-suivi-wallet {
+    background: #161e2c !important;
+    border: 1px solid rgba(232,238,247,.12) !important;
+    border-radius: 14px !important;
+    box-shadow: none !important;
+    padding: 12px 14px;
     transition: border-color .15s, background .15s;
   }
+  html.hs-omni-standalone .var-farm-score .kpi::before,
+  html.hs-omni-standalone #varLiveKpis .kpi::before,
+  html.hs-omni-standalone #varDashKpis .kpi::before {
+    display: none;
+  }
   html.hs-omni-standalone .var-farm-score .kpi:hover,
-  html.hs-omni-standalone #varLiveKpis .kpi:hover {
-    border-color: rgba(76,154,248,.28);
-    background: rgba(76,154,248,.06);
+  html.hs-omni-standalone #varLiveKpis .kpi:hover,
+  html.hs-omni-standalone #varDashKpis .kpi:hover {
+    border-color: rgba(76,154,248,.35) !important;
+    background: #1a2436 !important;
   }
   html.hs-omni-standalone .var-farm-score .kpi-accent,
-  html.hs-omni-standalone #varLiveKpis .kpi-accent {
-    border-color: rgba(76,154,248,.4);
-    background: linear-gradient(160deg, rgba(76,154,248,.12), rgba(255,255,255,.02));
+  html.hs-omni-standalone #varLiveKpis .kpi-accent,
+  html.hs-omni-standalone #varDashKpis .kpi-accent,
+  html.hs-omni-standalone .var-farm-suivi-kpi.is-accent {
+    border-color: rgba(76,154,248,.45) !important;
+    background: linear-gradient(160deg, rgba(76,154,248,.2), #161e2c) !important;
+  }
+  html.hs-omni-standalone .kpi-label,
+  html.hs-omni-standalone .var-farm-suivi-kpi .lbl,
+  html.hs-omni-standalone .var-farm-suivi-wallets-h,
+  html.hs-omni-standalone .var-farm-suivi-epochs-h {
+    color: #9aa8bc !important;
+    font-size: .68rem;
+    letter-spacing: .06em;
+  }
+  html.hs-omni-standalone .kpi-val,
+  html.hs-omni-standalone .var-farm-suivi-kpi .val,
+  html.hs-omni-standalone .var-farm-suivi-wallet .pnl {
+    font-family: ui-monospace, 'Cascadia Code', 'Segoe UI Mono', Consolas, monospace !important;
+    font-size: 1.15rem !important;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    color: #e8eef7;
+  }
+  html.hs-omni-standalone .kpi-accent .kpi-val {
+    color: #6eb0ff !important;
+  }
+  html.hs-omni-standalone .kpi-val.is-pos,
+  html.hs-omni-standalone .kpi-val.pos,
+  html.hs-omni-standalone .var-farm-suivi-kpi .is-pos,
+  html.hs-omni-standalone .var-farm-suivi-wallet .is-pos {
+    color: #6eb0ff !important;
+  }
+  html.hs-omni-standalone .kpi-val.is-neg,
+  html.hs-omni-standalone .kpi-val.neg,
+  html.hs-omni-standalone .var-farm-suivi-kpi .is-neg,
+  html.hs-omni-standalone .var-farm-suivi-wallet .is-neg {
+    color: #f07167 !important;
+  }
+  html.hs-omni-standalone .var-farm-suivi-wallet {
+    border-top-width: 3px !important;
   }
   html.hs-omni-standalone .var-omni-csv-bar {
     background: transparent;
@@ -10269,29 +10366,43 @@ try {
     padding: 0;
   }
   html.hs-omni-standalone .var-import-dd-panel {
-    background: #121a28;
-    border-color: rgba(255,255,255,.12);
+    background: #121a28 !important;
+    border: 1px solid rgba(232,238,247,.14) !important;
+    border-radius: 14px !important;
+    box-shadow: 0 12px 40px rgba(0,0,0,.45);
   }
   html.hs-omni-standalone .var-json-drop {
     margin-bottom: 0;
     margin-top: 8px;
-    border-radius: 12px;
+    border-radius: 14px;
     padding: 12px 10px;
-    background: rgba(76,154,248,.04);
+    background: #121a28 !important;
+    border: 1px dashed rgba(76,154,248,.35) !important;
+    color: #9aa8bc;
+  }
+  html.hs-omni-standalone .var-live-panel,
+  html.hs-omni-standalone .var-dash-panel,
+  html.hs-omni-standalone .var-dash-chart,
+  html.hs-omni-standalone .var-live-hedge-card,
+  html.hs-omni-standalone .hl-vol-panel,
+  html.hs-omni-standalone .card2 {
+    background: #161e2c !important;
+    border: 1px solid rgba(232,238,247,.12) !important;
+    border-radius: 14px !important;
+    box-shadow: none !important;
   }
   html.hs-omni-standalone .var-live-panel {
-    background: rgba(255,255,255,.02);
-    border: 1px solid rgba(255,255,255,.08);
-    border-radius: 14px;
-    padding: 16px 18px;
+    padding: 14px 16px;
   }
-  html.hs-omni-standalone .var-live-panel .section-h {
-    margin-bottom: 6px;
-  }
-  html.hs-omni-standalone .var-live-hedge-card {
-    background: rgba(0,0,0,.25);
-    border-radius: 12px;
-    border-color: rgba(255,255,255,.08);
+  html.hs-omni-standalone .var-live-panel .section-h,
+  html.hs-omni-standalone .var-dash-panel .section-h,
+  html.hs-omni-standalone .section-h {
+    color: #9aa8bc;
+    font-family: 'Raleway', system-ui, sans-serif;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    font-size: .72rem;
   }
   html.hs-omni-standalone .var-dash-periods {
     display: inline-flex;
@@ -10299,20 +10410,64 @@ try {
     padding: 3px;
     border-radius: 10px;
     background: rgba(255,255,255,.04);
-    border: 1px solid rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.1);
   }
   html.hs-omni-standalone .var-dash-period {
     border: 0 !important;
     background: transparent !important;
-    color: rgba(255,255,255,.55);
+    color: #9aa8bc;
     border-radius: 7px;
-    padding: 6px 12px;
+    padding: 7px 12px;
     font-weight: 600;
-    font-size: 0.75rem;
+    font-size: 0.78rem;
   }
   html.hs-omni-standalone .var-dash-period.active {
-    background: rgba(76,154,248,.2) !important;
+    background: rgba(76,154,248,.28) !important;
     color: #fff;
+  }
+  html.hs-omni-standalone .btn-ac,
+  html.hs-omni-standalone button.btn-ac,
+  html.hs-omni-standalone a.btn-ac {
+    background: #4c9af8 !important;
+    border-color: #4c9af8 !important;
+    color: #0b1220 !important;
+  }
+  html.hs-omni-standalone .btn-ghost,
+  html.hs-omni-standalone button.btn-ghost {
+    border-color: rgba(232,238,247,.14) !important;
+    color: #e8eef7 !important;
+    background: #121a28 !important;
+  }
+  html.hs-omni-standalone table thead th,
+  html.hs-omni-standalone .xyz-lb-scroll .lb-row-header,
+  html.hs-omni-standalone .var-act-table thead th {
+    background: #121a28 !important;
+    color: #9aa8bc !important;
+    border-bottom: 1px solid rgba(255,255,255,.1) !important;
+  }
+  html.hs-omni-standalone table tbody td,
+  html.hs-omni-standalone .var-act-table tbody td {
+    color: #e8eef7 !important;
+    border-bottom: 1px solid rgba(255,255,255,.06) !important;
+  }
+  html.hs-omni-standalone table tbody tr:hover td,
+  html.hs-omni-standalone .var-act-table tbody tr:hover td {
+    background: rgba(76,154,248,.07) !important;
+  }
+  html.hs-omni-standalone input,
+  html.hs-omni-standalone select,
+  html.hs-omni-standalone textarea {
+    background: #0b1220 !important;
+    color: #e8eef7 !important;
+    border: 1px solid rgba(255,255,255,.14) !important;
+    border-radius: 10px !important;
+  }
+  html.hs-omni-standalone .pill.active,
+  html.hs-omni-standalone .var-scope-pill.is-on,
+  html.hs-omni-standalone .var-live-venue-pill.is-on {
+    background: rgba(76,154,248,.28) !important;
+    border-color: rgba(76,154,248,.45) !important;
+    color: #fff !important;
   }
 
   /* ── Extension polish ── */
@@ -11402,7 +11557,7 @@ try {
 
 <div class="var-sub-panel" data-varpanel="classement" id="varSecClassement" style="order:2;display:none;border-top:1px solid var(--border)">
         <div class="px-2 py-2" style="min-height:70vh">
-          <iframe id="varClassementFrame" title="Classement points Variational" src="about:blank" data-fv-src="farm-varia.html?embed=1&v=20260810#classement" style="width:100%;min-height:78vh;border:0;border-radius:12px;background:#0b1220"></iframe>
+          <iframe id="varClassementFrame" title="Classement points Variational" src="about:blank" data-fv-src="farm-varia.html?embed=1&v=20260810#classement" style="width:100%;min-height:78vh;border:0;border-radius:14px;background:#0b1220"></iframe>
         </div>
       </div>
       <div class="var-sub-panel" data-varpanel="extension" id="varSecExtension" style="order:4;display:none;border-top:1px solid var(--border)">
