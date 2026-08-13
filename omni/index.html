@@ -8315,6 +8315,8 @@ const HS_CONFIG = {
       height: 100%;
       pointer-events: none;
       z-index: 9999;
+      contain: strict;
+      transform: translateZ(0);
     }
     .lb-rank-est-box { background:rgba(251,191,36,.08); border:1px dashed rgba(251,191,36,.45); border-radius:12px; padding:12px 14px; margin-bottom:14px; }
     .lb-milestone-progress-track {
@@ -22983,6 +22985,8 @@ function lbRankColor(rank) {
 }
 
 let _lbConfettiKey = ''
+let _lbConfettiRaf = 0
+let _lbConfettiCanvas = null
 const LB_CONFETTI_TOP_N = 10000
 
 function lbCreateConfettiBurst(cx, cy, count, opts) {
@@ -22996,123 +23000,177 @@ function lbCreateConfettiBurst(cx, cy, count, opts) {
     const angle = Math.random() * Math.PI * 2
     const speed = speedMin + Math.random() * (speedMax - speedMin)
     const kind = Math.random()
-    let w = 6 + Math.random() * 8
-    let h = 4 + Math.random() * 6
-    let shape = 'rect'
-    if (kind > 0.72) { shape = 'circle'; w = h = 4 + Math.random() * 7 }
-    else if (kind > 0.45) { w = 3 + Math.random() * 4; h = 14 + Math.random() * 18; shape = 'streamer' }
-    out.push({
-      x: cx + (Math.random() - 0.5) * spread,
-      y: cy + (Math.random() - 0.5) * spread,
-      vx: Math.cos(angle) * speed + (Math.random() - 0.5) * 2,
-      vy: Math.sin(angle) * speed - 2 - Math.random() * 3,
+    let w = 5 + Math.random() * 7
+    let h = 3 + Math.random() * 5
+    let shape = 0
+    if (kind > 0.72) { shape = 1; w = h = 3 + Math.random() * 6 }
+    else if (kind > 0.45) { w = 2 + Math.random() * 3; h = 12 + Math.random() * 16; shape = 2 }
+    out.push(
+      cx + (Math.random() - 0.5) * spread,
+      cy + (Math.random() - 0.5) * spread,
+      Math.cos(angle) * speed + (Math.random() - 0.5) * 2,
+      Math.sin(angle) * speed - 2 - Math.random() * 3,
       w, h, shape,
-      color: colors[(Math.random() * colors.length) | 0],
-      rot: Math.random() * Math.PI * 2,
-      vr: (Math.random() - 0.5) * 0.35,
-      wobble: (Math.random() - 0.5) * 0.08,
-      life: 1,
-      decay: (0.004 + Math.random() * 0.006) / lifeMul,
-    })
+      (Math.random() * colors.length) | 0,
+      Math.random() * Math.PI * 2,
+      (Math.random() - 0.5) * 0.28,
+      (Math.random() - 0.5) * 0.06,
+      1,
+      (0.35 + Math.random() * 0.45) / lifeMul
+    )
   }
   return out
 }
 
-function lbCreateConfettiRain(w, count, colors) {
+function lbCreateConfettiRain(w, count, colorCount) {
   const out = []
   for (let i = 0; i < count; i++) {
     const kind = Math.random()
-    let shape = 'rect'
-    let pw = 5 + Math.random() * 7
-    let ph = 4 + Math.random() * 5
-    if (kind > 0.6) { shape = 'streamer'; pw = 3 + Math.random() * 3; ph = 12 + Math.random() * 16 }
-    out.push({
-      x: Math.random() * w,
-      y: -20 - Math.random() * w * 0.35,
-      vx: (Math.random() - 0.5) * 3,
-      vy: 2 + Math.random() * 5,
-      w: pw, h: ph, shape,
-      color: colors[(Math.random() * colors.length) | 0],
-      rot: Math.random() * Math.PI * 2,
-      vr: (Math.random() - 0.5) * 0.2,
-      wobble: (Math.random() - 0.5) * 0.06,
-      life: 1,
-      decay: 0.003 + Math.random() * 0.004,
-    })
+    let shape = 0
+    let pw = 4 + Math.random() * 6
+    let ph = 3 + Math.random() * 4
+    if (kind > 0.6) { shape = 2; pw = 2 + Math.random() * 3; ph = 10 + Math.random() * 14 }
+    out.push(
+      Math.random() * w,
+      -20 - Math.random() * w * 0.28,
+      (Math.random() - 0.5) * 2.5,
+      2 + Math.random() * 4.5,
+      pw, ph, shape,
+      (Math.random() * colorCount) | 0,
+      Math.random() * Math.PI * 2,
+      (Math.random() - 0.5) * 0.18,
+      (Math.random() - 0.5) * 0.05,
+      1,
+      0.28 + Math.random() * 0.35
+    )
   }
   return out
+}
+
+function lbStopRankConfetti() {
+  if (_lbConfettiRaf) {
+    cancelAnimationFrame(_lbConfettiRaf)
+    _lbConfettiRaf = 0
+  }
+  if (_lbConfettiCanvas) {
+    _lbConfettiCanvas.remove()
+    _lbConfettiCanvas = null
+  }
 }
 
 function lbFireRankConfetti() {
   if (typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-  const w = window.innerWidth
-  const h = window.innerHeight
+  lbStopRankConfetti()
+
+  const cssW = window.innerWidth
+  const cssH = window.innerHeight
+  const dpr = Math.min(window.devicePixelRatio || 1, 2)
   const canvas = document.createElement('canvas')
   canvas.className = 'lb-confetti-canvas'
-  canvas.width = w
-  canvas.height = h
+  canvas.width = Math.max(1, Math.floor(cssW * dpr))
+  canvas.height = Math.max(1, Math.floor(cssH * dpr))
+  canvas.style.width = cssW + 'px'
+  canvas.style.height = cssH + 'px'
   document.body.appendChild(canvas)
-  const ctx = canvas.getContext('2d')
-  if (!ctx) { canvas.remove(); return }
+  _lbConfettiCanvas = canvas
+
+  const ctx = canvas.getContext('2d', { alpha: true, desynchronized: true })
+  if (!ctx) { lbStopRankConfetti(); return }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+
   const colors = ['#6ee7ff', '#97FCE4', '#FBBF24', '#fde047', '#34d399', '#f472b6', '#a78bfa', '#ffffff']
-  const cx = w / 2
-  const cy = h / 2
+  const cx = cssW / 2
+  const cy = cssH * 0.42
+  const mobile = cssW < 640
+  const scale = mobile ? 0.55 : 1
   const burstOpts = { colors }
-  const particles = [
-    ...lbCreateConfettiBurst(cx, cy, 220, { ...burstOpts, speedMin: 7, speedMax: 22, spread: 64, lifeMul: 1.35 }),
-    ...lbCreateConfettiBurst(cx, cy, 80, { ...burstOpts, speedMin: 3, speedMax: 9, spread: 24, lifeMul: 1.8 }),
+  let buf = [
+    ...lbCreateConfettiBurst(cx, cy, Math.round(110 * scale), { ...burstOpts, speedMin: 6, speedMax: 18, spread: 52, lifeMul: 1.25 }),
+    ...lbCreateConfettiBurst(cx, cy, Math.round(40 * scale), { ...burstOpts, speedMin: 2.5, speedMax: 8, spread: 20, lifeMul: 1.6 }),
   ]
-  const extraBursts = [
-    { frame: 10, fn: () => lbCreateConfettiBurst(cx, cy, 140, { ...burstOpts, speedMin: 6, speedMax: 18, spread: 56 }) },
-    { frame: 22, fn: () => lbCreateConfettiBurst(cx, cy, 100, { ...burstOpts, speedMin: 5, speedMax: 14, spread: 40, lifeMul: 1.5 }) },
-    { frame: 38, fn: () => lbCreateConfettiRain(w, 120, colors) },
-    { frame: 55, fn: () => lbCreateConfettiRain(w, 80, colors) },
+  const STRIDE = 13
+  const extras = [
+    { t: 0.12, fn: () => lbCreateConfettiBurst(cx, cy, Math.round(70 * scale), { ...burstOpts, speedMin: 5, speedMax: 15, spread: 44 }) },
+    { t: 0.28, fn: () => lbCreateConfettiBurst(cx, cy, Math.round(50 * scale), { ...burstOpts, speedMin: 4, speedMax: 12, spread: 36, lifeMul: 1.35 }) },
+    { t: 0.48, fn: () => lbCreateConfettiRain(cssW, Math.round(55 * scale), colors.length) },
+    { t: 0.72, fn: () => lbCreateConfettiRain(cssW, Math.round(35 * scale), colors.length) },
   ]
-  let frame = 0
-  const maxFrames = 280
-  const drawParticle = (p) => {
-    ctx.save()
-    ctx.globalAlpha = Math.max(0, Math.min(1, p.life))
-    ctx.fillStyle = p.color
-    ctx.translate(p.x, p.y)
-    ctx.rotate(p.rot)
-    if (p.shape === 'circle') {
-      ctx.beginPath()
-      ctx.arc(0, 0, p.w / 2, 0, Math.PI * 2)
-      ctx.fill()
+  let extraI = 0
+  const start = performance.now()
+  let last = start
+  const duration = 3.2
+
+  const tick = (now) => {
+    const elapsed = (now - start) / 1000
+    let dt = (now - last) / 1000
+    last = now
+    if (dt > 0.05) dt = 0.05
+    if (dt < 0.001) dt = 0.001
+
+    while (extraI < extras.length && elapsed >= extras[extraI].t) {
+      buf.push(...extras[extraI].fn())
+      extraI++
+    }
+
+    ctx.clearRect(0, 0, cssW, cssH)
+    let write = 0
+    let alive = 0
+    const n = (buf.length / STRIDE) | 0
+    const grav = 420 * dt
+    const drag = Math.pow(0.986, dt * 60)
+
+    for (let i = 0; i < n; i++) {
+      const o = i * STRIDE
+      let life = buf[o + 11] - buf[o + 12] * dt
+      if (life <= 0) continue
+      let x = buf[o] + buf[o + 2] * dt * 60 + Math.sin(elapsed * 6 + buf[o + 8]) * buf[o + 10] * 18 * dt * 60
+      let y = buf[o + 1] + buf[o + 3] * dt * 60
+      let vy = buf[o + 3] + grav
+      let vx = buf[o + 2] * drag
+      let rot = buf[o + 8] + buf[o + 9] * dt * 60
+      const ww = buf[o + 4]
+      const hh = buf[o + 5]
+      const shape = buf[o + 6]
+      const color = colors[buf[o + 7]]
+
+      ctx.globalAlpha = life > 0.2 ? 1 : Math.max(0, life / 0.2)
+      ctx.fillStyle = color
+      ctx.setTransform(dpr, 0, 0, dpr, x * dpr, y * dpr)
+      ctx.rotate(rot)
+      if (shape === 1) {
+        ctx.beginPath()
+        ctx.arc(0, 0, ww / 2, 0, Math.PI * 2)
+        ctx.fill()
+      } else {
+        ctx.fillRect(-ww / 2, -hh / 2, ww, hh)
+      }
+
+      const wo = write * STRIDE
+      buf[wo] = x; buf[wo + 1] = y; buf[wo + 2] = vx; buf[wo + 3] = vy
+      buf[wo + 4] = ww; buf[wo + 5] = hh; buf[wo + 6] = shape; buf[wo + 7] = buf[o + 7]
+      buf[wo + 8] = rot; buf[wo + 9] = buf[o + 9]; buf[wo + 10] = buf[o + 10]
+      buf[wo + 11] = life; buf[wo + 12] = buf[o + 12]
+      write++
+      alive++
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    ctx.globalAlpha = 1
+    buf.length = write * STRIDE
+
+    if ((alive > 0 || elapsed < 0.9) && elapsed < duration) {
+      _lbConfettiRaf = requestAnimationFrame(tick)
     } else {
-      ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h)
+      _lbConfettiRaf = 0
+      lbStopRankConfetti()
     }
-    ctx.restore()
   }
-  const tick = () => {
-    for (const b of extraBursts) {
-      if (b.frame === frame) particles.push(...b.fn())
-    }
-    ctx.clearRect(0, 0, w, h)
-    let alive = false
-    for (const p of particles) {
-      if (p.life <= 0) continue
-      alive = true
-      p.x += p.vx + Math.sin(frame * 0.08 + p.rot) * p.wobble * 8
-      p.y += p.vy
-      p.vy += 0.16
-      p.vx *= 0.992
-      p.life -= p.decay
-      p.rot += p.vr
-      drawParticle(p)
-    }
-    frame += 1
-    if ((alive || frame < 50) && frame < maxFrames) requestAnimationFrame(tick)
-    else canvas.remove()
-  }
-  requestAnimationFrame(tick)
+  _lbConfettiRaf = requestAnimationFrame(tick)
 }
 
 function lbMaybeConfettiOnRankShow(estRank, mode) {
   if (!estRank || estRank < 1 || estRank > LB_CONFETTI_TOP_N) return
   const addrs = typeof getLeaderboardActiveAddrs === 'function' ? getLeaderboardActiveAddrs() : []
-  const key = `${mode || _lbMode}|est|${estRank}|${addrs.join(',')}`
+  const key = (mode || _lbMode) + '|est|' + estRank + '|' + addrs.join(',')
   if (_lbConfettiKey === key) return
   _lbConfettiKey = key
   requestAnimationFrame(() => {
