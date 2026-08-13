@@ -3577,14 +3577,22 @@
 
     const dash = hasTrades ? varBuildDashAnalyticsCached(bundle, 'all', { light: true }) : null;
     if (dash) {
-      const hlCash = varLiveHlCashForRange('all', dash.start, (dash.end || Date.now()) + 1);
-      const pnlCombined = Number(dash.realizedPnl || 0) + Number(hlCash.realized || 0);
+      const excl = dash.exclusiveEnd != null ? dash.exclusiveEnd : ((Number(dash.end) || Date.now()) + 1);
+      const hlCash = varLiveHlCashForRange('all', dash.start, excl);
+      let omniPnl = Number(dash.realizedPnl || 0) + Number(dash.funding || 0);
+      try {
+        const stats = varEpochWindowSummary(bundle, dash.start, excl);
+        if (stats && stats.hasPnlData) omniPnl = Number(stats.pnl) || 0;
+      } catch (_) {}
+      const pnlCombined = omniPnl + Number(hlCash.pnl || 0);
       el('varKpiVol', varFmtCompactUsd(dash.volume), varT('var.kpiTradesSub').replace('{n}', String(dash.tradeCount || 0)));
       setSigned('varKpiTvl', pnlCombined,
         dash.winRate != null ? varT('var.kpiWinRateSub').replace('{pct}', dash.winRate.toFixed(1)) : '');
       const tvlEl = document.getElementById('varKpiTvl');
-      if (tvlEl && hlCash.weeks > 0) {
-        tvlEl.title = `Omni ${varFmtSignedUsdExact(dash.realizedPnl)} + HL ${varFmtSignedUsdExact(hlCash.realized)}`;
+      if (tvlEl) {
+        tvlEl.title = hlCash.weeks > 0
+          ? `Varia ${varFmtSignedUsdExact(omniPnl)} + HL ${varFmtSignedUsdExact(hlCash.pnl)} = ${varFmtSignedUsdExact(pnlCombined)}`
+          : `Varia ${varFmtSignedUsdExact(omniPnl)}`;
       }
     } else {
       el('varKpiVol', '—', varT('var.kpiVolSubEmpty'));
@@ -8914,8 +8922,18 @@
           ? dash.exclusiveEnd
           : ((Number(dash.end) || Date.now()) + 1);
         const hlCash = varLiveHlCashForRange(period, dash.start, excl);
-        const pnlCombined = Number(dash.realizedPnl || 0) + Number(hlCash.realized || 0);
-        const fundCombined = Number(dash.funding || 0) + Number(hlCash.funding || 0);
+        // Same definition as Par-epoch Total: Omni (R+F+Fees) + HL (R+F+Fees).
+        let omniPnl = Number(dash.realizedPnl || 0) + Number(dash.funding || 0);
+        let omniFund = Number(dash.funding || 0);
+        try {
+          const stats = varEpochWindowSummary(bundle, dash.start, excl);
+          if (stats && stats.hasPnlData) {
+            omniPnl = Number(stats.pnl) || 0;
+            omniFund = Number(stats.funding) || 0;
+          }
+        } catch (_) {}
+        const pnlCombined = omniPnl + Number(hlCash.pnl || 0);
+        const fundCombined = omniFund + Number(hlCash.funding || 0);
         setSigned('varLivePnlValue', pnlCombined);
         const pnlMeta = dash.winRate != null
           ? varT('var.livePnlMeta').replace('{pct}', dash.winRate.toFixed(1))
@@ -8926,14 +8944,14 @@
         const pnlEl = document.getElementById('varLivePnlValue');
         if (pnlEl) {
           pnlEl.title = hlCash.weeks > 0
-            ? `Omni ${varFmtSignedUsdExact(dash.realizedPnl)} + HL ${varFmtSignedUsdExact(hlCash.realized)}`
-            : '';
+            ? `Varia ${varFmtSignedUsdExact(omniPnl)} + HL ${varFmtSignedUsdExact(hlCash.pnl)} = ${varFmtSignedUsdExact(pnlCombined)}`
+            : `Varia ${varFmtSignedUsdExact(omniPnl)}`;
         }
         setSigned('varLiveFundingValue', fundCombined);
         setTxt('varLiveFundingMeta', rangeLbl || varT('var.liveFundingSub'));
         const fundEl = document.getElementById('varLiveFundingValue');
         if (fundEl && hlCash.weeks > 0) {
-          fundEl.title = `Omni ${varFmtSignedUsdExact(dash.funding)} + HL ${varFmtSignedUsdExact(hlCash.funding)}`;
+          fundEl.title = `Omni ${varFmtSignedUsdExact(omniFund)} + HL ${varFmtSignedUsdExact(hlCash.funding)}`;
         }
         setTxt('varLiveTradesValue', String(dash.tradeCount || 0));
         setTxt('varLiveTradesMeta', dash.avgTrade > 0
