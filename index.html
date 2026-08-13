@@ -19865,26 +19865,33 @@ function getSharePeriodNetPnl() {
 }
 
 function getShareLeaderboardRanks() {
-  const addrs = wallets.length ? wallets : (activeWallet ? [activeWallet] : []);
-  if (!addrs.length) return { file: null, estimated: null };
+  const addrs = (typeof getLeaderboardActiveAddrs === 'function')
+    ? getLeaderboardActiveAddrs()
+    : (wallets.length ? wallets : (activeWallet ? [activeWallet] : []));
+  if (!addrs.length) return { file: null, estimated: null, mode: 'retail' };
   if (!_leaderboardAllRows?.length && typeof loadLeaderboardFromStorage === 'function') {
     loadLeaderboardFromStorage();
   }
-  const rows = _leaderboardAllRows;
-  if (!rows?.length || typeof findUserRankInRows !== 'function') return { file: null, estimated: null };
-  const globalStats = findUserRankInRows(rows, addrs);
-  const jsonVol = globalStats.vol || 0;
-  const file = globalStats.rank || null;
+  if (!_leaderboardAllRows?.length || typeof findUserRankInRows !== 'function') {
+    return { file: null, estimated: null, mode: 'retail' };
+  }
+  // Same mode as Classement (Retail / Global) so share rank matches the big number on the board.
+  const mode = (typeof _lbMode === 'string' && _lbMode === 'global') ? 'global' : 'retail';
+  const viewRows = mode === 'retail' ? getLeaderboardViewRows('retail') : _leaderboardAllRows;
+  const viewStats = findUserRankInRows(viewRows, addrs);
+  const globalStats = findUserRankInRows(_leaderboardAllRows, addrs);
+  const jsonVol = globalStats.vol || viewStats.vol || 0;
+  const file = viewStats.rank || null;
   let estimated = null;
   if (typeof estimateRankInRows === 'function') {
     const cur = typeof getLeaderboardCurrentVol === 'function'
       ? getLeaderboardCurrentVol(jsonVol, addrs) : { vol: 0 };
     const apiXyz = typeof getApiXyzVolumeForAddrs === 'function' ? getApiXyzVolumeForAddrs(addrs) : { vol: 0 };
     const displayVol = cur.vol > 0 ? cur.vol : (apiXyz.vol > 0 ? apiXyz.vol : jsonVol);
-    if (displayVol > 0) estimated = estimateRankInRows(rows, displayVol);
-    else if (typeof lbGetLeaderboardEstRank === 'function') estimated = lbGetLeaderboardEstRank('global', addrs, jsonVol);
+    if (displayVol > 0) estimated = estimateRankInRows(viewRows, displayVol);
+    else if (typeof lbGetLeaderboardEstRank === 'function') estimated = lbGetLeaderboardEstRank(mode, addrs, jsonVol);
   }
-  return { file, estimated };
+  return { file, estimated, mode };
 }
 
 function getShareLeaderboardRank() {
@@ -19893,9 +19900,18 @@ function getShareLeaderboardRank() {
 }
 
 function getShareLeaderboardRankLabel() {
-  return _shareRankMode === 'estimated'
-    ? (typeof t === 'function' ? t('share.rankLbEstXyz') : 'Estimated Trade XYZ rank')
-    : (typeof t === 'function' ? t('share.rankLbXyz') : 'Trade XYZ leaderboard rank');
+  const mode = (typeof _lbMode === 'string' && _lbMode === 'global') ? 'global' : 'retail';
+  const isFr = typeof currentLang !== 'undefined' && currentLang === 'fr';
+  if (_shareRankMode === 'estimated') {
+    if (mode === 'retail') {
+      return isFr ? 'Rang estimé Trade XYZ (Retail)' : 'Estimated Trade XYZ rank (Retail)';
+    }
+    return typeof t === 'function' ? t('share.rankLbEstXyz') : 'Estimated Trade XYZ rank';
+  }
+  if (mode === 'retail') {
+    return isFr ? 'Rang leaderboard Trade XYZ (Retail)' : 'Trade XYZ leaderboard rank (Retail)';
+  }
+  return typeof t === 'function' ? t('share.rankLbXyz') : 'Trade XYZ leaderboard rank';
 }
 
 function getShareEssentialKpis(pageType) {
