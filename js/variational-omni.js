@@ -3326,8 +3326,9 @@
     const s = String(sub || '');
     if (s === 'activity' || s === 'hedge' || s === 'live' || s === 'farm') return 'dashboard';
     if (s === 'overview' || s === 'trading' || s === 'history') return 'dashboard';
+    // Suivi tab removed — old links/hashes land on Dashboard (HL lives in Import).
+    if (s === 'suivi' || s === 'track' || s === 'tracking' || s === 'farm-suivi') return 'dashboard';
     if (s === 'rank' || s === 'ranking') return 'classement';
-    if (s === 'track' || s === 'tracking' || s === 'farm-suivi') return 'suivi';
     if (s === 'ext' || s === 'install') return 'extension';
     if (s === 'labs') return 'lab';
     return s || 'dashboard';
@@ -3352,10 +3353,10 @@
   }
 
   function varEnsureFarmVariaFrame(tab) {
-    const id = tab === 'classement' ? 'varClassementFrame' : 'varSuiviFrame';
-    const hash = tab === 'classement' ? '#classement' : '#suivi';
-    const frame = document.getElementById(id);
+    if (tab !== 'classement') return;
+    const frame = document.getElementById('varClassementFrame');
     if (!frame) return;
+    const hash = '#classement';
     const want = frame.getAttribute('data-fv-src') || ('farm-varia.html?embed=1' + hash);
     const cur = String(frame.getAttribute('src') || '');
     let emptyDoc = false;
@@ -3404,7 +3405,6 @@
     const radar = document.querySelector('#page-variational .var-sub-panel[data-varpanel="radar"]');
     const hedge = document.querySelector('#page-variational .var-sub-panel[data-varpanel="hedge"]');
     const overview = document.getElementById('varSecOverviewPanel');
-    const suivi = document.getElementById('varSecSuivi');
     const classement = document.getElementById('varSecClassement');
     const extension = document.getElementById('varSecExtension');
     const onboard = document.getElementById('varActivityOnboard');
@@ -3419,7 +3419,6 @@
       if (pts) pts.style.display = 'none';
       if (radar) radar.style.display = 'none';
       if (hedge) hedge.style.display = 'none';
-      if (suivi) suivi.style.display = 'none';
       if (classement) classement.style.display = 'none';
       if (extension) extension.style.display = 'none';
     };
@@ -3445,10 +3444,6 @@
           }
         }).catch(() => {});
       }, 0);
-    } else if (tab === 'suivi') {
-      if (suivi) suivi.style.display = 'block';
-      varStopHedgeLivePoll();
-      varEnsureFarmVariaFrame('suivi');
     } else if (tab === 'classement') {
       if (classement) classement.style.display = 'block';
       varStopHedgeLivePoll();
@@ -3498,7 +3493,6 @@
       const hashMap = {
         dashboard: '#var-omni-live',
         live: '#var-omni-live',
-        suivi: '#var-suivi',
         classement: '#var-classement',
         extension: '#var-extension',
         points: '#var-points',
@@ -10129,7 +10123,7 @@
         '#var-lab': 'lab',
         '#var-omni-live': 'dashboard',
         '#var-omni-import': 'dashboard',
-        '#var-suivi': 'suivi',
+        '#var-suivi': 'dashboard',
         '#var-classement': 'classement',
         '#classement': 'classement',
         '#var-extension': 'extension',

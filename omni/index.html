@@ -10432,17 +10432,14 @@ try {
     color: rgba(255,255,255,.35);
   }
 
-  /* ── Suivi / Classement iframe shells ── */
-  html.hs-omni-standalone #varSecSuivi,
+  /* ── Classement iframe shell ── */
   html.hs-omni-standalone #varSecClassement {
     border-top: 0 !important;
   }
-  html.hs-omni-standalone #varSecSuivi > div,
   html.hs-omni-standalone #varSecClassement > div {
     padding: 12px 16px 24px !important;
     min-height: calc(100vh - 140px);
   }
-  html.hs-omni-standalone #varSuiviFrame,
   html.hs-omni-standalone #varClassementFrame {
     min-height: calc(100vh - 160px) !important;
     border-radius: 14px !important;
@@ -11220,7 +11217,6 @@ try {
       <div class="px-5 py-3 border-b flex items-center justify-between flex-wrap gap-3 var-dash-sticky-nav" style="border-color:var(--border);position:sticky;top:0;z-index:20;background:var(--surface, #0b0d14)">
         <div class="var-dash-nav" role="navigation" aria-label="Variational">
           <span class="var-sub-tab active" data-varsub="dashboard" onclick="varSetSub('dashboard',this)" data-i18n="var.subDashboard">Dashboard</span>
-          <span class="var-sub-tab" data-varsub="suivi" onclick="varSetSub('suivi',this)" data-i18n="var.subSuivi">Suivi</span>
           <span class="var-sub-tab" data-varsub="classement" onclick="varSetSub('classement',this)" data-i18n="var.subClassement">Classement</span>
           <span class="var-sub-tab" data-varsub="extension" onclick="varSetSub('extension',this)" data-i18n="var.subExtension">Extension</span>
         </div>
@@ -11404,12 +11400,7 @@ try {
         </div>
       </div>
 
-<div class="var-sub-panel" data-varpanel="suivi" id="varSecSuivi" style="order:2;display:none;border-top:1px solid var(--border)">
-        <div class="px-2 py-2" style="min-height:70vh">
-          <iframe id="varSuiviFrame" title="Suivi farming Variational" src="about:blank" data-fv-src="farm-varia.html?embed=1&v=20260810#suivi" style="width:100%;min-height:78vh;border:0;border-radius:12px;background:#0b1220"></iframe>
-        </div>
-      </div>
-      <div class="var-sub-panel" data-varpanel="classement" id="varSecClassement" style="order:3;display:none;border-top:1px solid var(--border)">
+<div class="var-sub-panel" data-varpanel="classement" id="varSecClassement" style="order:2;display:none;border-top:1px solid var(--border)">
         <div class="px-2 py-2" style="min-height:70vh">
           <iframe id="varClassementFrame" title="Classement points Variational" src="about:blank" data-fv-src="farm-varia.html?embed=1&v=20260810#classement" style="width:100%;min-height:78vh;border:0;border-radius:12px;background:#0b1220"></iframe>
         </div>
@@ -12474,7 +12465,7 @@ const I18N = {
     'var.subActivity': 'Live',
     'var.subLive': 'Live',
     'var.subDashboard': 'Dashboard',
-    'var.subSuivi': 'Tracking',
+    'var.subSuivi': 'Dashboard',
     'var.subClassement': 'Leaderboard',
     'var.subExtension': 'Extension',
     'var.subHistory': 'History',
@@ -12777,9 +12768,9 @@ const I18N = {
     'var.epochCostPtHint': 'Shown only when combined PnL < 0',
     'var.epochHlOff': 'off farm',
     'var.epochHlNoData': 'no week data — Sync HL',
-    'var.epochHlNoDataTip': 'This HL week is missing in Suivi — open Suivi → Sync HL',
+    'var.epochHlNoDataTip': 'This HL week is missing — set the HL wallet in Import → Sync HL',
     'var.hlHedgeTitle': 'HL hedge wallet',
-    'var.hlHedgeHint': 'Hyperliquid address for Par-epoch HL rows — no Suivi required. Save then Sync.',
+    'var.hlHedgeHint': 'Hyperliquid address for Par-epoch HL rows. Save then Sync.',
     'var.hlHedgeSave': 'Save',
     'var.hlHedgeSync': 'Sync HL',
     'var.hlHedgeEmpty': 'No HL wallet yet — paste a 0x address to show hedge volume / PnL.',
@@ -13640,7 +13631,7 @@ const I18N = {
     'var.subActivity': 'Live',
     'var.subLive': 'Live',
     'var.subDashboard': 'Dashboard',
-    'var.subSuivi': 'Suivi',
+    'var.subSuivi': 'Dashboard',
     'var.subClassement': 'Classement',
     'var.subExtension': 'Extension',
     'var.subHistory': 'Historique',
@@ -13951,7 +13942,7 @@ const I18N = {
     'var.epochHlNoData': 'pas de semaine — Sync HL',
     'var.epochHlNoDataTip': 'Semaine HL absente — renseigne le wallet HL dans Import → Sync HL',
     'var.hlHedgeTitle': 'Wallet HL (hedge)',
-    'var.hlHedgeHint': 'Adresse Hyperliquid pour la ligne HL Par-epoch — sans passer par Suivi. Enregistrer puis Sync.',
+    'var.hlHedgeHint': 'Adresse Hyperliquid pour la ligne HL Par-epoch. Enregistrer puis Sync.',
     'var.hlHedgeSave': 'Enregistrer',
     'var.hlHedgeSync': 'Sync HL',
     'var.hlHedgeEmpty': 'Pas encore de wallet HL — colle une adresse 0x pour le volume / PnL hedge.',
