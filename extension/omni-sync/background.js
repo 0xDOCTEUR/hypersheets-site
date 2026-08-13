@@ -1210,7 +1210,8 @@ async function runOmniCollect(preferredLabel, fileName) {
 
   return {
     ok: true,
-    counts: result.counts,
+    counts: result.counts || (result.payload && result.payload.counts) || null,
+    completeness: result.completeness || (result.payload && result.payload.completeness) || null,
     mb: (dl && dl.mb) || result.mb,
     warnings: result.warnings || result.payload.warnings || [],
     hsTabs: null,

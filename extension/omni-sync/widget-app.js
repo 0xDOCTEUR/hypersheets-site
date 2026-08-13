@@ -1993,25 +1993,30 @@
         }
         var c = res.counts || {};
         var warns = res.warnings || [];
+        var comp = res.completeness || {};
         var msg =
           (res.newLeg ? t("newLeg") + " · " : "") +
           (res.slotLabel ? t("collectedInto").replace("{label}", res.slotLabel) + " · " : "") +
           (res.omniAddress ? t("omniAddrLabel") + " " + shortAddr(res.omniAddress) + " · " : "") +
           (res.marketsHint ? t("marketsOpenLabel") + " " + res.marketsHint + " · " : "") +
           (c.trades != null ? c.trades + " " + t("trades") : t("ok")) +
+          (c.transfers != null ? " · " + c.transfers + " xfer" : "") +
+          (c.realized_pnl != null ? " · " + c.realized_pnl + " rpnl" : "") +
           (c.points != null ? " · " + c.points + " " + t("epochs") : "");
+        if (comp.precise_epoch_volume === false) msg += " · VOL truncated";
+        if (comp.precise_epoch_pnl === false) msg += " · PnL incomplete";
         if (res.duplicateLabel) {
           msg += " · " + t("collectDupWarn").replace("{label}", res.duplicateLabel);
         }
         if (warns.length) msg += " · " + t("collectPartialWarn");
         if (res.fileName) msg += " · ↓ " + res.fileName;
         if (res.downloadOk === false) msg += " · DOWNLOAD FAIL";
-        setCollectUi({ ok: true, err: !!res.duplicateLabel || res.downloadOk === false }, t("collectedDone"), msg);
+        setCollectUi({ ok: true, err: !!res.duplicateLabel || res.downloadOk === false || comp.precise_epoch_pnl === false }, t("collectedDone"), msg);
         toast(
           (res.downloadOk === false ? "DOWNLOAD FAIL · " : "") +
-          (warns.length || res.duplicateLabel ? t("collectPartialWarn") : t("collectedOk")) +
+          (warns.length || res.duplicateLabel || comp.precise_epoch_pnl === false ? t("collectPartialWarn") : t("collectedOk")) +
           " · " + msg,
-          (warns.length || res.duplicateLabel || res.downloadOk === false) ? "err" : "ok"
+          (warns.length || res.duplicateLabel || res.downloadOk === false || comp.precise_epoch_pnl === false) ? "err" : "ok"
         );
         if (activePositionRename) {
           activePositionRename.value = "";

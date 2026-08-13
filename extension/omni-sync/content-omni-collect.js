@@ -4,7 +4,7 @@
  * PC file download is handled by the background service worker (chrome.downloads).
  */
 (function () {
-  const COLLECT_SCRIPT_VERSION = 10;
+  const COLLECT_SCRIPT_VERSION = 11;
   // Re-injects bump this so stale listeners from older injects ignore messages.
   window.__hsOmniCollectVersion = COLLECT_SCRIPT_VERSION;
   const VERSION = 3;
@@ -125,14 +125,24 @@
 
   async function softPageAll(path, params, opts) {
     try {
-      const rows = await pageAll(path, params, opts);
-      return { rows: rows || [], skipped: null };
+      const res = await pageAll(path, params, opts);
+      return {
+        rows: (res && res.rows) || [],
+        skipped: null,
+        truncated: !!(res && res.truncated),
+        truncateReason: (res && res.truncateReason) || null,
+      };
     } catch (e) {
       const msg = (e && e.message) || String(e);
-      return { rows: [], skipped: msg };
+      return { rows: [], skipped: msg, truncated: false, truncateReason: null };
     }
   }
 
+  /**
+   * Paginate newest-first. When capped/timed out, oldest history is missing
+   * (critical for per-epoch PnL on older weeks).
+   * @returns {{ rows: any[], truncated: boolean, truncateReason: string|null }}
+   */
   async function pageAll(path, params, opts) {
     const limit = (opts && opts.limit) || 100;
     // Hard caps — 40k pages used to make Collecte look stuck for several minutes.
@@ -153,9 +163,13 @@
     let offset = 0;
     let pages = 0;
     let stagnant = 0;
+    let truncateReason = null;
     const onProgress = opts && opts.onProgress;
     while (out.length < cap && pages < maxPages) {
-      if (Date.now() - started > maxMs) break;
+      if (Date.now() - started > maxMs) {
+        truncateReason = 'timeout';
+        break;
+      }
       const data = await api(path, Object.assign({ limit, offset }, params));
       pages += 1;
       const rows = Array.isArray(data) ? data : (data && data.result) || [];
@@ -172,24 +186,34 @@
         if (out.length >= cap) break;
       }
       if (typeof onProgress === 'function') onProgress(opts.label || path, out.length);
+      if (out.length >= cap) {
+        truncateReason = 'cap';
+        break;
+      }
       if (rows.length < limit) break;
       if (added === 0) {
         stagnant += 1;
         // Offset ignored / overlapping pages → stop instead of counting forever.
-        if (stagnant >= 2) break;
+        if (stagnant >= 2) {
+          truncateReason = 'stagnant';
+          break;
+        }
       } else {
         stagnant = 0;
       }
       offset += limit;
       await sleep(40);
     }
-    return out;
+    if (!truncateReason && pages >= maxPages && out.length >= limit) {
+      truncateReason = 'max_pages';
+    }
+    return { rows: out, truncated: !!truncateReason, truncateReason };
   }
 
   async function collect(onProgress) {
     const progress = typeof onProgress === 'function' ? onProgress : () => {};
     progress('points', 0);
-    const points = await pageAll(
+    const pointsRes = await pageAll(
       '/api/points/history',
       {},
       {
@@ -211,6 +235,7 @@
         onProgress: (label, n) => progress(label, n),
       }
     );
+    const points = pointsRes.rows || [];
     let summary = null;
     try {
       summary = await api('/api/points/summary');
@@ -260,7 +285,7 @@
     const refunds = refundsRes.rows;
 
     progress('trades', 0);
-    const trades = await pageAll(
+    const tradesRes = await pageAll(
       '/api/trades',
       { order_by: 'created_at', order: 'desc' },
       {
@@ -271,6 +296,7 @@
         onProgress: (l, n) => progress(l, n),
       }
     );
+    const trades = tradesRes.rows || [];
 
     progress('transfers', 0);
     // One bounded scrape (not 3× full re-paginations). API layer already retries 429s.
@@ -287,6 +313,8 @@
     );
     let transfers = transfersRes.rows || [];
     let transfersSkipped = transfersRes.skipped || null;
+    let transfersTruncated = !!transfersRes.truncated;
+    let transfersTruncateReason = transfersRes.truncateReason || null;
     // Quick second try only if the first attempt hard-failed (not if wallet simply has 0 transfers).
     if (!transfers.length && transfersSkipped) {
       progress('transfers', 0);
@@ -305,13 +333,39 @@
       if (retry.rows && retry.rows.length) {
         transfers = retry.rows;
         transfersSkipped = null;
+        transfersTruncated = !!retry.truncated;
+        transfersTruncateReason = retry.truncateReason || null;
       } else if (retry.skipped) {
         transfersSkipped = retry.skipped;
       }
     }
+
+    const cashTypes = { realized_pnl: 0, funding: 0, fee: 0, other: 0 };
+    for (const t of transfers) {
+      const tt = String((t && t.transfer_type) || '').toLowerCase();
+      if (tt === 'realized_pnl' || tt === 'funding' || tt === 'fee') cashTypes[tt] += 1;
+      else cashTypes.other += 1;
+    }
+
     const warnings = [];
     if (refundsRes.skipped) warnings.push('refunds: ' + refundsRes.skipped);
     if (transfersSkipped) warnings.push('transfers: ' + transfersSkipped);
+    if (tradesRes.truncated) warnings.push('trades_truncated:' + (tradesRes.truncateReason || 'yes'));
+    if (transfersTruncated) warnings.push('transfers_truncated:' + (transfersTruncateReason || 'yes'));
+    if (pointsRes.truncated) warnings.push('points_truncated:' + (pointsRes.truncateReason || 'yes'));
+
+    const oldestTrade = trades.length
+      ? trades.reduce((min, t) => {
+          const ts = Date.parse(t && t.created_at);
+          return isFinite(ts) && ts < min ? ts : min;
+        }, Infinity)
+      : null;
+    const oldestTransfer = transfers.length
+      ? transfers.reduce((min, t) => {
+          const ts = Date.parse(t && t.created_at);
+          return isFinite(ts) && ts < min ? ts : min;
+        }, Infinity)
+      : null;
 
     // Wallet identity for PC filename + jambe label.
     // Prefer the address connected on the page; competition.self is truncated and can
@@ -354,6 +408,23 @@
       ? String(omniAddress).trim().toLowerCase()
       : '';
 
+    const completeness = {
+      trades_ok: !tradesRes.truncated,
+      transfers_ok: !transfersSkipped && !transfersTruncated,
+      points_ok: !pointsRes.truncated,
+      precise_epoch_pnl: !transfersSkipped && !transfersTruncated
+        && (cashTypes.realized_pnl + cashTypes.funding + cashTypes.fee) > 0,
+      precise_epoch_volume: !tradesRes.truncated && trades.length > 0,
+      oldest_trade_at: isFinite(oldestTrade) ? new Date(oldestTrade).toISOString() : null,
+      oldest_transfer_at: isFinite(oldestTransfer) ? new Date(oldestTransfer).toISOString() : null,
+      cash_transfer_counts: cashTypes,
+      truncations: {
+        trades: tradesRes.truncated ? (tradesRes.truncateReason || true) : false,
+        transfers: transfersTruncated ? (transfersTruncateReason || true) : false,
+        points: pointsRes.truncated ? (pointsRes.truncateReason || true) : false,
+      },
+    };
+
     return {
       format: 'variational-dashboard-export',
       version: VERSION,
@@ -369,7 +440,11 @@
         points: points.length,
         refunds: refunds.length,
         competition: board ? board.entries.length : 0,
+        realized_pnl: cashTypes.realized_pnl,
+        funding: cashTypes.funding,
+        fee: cashTypes.fee,
       },
+      completeness,
       warnings: warnings.length ? warnings : undefined,
       trades,
       transfers,
@@ -440,6 +515,7 @@
           payload,
           mb: null,
           counts: payload.counts,
+          completeness: payload.completeness || null,
           warnings: payload.warnings || [],
           fileName: finalName,
         });
