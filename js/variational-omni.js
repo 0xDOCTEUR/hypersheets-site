@@ -6300,6 +6300,11 @@
 
   function varFarmKpisHtml(g) {
     const costDisp = g.costPerPt != null ? varFarmEpochCostDisp(g.costPerPt) : '—';
+    const ppVal = isFinite(g.pricePerPt) ? String(g.pricePerPt) : '20';
+    const pricePpHtml = `<label class="var-price-pp" title="Hypothetical $/point for Estimation">
+      <span>${varEsc(varT('var.pricePerPoint'))}</span>
+      <input type="number" min="0" step="0.5" value="${varEsc(ppVal)}" data-var-price-per-point />
+    </label>`;
     const items = [
       {
         label: varT('var.epochPoints'),
@@ -6331,12 +6336,14 @@
         value: varFmtSuiviUsd(g.estNet),
         cls: g.estNet < 0 ? 'is-neg' : (g.estNet > 0 ? 'is-pos' : ''),
         tip: `${varFmtSuiviUsd(g.est)} + ${varFmtSuiviUsd(g.pnl)}`,
+        prefix: pricePpHtml,
       },
     ];
     return `<div class="var-farm-suivi-kpis">${items.map((i) => `
-      <div class="var-farm-suivi-kpi${i.accent ? ' is-accent' : ''}" title="${varEsc(i.tip)}">
-        <div class="lbl">${varEsc(i.label)}</div>
-        <div class="val mono ${i.cls || ''}">${i.value}</div>
+      <div class="var-farm-suivi-kpi${i.accent ? ' is-accent' : ''}"${i.prefix ? '' : ` title="${varEsc(i.tip)}"`}>
+        ${i.prefix || ''}
+        <div class="lbl"${i.prefix ? ` title="${varEsc(i.tip)}"` : ''}>${varEsc(i.label)}</div>
+        <div class="val mono ${i.cls || ''}"${i.prefix ? ` title="${varEsc(i.tip)}"` : ''}>${i.value}</div>
       </div>`).join('')}</div>`;
   }
 

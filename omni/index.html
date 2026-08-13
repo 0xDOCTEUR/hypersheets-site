@@ -1437,6 +1437,12 @@ const HS_CONFIG = {
           color: var(--muted);
           font-weight: 600;
         }
+        .var-farm-suivi-kpi .var-price-pp {
+          display: flex;
+          width: 100%;
+          margin: 0 0 8px;
+          justify-content: flex-start;
+        }
         .var-price-pp input {
           width: 64px;
           padding: 4px 6px;
@@ -11751,10 +11757,6 @@ try {
                 <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
                   <span class="bar" style="background:var(--accent)"></span>
                   <span data-i18n="var.farmEpochsTitle">Recent epochs</span>
-                  <label class="var-price-pp" title="Hypothetical $/point for Estimation">
-                    <span data-i18n="var.pricePerPoint">$/pt</span>
-                    <input type="number" min="0" step="0.5" value="20" data-var-price-per-point />
-                  </label>
                 </div>
                 <div style="display:flex;align-items:center;gap:8px">
                   <button type="button" class="var-live-panel-toggle" onclick="varToggleLivePanel('live-epochs')" aria-label="Toggle section">▾</button>
@@ -33609,7 +33611,7 @@ document.addEventListener('DOMContentLoaded', () => {
   </div>
 </div>
 <script src="../js/variational-omni-collector.js"></script>
-<script src="../js/variational-omni.js?v=20260813epochW"></script>
+<script src="../js/variational-omni.js?v=20260813ppEst"></script>
 <script>
 (function hsLoadCfWebAnalytics() {
   var token = (typeof HS_CONFIG !== 'undefined' && HS_CONFIG.cfWebAnalyticsToken) || '';
