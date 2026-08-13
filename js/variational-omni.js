@@ -1339,14 +1339,15 @@
     try {
       const acc = varAccountsLoad();
       const ids = varOmniSlotIds(acc);
-      const seenFp = new Set();
+      const seenAddr = new Set();
       const trades = [];
       const funding = [];
       const realizedPnl = [];
       const transfers = [];
       let any = false;
       for (const id of ids) {
-        const bundle = varCsvNormalize(acc.slots[id]?.csv || null);
+        const slot = acc.slots[id];
+        const bundle = varCsvNormalize(slot?.csv || null);
         if (!bundle) continue;
         const has = !!(
           (bundle.trades && bundle.trades.length)
@@ -1355,17 +1356,20 @@
           || (bundle.transfers && bundle.transfers.length)
         );
         if (!has) continue;
-        // Skip cloned jambes that hold the exact same export (same as open-book).
-        const fp = varCsvTradeFingerprint(bundle);
-        if (fp && seenFp.has(fp)) continue;
-        if (fp) seenFp.add(fp);
+        // Only skip a true same-wallet clone (identical omniAddress already merged).
+        // Never drop distinct jambes on trade-fingerprint collision (same count / id sample).
+        const addr = String(slot?.omniAddress || '').toLowerCase();
+        if (addr) {
+          if (seenAddr.has(addr)) continue;
+          seenAddr.add(addr);
+        }
         any = true;
         // Namespace row ids per jambe so numeric/shared Omni ids don't collapse across accounts.
         const tag = (rows) => (rows || []).map((r) => {
           if (!r || typeof r !== 'object') return r;
           if (r.id == null && r.trade_id == null) return r;
           const rid = r.id != null ? r.id : r.trade_id;
-          return { ...r, id: String(id) + ':' + String(rid) };
+          return { ...r, id: String(id) + ':' + String(rid), _hsSlot: id };
         });
         trades.push.apply(trades, tag(bundle.trades));
         funding.push.apply(funding, tag(bundle.funding));
@@ -1408,8 +1412,13 @@
       if (_varCsvScope === 'all') {
         key = 'all:' + ids.map((sid) => {
           const s = acc.slots[sid];
-          const n = s?.csv?.trades?.length || 0;
-          return sid + ':' + (s?.importedAt || 0) + ':' + n;
+          const csv = s?.csv;
+          const n = csv?.trades?.length || 0;
+          const cash = (csv?.funding?.length || 0)
+            + (csv?.realizedPnl?.length || 0)
+            + (csv?.transfers?.length || 0);
+          const addr = String(s?.omniAddress || '').slice(-4);
+          return sid + ':' + (s?.importedAt || 0) + ':' + n + ':' + cash + ':' + addr;
         }).join('|');
       } else {
         const id = varAccountsActiveId();
@@ -1823,16 +1832,17 @@
     const positions = [];
     let anyFills = false;
     let latestAt = 0;
-    const seenFp = new Set();
+    const seenAddr = new Set();
     for (const id of slotIds) {
       const slot = acc.slots[id];
       const bundle = slot?.csv ? varCsvNormalize(slot.csv) : null;
       if (!bundle?.trades?.length) continue;
       anyFills = true;
-      const fp = varCsvTradeFingerprint(bundle);
-      // Skip cloned jambi that hold the exact same trade export.
-      if (fp && seenFp.has(fp)) continue;
-      if (fp) seenFp.add(fp);
+      const addr = String(slot?.omniAddress || '').toLowerCase();
+      if (addr) {
+        if (seenAddr.has(addr)) continue;
+        seenAddr.add(addr);
+      }
       if (slot.importedAt && slot.importedAt > latestAt) latestAt = slot.importedAt;
       const fills = varRebuildOpenPositionsFromTrades(bundle);
       for (const p of fills) {
