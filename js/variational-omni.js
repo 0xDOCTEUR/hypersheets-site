@@ -5641,6 +5641,7 @@
       let tVolOmni = 0;
       let tHlVol = 0;
       let tPts = 0;
+      let tEstPts = 0;
       let tReal = 0;
       let tFund = 0;
       let tFees = 0;
@@ -5695,20 +5696,27 @@
           }
         } catch (_) {}
         let pts = varSlotPointsInEpoch(w.points, r.start, r.end);
-        if (!(pts > 0) && (r.inProgress || r.finalising || r.estimated) && w.csv) {
+        let estPts = 0;
+        if (!(pts > 0) && w.csv) {
           try {
             const est = varEpochEstimateSelf(w.points, w.csv, r.start, r.end);
-            if (est?.points > 0) pts = est.points;
+            if (est?.points > 0) estPts = est.points;
           } catch (_) {}
         }
-        // Live week without published points: Suivi shows 0 farm points.
+        if (!(pts > 0) && (r.inProgress || r.finalising || r.estimated) && estPts > 0) {
+          // Finalising / estimated rows: show the volume-based estimate in Points.
+          if (!r.inProgress) pts = estPts;
+        }
+        // Live week without published points: Points column stays 0 (Suivi), estimate feeds EST only.
         if (r.inProgress && !(varSlotPointsInEpoch(w.points, r.start, r.end) > 0)) pts = 0;
+        const ptsForEst = (pts > 0) ? pts : estPts;
         const pnl = stats.hasPnlData
           ? (stats.pnl != null ? stats.pnl : (Number(stats.realizedPnl || 0) + Number(stats.funding || 0) + Number(stats.fees || 0)))
           : null;
         const s = varEpochSuiviMetrics(pts, { ...stats, pnl: pnl != null ? pnl : 0 }, pp);
         tVolOmni += stats.volume || 0;
         tPts += pts || 0;
+        tEstPts += ptsForEst || 0;
         if (pnl != null) {
           tReal += s.realized;
           tFund += s.funding;
@@ -5774,6 +5782,10 @@
         const s = varEpochSuiviMetrics(pts, stats, pp);
         tVolOmni = stats.volume || 0;
         tPts = pts || 0;
+        tEstPts = pts || 0;
+        if (!(tEstPts > 0) && stats.volume > 0) {
+          tEstPts = stats.volume * (VAR_EPOCH_EST_PTS_PER_100K / 1e5);
+        }
         tReal = s.realized;
         tFund = s.funding;
         tFees = s.fees;
@@ -5787,10 +5799,14 @@
         pnl: tPnl,
       };
       const tot = varEpochSuiviMetrics(tPts, totStats, pp);
-      const totTip = `R ${varFmtSignedUsdExact(tReal)} · F ${varFmtSignedUsdExact(tFund)} · Fees ${varFmtSignedUsdExact(tFees)}`;
+      const totEst = varEpochSuiviMetrics(tEstPts > 0 ? tEstPts : tPts, totStats, pp);
       const totVolTip = tHlVol > 0 ? `HL ${varFmtCompactUsd(tHlVol)}` : '';
+      const totTip = `R ${varFmtSignedUsdExact(tReal)} · F ${varFmtSignedUsdExact(tFund)} · Fees ${varFmtSignedUsdExact(tFees)}`;
+      const totEstTip = tEstPts > 0 && !(tPts > 0)
+        ? `Est. ${varFmtPoints(tEstPts)} pts · ${VAR_EPOCH_EST_PTS_PER_100K} pts / $100k`
+        : '';
       const totPnlCls = tot.pnl > 0 ? 'is-pos' : (tot.pnl < 0 ? 'is-neg' : '');
-      const totEstCls = tot.estNet > 0 ? 'is-pos' : (tot.estNet < 0 ? 'is-neg' : '');
+      const totEstCls = totEst.estNet > 0 ? 'is-pos' : (totEst.estNet < 0 ? 'is-neg' : '');
 
       return `<tr class="var-farm-epoch-total">
         <td class="left"><span class="var-farm-epoch-pill is-epoch">${varEsc(badge)}</span></td>
@@ -5799,8 +5815,8 @@
         <td class="text-right mono">${varFmtPoints(tPts)}</td>
         <td class="text-right mono ${totPnlCls}" title="${varEsc(totTip)}">${varFmtSignedUsdExact(tot.pnl)}</td>
         <td class="text-right mono ${tot.costPerPt != null ? 'is-neg' : 'muted'}">${varFarmEpochCostDisp(tot.costPerPt)}</td>
-        <td class="text-right mono">${varFmtSignedUsdExact(tot.est)}</td>
-        <td class="text-right mono ${totEstCls}">${varFmtSignedUsdExact(tot.estNet)}</td>
+        <td class="text-right mono"${totEstTip ? ` title="${varEsc(totEstTip)}"` : ''}>${varFmtSignedUsdExact(totEst.est)}</td>
+        <td class="text-right mono ${totEstCls}">${varFmtSignedUsdExact(totEst.estNet)}</td>
       </tr>${lines.join('')}`;
     }).join('');
 
@@ -6060,64 +6076,32 @@
     }
   }
 
-  /** Community heuristic when no personal calibration exists yet (pts / $1M raw). */
-  const VAR_EPOCH_COMMUNITY_RATE = 14;
+  /** Fixed farm estimate: 5.3 pts per $100k volume (= 53 pts / $1M). */
+  const VAR_EPOCH_EST_PTS_PER_100K = 5.3;
+  const VAR_EPOCH_EST_RATE_PER_1M = (VAR_EPOCH_EST_PTS_PER_100K / 1e5) * 1e6; // 53
+
+  /** Community / Lab fallback kept for Lab tab only (pts / $1M). */
+  const VAR_EPOCH_COMMUNITY_RATE = VAR_EPOCH_EST_RATE_PER_1M;
 
   function varEpochHeuristicRate(bundle, start, exclusiveEnd) {
-    try {
-      const trades = varLabPrepareTrades(bundle);
-      const m = varLabWindowMetrics(trades, start, exclusiveEnd);
-      if (!(m.volume > 0)) return VAR_EPOCH_COMMUNITY_RATE;
-      // Boost with RWA share — Omni weights RWA higher (rough community fit).
-      const rwa = Math.max(0, Math.min(1, m.rwaShare || 0));
-      return VAR_EPOCH_COMMUNITY_RATE * (1 + 3.5 * rwa);
-    } catch (_) {
-      return VAR_EPOCH_COMMUNITY_RATE;
-    }
+    void bundle;
+    void start;
+    void exclusiveEnd;
+    return VAR_EPOCH_EST_RATE_PER_1M;
   }
 
-  /** TimberJ-style estimate: volume × recent pts/$1M (not the Lab RWA pool model). */
+  /** Point estimate = volume × 5.3 / $100k (user farm rate). */
   function varEpochEstimateSelf(points, bundle, start, exclusiveEnd, rateOpt) {
     try {
+      void points;
+      void rateOpt;
       const stats = varEpochWindowSummary(bundle, start, exclusiveEnd);
       const volume = stats.volume || 0;
-      if (!(volume > 0)) return { points: 0, rate: null, metrics: stats, method: 'timber' };
-      let rate = rateOpt != null && rateOpt > 0
-        ? rateOpt
-        : varEpochRecentRate(points, bundle, start, VAR_EPOCH_RECENT_RATE_N);
-      let method = 'timber';
-      if (!(rate > 0)) {
-        // Fallback: Lab rwa-9 when we can calibrate a pool from overlapping epochs.
-        try {
-          const trades = varLabPrepareTrades(bundle);
-          const model = varLabModelById('rwa-9');
-          const m = varLabWindowMetrics(trades, start, exclusiveEnd);
-          const poolRows = varLabPoolHistory(model, points, trades).filter((r) => r.start < start);
-          const recent = poolRows.slice(-12);
-          const median = varLabMedianPool(recent.length ? recent : poolRows);
-          if (median > 0) {
-            const exposure = varLabExposure(model, m);
-            const est = median * exposure;
-            const labRate = volume > 0 ? (est / volume) * 1e6 : null;
-            if (labRate > 0) varEpochRememberRate(labRate);
-            return {
-              points: est,
-              rate: labRate,
-              metrics: stats,
-              method: 'lab',
-            };
-          }
-        } catch (_) {}
-        const life = varEpochLifetimeRate(points, bundle);
-        const stored = varEpochStoredRate();
-        if (life > 0) { rate = life; method = 'lifetime'; }
-        else if (stored > 0) { rate = stored; method = 'stored'; }
-        else { rate = varEpochHeuristicRate(bundle, start, exclusiveEnd); method = 'community'; }
-      }
-      if (!(rate > 0)) return { points: 0, rate: null, metrics: stats, method: 'none' };
+      if (!(volume > 0)) return { points: 0, rate: null, metrics: stats, method: 'fixed' };
+      const rate = VAR_EPOCH_EST_RATE_PER_1M;
+      const est = volume * (VAR_EPOCH_EST_PTS_PER_100K / 1e5);
       varEpochRememberRate(rate);
-      const est = (volume * rate) / 1e6;
-      return { points: est, rate, metrics: stats, method };
+      return { points: est, rate, metrics: stats, method: 'fixed' };
     } catch (_) {
       return { points: 0, rate: null, metrics: null, method: 'none' };
     }
@@ -7966,20 +7950,42 @@
   let _varLiveVolPeriod = 'this_epoch';
   let _varOmniExtPongTimer = 0;
 
+  const VAR_LIVE_VOL_PERIODS = ['today', 'this_epoch', 'last_epoch', 'all'];
+
   function varLiveVolPeriodLoad() {
     try {
       const p = localStorage.getItem('hs-var-live-vol-period') || 'this_epoch';
-      return ['today', 'this_epoch', 'all'].includes(p) ? p : 'this_epoch';
+      return VAR_LIVE_VOL_PERIODS.includes(p) ? p : 'this_epoch';
     } catch {
       return 'this_epoch';
     }
   }
 
   function varSetLiveVolPeriod(period) {
-    if (!['today', 'this_epoch', 'all'].includes(period)) return;
+    if (!VAR_LIVE_VOL_PERIODS.includes(period)) return;
     _varLiveVolPeriod = period;
     try { localStorage.setItem('hs-var-live-vol-period', period); } catch (_) {}
+    _varDashAnalyticsMemo = null;
+    _varDashAnalyticsMemoKey = '';
     varRenderLiveDashboard();
+  }
+
+  function varLivePeriodRangeLabel(period, dash) {
+    try {
+      if (period === 'all') return varT('var.dashAll');
+      const start = dash?.start;
+      const end = dash?.end;
+      if (!(start > 0) || !(end > 0)) return '';
+      const fmt = (ts) => {
+        const d = new Date(ts);
+        const dd = String(d.getUTCDate()).padStart(2, '0');
+        const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+        return `${dd}/${mm}`;
+      };
+      return `${fmt(start)} → ${fmt(end)}`;
+    } catch (_) {
+      return '';
+    }
   }
 
   function varBuildDashAnalyticsCached(bundle, period, opts) {
@@ -8070,16 +8076,23 @@
         setTxt('varLivePnlValue', '—');
         setTxt('varLivePnlMeta', '');
         setTxt('varLiveFundingValue', '—');
+        setTxt('varLiveFundingMeta', varT('var.liveFundingSub'));
         setTxt('varLiveTradesValue', '—');
         setTxt('varLiveTradesMeta', '');
       } else {
         volEl.textContent = varFmtCompactUsd(dash.volume);
-        setTxt('varLiveVolMeta', varT('var.liveVolMeta').replace('{n}', String(dash.tradeCount || 0)));
+        const rangeLbl = varLivePeriodRangeLabel(period, dash);
+        setTxt(
+          'varLiveVolMeta',
+          varT('var.liveVolMeta').replace('{n}', String(dash.tradeCount || 0))
+            + (rangeLbl ? ` · ${rangeLbl}` : '')
+        );
         setSigned('varLivePnlValue', dash.realizedPnl);
         setTxt('varLivePnlMeta', dash.winRate != null
           ? varT('var.livePnlMeta').replace('{pct}', dash.winRate.toFixed(1))
           : '');
         setSigned('varLiveFundingValue', dash.funding);
+        setTxt('varLiveFundingMeta', rangeLbl || varT('var.liveFundingSub'));
         setTxt('varLiveTradesValue', String(dash.tradeCount || 0));
         setTxt('varLiveTradesMeta', dash.avgTrade > 0
           ? varT('var.dashLargest').replace('{usd}', varFmtCompactUsd(dash.largest || dash.avgTrade))

@@ -11492,6 +11492,7 @@ try {
               <div class="var-dash-periods" id="varLiveVolPeriods" role="tablist">
                 <button type="button" class="var-dash-period" data-live-period="today" onclick="varSetLiveVolPeriod('today')" data-i18n="var.dashToday">Today</button>
                 <button type="button" class="var-dash-period active" data-live-period="this_epoch" onclick="varSetLiveVolPeriod('this_epoch')" data-i18n="var.dashThisEpoch">This epoch</button>
+                <button type="button" class="var-dash-period" data-live-period="last_epoch" onclick="varSetLiveVolPeriod('last_epoch')" data-i18n="var.dashLastEpoch">Last epoch</button>
                 <button type="button" class="var-dash-period" data-live-period="all" onclick="varSetLiveVolPeriod('all')" data-i18n="var.dashAll">All</button>
               </div>
             </div>
@@ -13910,7 +13911,7 @@ const I18N = {
     'var.dashTitle': 'Dashboard',
     'var.dashToday': 'Aujourd’hui',
     'var.dashThisEpoch': 'Cet epoch',
-    'var.dashLastEpoch': 'Epoch précédent',
+    'var.dashLastEpoch': 'Last epoch',
     'var.dashMonth': 'Ce mois',
     'var.dashYear': 'Cette année',
     'var.dashAll': 'Tout',
@@ -33249,7 +33250,7 @@ document.addEventListener('DOMContentLoaded', () => {
   </div>
 </div>
 <script src="../js/variational-omni-collector.js"></script>
-<script src="../js/variational-omni.js?v=20260813volomni"></script>
+<script src="../js/variational-omni.js?v=20260813pts53"></script>
 <script>
 (function hsLoadCfWebAnalytics() {
   var token = (typeof HS_CONFIG !== 'undefined' && HS_CONFIG.cfWebAnalyticsToken) || '';
