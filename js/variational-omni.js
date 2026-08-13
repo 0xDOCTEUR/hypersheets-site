@@ -118,6 +118,8 @@
   let _varEpochMarketsOpen = new Set();
   let _varEpochUiBound = false;
   let _varEpochDidInitExpand = false;
+  let _varFarmEpochUiBound = false;
+  let _varFarmEpochOiInit = false;
   let _varLabModel = 'rwa-9';
   let _varDashStacked = false;
 
@@ -1447,6 +1449,7 @@
     varInvalidateViewCaches();
     varAccountsScheduleActivityRefresh();
     try { if (_varSub === 'points' || _varSub === 'lab') renderVarPoints(); } catch (_) {}
+    try { if (varIsLiveDashTab()) varRenderLiveDashboard(); } catch (_) {}
   }
   function varCsvSave(bundle) {
     _varOmniBookMemo = null;
@@ -5444,6 +5447,15 @@
     return out;
   }
 
+  /** Recent-epochs wallets filtered by Dashboard JSON chip (Tous vs active jambe). */
+  function varFarmEpochWalletSourcesForView() {
+    const all = varFarmEpochWalletSources();
+    varCsvScopeLoad();
+    if (_varCsvScope === 'all') return all;
+    const active = varAccountsActiveId();
+    return all.filter((w) => w.id === active);
+  }
+
   /** Merge points_history across jambes for the Par-epoch calendar (dedupe by week window). */
   function varPointsUnionFromWallets(wallets) {
     const parts = (wallets || [])
@@ -6361,10 +6373,12 @@
     const panel = document.getElementById('varFarmEpochsPanel');
     if (!el) return;
     varBindPricePerPointUi();
+    varBindFarmEpochMiniUi();
 
     const points = varPointsLoad();
     const bundle = varCsvLoadForView();
-    const wallets = varFarmEpochWalletSources();
+    const walletsAll = varFarmEpochWalletSources();
+    const wallets = varFarmEpochWalletSourcesForView();
     const hlWallets = varFarmEpochHlSources();
     const hasPts = !!(points?.points_summary || (points?.points_history && points.points_history.length));
     const hasTrades = !!(bundle?.trades && bundle.trades.length);
@@ -6381,7 +6395,7 @@
     let epochRows = [];
     try {
       // Always build the week calendar from ALL jambes (not only the selected chip).
-      const unionPts = varPointsUnionFromWallets(wallets) || points;
+      const unionPts = varPointsUnionFromWallets(walletsAll) || points;
       const allBundle = varCsvLoadAll() || bundle || { trades: [] };
       epochRows = varBuildEpochRows(unionPts, allBundle).slice(0, 4);
     } catch (_) {
@@ -6391,6 +6405,12 @@
       el.innerHTML = summaryHtml
         || `<div class="var-pos-empty">${varEsc(varT('var.farmEpochsEmpty'))}</div>`;
       return;
+    }
+
+    // First paint: open the latest epoch so OI + markets are visible without an extra click.
+    if (!_varFarmEpochOiInit) {
+      _varFarmEpochOiInit = true;
+      if (epochRows[0]) _varEpochExpanded.add(epochRows[0].id);
     }
 
     // Fill HL calendar holes (e.g. 06/08 missing between 30/07 and 13/08) via HL API.
@@ -6412,6 +6432,9 @@
       <th class="text-right">${varEsc(varT('var.epochEst'))}</th>
       <th class="text-right">${varEsc(varT('var.epochEstNet'))}</th>
     </tr></thead>`;
+
+    const viewBundle = bundle || { trades: [], funding: [], realizedPnl: [], transfers: [] };
+    const oiCache = new Map();
 
     const body = epochRows.map((r) => {
       const badge = varFarmEpochDateBadge(r.start, r.end, !!r.inProgress, !!r.finalising);
@@ -6628,9 +6651,33 @@
         : '';
       const totPnlCls = pnlRounded > 0 ? 'is-pos' : (pnlRounded < 0 ? 'is-neg' : '');
       const totEstCls = estNetRounded > 0 ? 'is-pos' : (estNetRounded < 0 ? 'is-neg' : '');
+      const open = _varEpochExpanded.has(r.id);
+      let detailTr = '';
+      if (open) {
+        let analytics = oiCache.get(r.id);
+        if (!analytics) {
+          analytics = varEpochWindowAnalytics(viewBundle, r.start, r.end);
+          oiCache.set(r.id, analytics);
+        }
+        const detailPts = (tPts > 0) ? tPts : (tEstPts > 0 ? tEstPts : 0);
+        const detailRow = {
+          id: r.id,
+          start: r.start,
+          end: r.end,
+          estimated: !!(r.estimated || ((r.inProgress || r.finalising) && !(tPts > 0) && tEstPts > 0)),
+          self: detailPts,
+          total: detailPts,
+          estRate: r.estRate,
+          inProgress: !!r.inProgress,
+          finalising: !!r.finalising,
+        };
+        detailTr = `<tr class="var-farm-epoch-detail-tr"><td colspan="8">${
+          varEpochDetailHtml(detailRow, analytics, _varEpochMarketsOpen.has(r.id))
+        }</td></tr>`;
+      }
 
-      return `<tr class="var-farm-epoch-total">
-        <td class="left"><span class="var-farm-epoch-pill is-epoch">${varEsc(badge)}</span></td>
+      return `<tr class="var-farm-epoch-total${open ? ' is-open' : ''}" data-farm-epoch-toggle="${varEsc(r.id)}" aria-expanded="${open ? 'true' : 'false'}">
+        <td class="left"><span class="var-farm-epoch-pill is-epoch">${varEsc(badge)}</span><span class="var-epoch-chev" aria-hidden="true"></span></td>
         <td class="left"><strong>${varEsc(varT('var.epochTotal'))}</strong></td>
         <td class="text-right mono"${totVolTip ? ` title="${varEsc(totVolTip)}"` : ''}>${tVolOmni > 0 ? varFmtCompactUsd(tVolOmni) : '—'}</td>
         <td class="text-right mono">${varFmtPoints(tPts)}</td>
@@ -6638,12 +6685,38 @@
         <td class="text-right mono ${tot.costPerPt != null ? 'is-neg' : 'muted'}">${varFarmEpochCostDisp(tot.costPerPt)}</td>
         <td class="text-right mono"${totEstTip ? ` title="${varEsc(totEstTip)}"` : ''}>${varFmtSignedUsdExact(estRounded)}</td>
         <td class="text-right mono ${totEstCls}">${varFmtSignedUsdExact(estNetRounded)}</td>
-      </tr>${lines.join('')}`;
+      </tr>${lines.join('')}${detailTr}`;
     }).join('');
 
     el.innerHTML = `${summaryHtml}
       <div class="var-farm-suivi-epochs-h">${varEsc(varT('var.epochParEpoch'))}</div>
       <div class="var-farm-epoch-table-wrap"><table class="var-farm-epoch-table">${head}<tbody>${body}</tbody></table></div>`;
+  }
+
+  function varBindFarmEpochMiniUi() {
+    if (_varFarmEpochUiBound) return;
+    const el = document.getElementById('varFarmEpochMini');
+    if (!el) return;
+    _varFarmEpochUiBound = true;
+    el.addEventListener('click', (e) => {
+      const mktBtn = e.target.closest('[data-epoch-markets]');
+      if (mktBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        const id = mktBtn.getAttribute('data-epoch-markets');
+        if (_varEpochMarketsOpen.has(id)) _varEpochMarketsOpen.delete(id);
+        else _varEpochMarketsOpen.add(id);
+        try { varRenderFarmEpochMini(); } catch (_) {}
+        return;
+      }
+      const head = e.target.closest('[data-farm-epoch-toggle]');
+      if (!head) return;
+      e.preventDefault();
+      const id = head.getAttribute('data-farm-epoch-toggle');
+      if (_varEpochExpanded.has(id)) _varEpochExpanded.delete(id);
+      else _varEpochExpanded.add(id);
+      try { varRenderFarmEpochMini(); } catch (_) {}
+    });
   }
 
   function varRenderFarmOverview() {
