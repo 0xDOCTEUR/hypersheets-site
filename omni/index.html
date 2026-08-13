@@ -17809,6 +17809,7 @@ async function loadData(opts = {}) {
     if (typeof setXyzPageLoading === 'function') setXyzPageLoading(false);
     _loadDataRunning = false;
     window._loadDataRunning = false;
+    if (typeof refreshLeaderboardAfterFills === 'function') refreshLeaderboardAfterFills();
     try {
       if (typeof window.__hsFlushPendingOmniImportUi === 'function') {
         window.__hsFlushPendingOmniImportUi();
@@ -22920,6 +22921,11 @@ function getLeaderboardCurrentVol(jsonVol, addrs) {
   const hasFileTs = parseLeaderboardUpdatedAtMs() != null
   const projected = (jsonVol > 0 && hasFileTs) ? (jsonVol + since.vol) : null
 
+  // While fills are still loading, do not flash a JSON/projected rank (causes double estimated rank).
+  if (typeof _loadDataRunning !== 'undefined' && _loadDataRunning && wallets.length) {
+    return { vol: 0, source: 'loading', delta: 0, apiVol: apiAll.vol, trades: apiAll.trades }
+  }
+
   // Always mirror Trade XYZ KPI when session HIP-3 fills exist (never JSON+delta).
   if (apiAll.vol > 0 || apiAll.trades > 0) {
     return {
@@ -22935,6 +22941,14 @@ function getLeaderboardCurrentVol(jsonVol, addrs) {
   }
   if (jsonVol > 0) return { vol: jsonVol, source: 'json', delta: 0, apiVol: 0, trades: 0 }
   return { vol: 0, source: 'none', delta: 0, apiVol: 0, trades: 0 }
+}
+
+function refreshLeaderboardAfterFills() {
+  if ((document.body?.dataset?.page || '') !== 'leaderboard') return
+  if (!_leaderboardAllRows?.length) return
+  if (typeof renderLeaderboard === 'function') {
+    renderLeaderboard(_leaderboardAllRows, _leaderboardCache?.updatedAt)
+  }
 }
 
 function normalizeLbLookupAddr(raw) {
@@ -23137,13 +23151,14 @@ function renderLeaderboardPersonalBlock(opts) {
 
   const fileRank = mode === 'retail' ? retailStats.rank : globalStats.rank
   const fileTotal = mode === 'retail' ? retailStats.total : globalStats.total
+  const estLoading = curVolInfo?.source === 'loading'
   const estRank = mode === 'retail' ? estRetailRank : estGlobalRank
   const modeLabel = mode === 'retail' ? t('xyz.lbModeRetail') : t('xyz.lbModeGlobal')
   const volEstHint = getLeaderboardVolTotalTHint(curVolInfo, userVol, isFr)
   const rankPct = fileRank ? Math.round((1 - fileRank / viewTotal) * 100) : null
   const isPersonalGoto = !(lookupAddrs && lookupAddrs.length)
   const fileRankArg = fileRank > 0 ? fileRank : 0
-  const estRankArg = estRank > 0 ? estRank : 0
+  const estRankArg = (!estLoading && estRank > 0) ? estRank : 0
   const altEstRank = mode === 'retail' ? estGlobalRank : estRetailRank
   const altEstLabel = mode === 'retail' ? t('xyz.lbRankGlobal') : t('xyz.lbRankRetail')
   const fileColTitle = [t('xyz.lbVolJsonTip'), isPersonalGoto ? t('xyz.lbGotoFileHint') : ''].filter(Boolean).join(' · ')
@@ -23151,7 +23166,7 @@ function renderLeaderboardPersonalBlock(opts) {
   const fileGotoAttr = isPersonalGoto
     ? ` class="lb-hero-rank-col lb-hero-rank-col--leaderboard lb-hero-rank-col--goto" role="button" tabindex="0" title="${fileColTitle.replace(/"/g, '&quot;')}" onclick="lbGotoMyRank('file',${fileRankArg})" onkeydown="lbGotoRankKey(event,'file',${fileRankArg})"`
     : ` class="lb-hero-rank-col lb-hero-rank-col--leaderboard" title="${fileColTitle.replace(/"/g, '&quot;')}"`
-  const estGotoAttr = isPersonalGoto
+  const estGotoAttr = isPersonalGoto && !estLoading
     ? ` class="lb-hero-rank-col lb-hero-rank-col--goto" role="button" tabindex="0" title="${estColTitle.replace(/"/g, '&quot;')}" onclick="lbGotoMyRank('est',${estRankArg})" onkeydown="lbGotoRankKey(event,'est',${estRankArg})"`
     : ` class="lb-hero-rank-col" title="${estColTitle.replace(/"/g, '&quot;')}"`
 
@@ -23170,12 +23185,12 @@ function renderLeaderboardPersonalBlock(opts) {
     </div>
     <div${estGotoAttr}>
       <div class="lb-rank-section-title estimated">${t('xyz.lbRankEstimated')}</div>
-      <div class="lb-hero-rank-num" style="color:${lbRankColor(estRank)}">${estRank ? '#' + estRank.toLocaleString() : '—'}</div>
+      <div class="lb-hero-rank-num" style="color:${lbRankColor(estLoading ? null : estRank)}">${estLoading ? '…' : (estRank ? '#' + estRank.toLocaleString() : '—')}</div>
       <div class="lb-hero-rank-vol-label" title="${t('xyz.lbVolApiTip').replace(/"/g, '&quot;')}">${t('xyz.lbVolApi')}</div>
-      <div class="lb-hero-rank-vol">${displayVol > 0 ? fmtLbVol(displayVol) : (apiVol > 0 ? fmtLbVol(apiVol) : '—')}</div>
-      ${estRank && altEstRank && altEstRank !== estRank
+      <div class="lb-hero-rank-vol">${estLoading ? (isFr ? 'Chargement…' : 'Loading…') : (displayVol > 0 ? fmtLbVol(displayVol) : (apiVol > 0 ? fmtLbVol(apiVol) : '—'))}</div>
+      ${!estLoading && estRank && altEstRank && altEstRank !== estRank
         ? `<div class="lb-hero-rank-meta">${altEstLabel} #${altEstRank.toLocaleString()}</div>`
-        : ''}
+        : (estLoading ? `<div class="lb-hero-rank-meta">${isFr ? 'Volume Trade XYZ en cours de chargement' : 'Loading Trade XYZ volume'}</div>` : '')}
     </div>
   </div>
   <div class="lb-hero-milestones">${renderLeaderboardMilestones(userVol, globalStats.rank, isFr, lookupAddrs)}</div>`

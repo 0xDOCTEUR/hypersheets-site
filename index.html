@@ -11748,18 +11748,18 @@ const I18N = {
     'xyz.lbVolJson': 'File volume',
     'xyz.lbVolApi': 'Current volume',
     'xyz.lbVolJsonTip': 'Volume in the published weekly leaderboard file.',
-    'xyz.lbVolApiTip': 'Trade XYZ volume used for the estimate (file + trades since last file update).',
+    'xyz.lbVolApiTip': 'Same Trade XYZ volume as the Trade XYZ tab (all HIP-3 fills loaded for this wallet). Rank estimate uses this figure against the leaderboard snapshot.',
     'xyz.lbEstRank': 'Estimated rank (volume since update)',
     'xyz.lbEstRank7d': 'Estimated rank (7d)',
     'xyz.lbEstRankCurrent': 'Estimated rank (current volume)',
-    'xyz.lbEstRankCurrentHint': 'Approximate rank if the snapshot were sorted by volume at instant T: JSON volume (top 10k row, else 0) plus API fills since the file was updated, or all-time API volume when the address is not in the file. Rank = 1 + count of rows with higher total_volume_usd.',
-    'xyz.lbEstRankHint': 'Approximate rank: your file volume plus Trade XYZ trades since the file was last updated, compared to the snapshot.',
+    'xyz.lbEstRankCurrentHint': 'Approximate rank if the snapshot were sorted by your current Trade XYZ volume (same as the Trade XYZ tab). Rank = 1 + count of rows with higher total_volume_usd.',
+    'xyz.lbEstRankHint': 'Approximate rank from your current Trade XYZ volume vs the leaderboard snapshot.',
     'xyz.lbEstRankGlobal': 'Est. global rank',
     'xyz.lbEstRankRetail': 'Est. retail rank',
     'xyz.lbEstProjected': 'Projected volume',
     'xyz.lbVolTotalT': 'Total volume (instant T)',
-    'xyz.lbVolTotalTHintProjected': 'File {json} + since update ({delta})',
-    'xyz.lbVolTotalTHintApi': 'Not in file — all-time Trade XYZ volume (this session)',
+    'xyz.lbVolTotalTHintProjected': 'Snapshot fallback: file {json} + {delta} since update (API fills look incomplete).',
+    'xyz.lbVolTotalTHintApi': 'Trade XYZ volume (same source as Trade XYZ → All)',
     'xyz.lbVolTotalTHintJson': 'File volume only',
     'xyz.lbNoFileProd': 'Global trader ranking is not available yet. Connect a wallet to see your live Trade XYZ stats.',
     'xyz.lbVolMismatch': 'API volume is much higher than the imported JSON — the Hydromancer build may be incomplete (skipped days or partial S3 read). Regenerate leaderboard.json with --by-day.',
@@ -12874,18 +12874,18 @@ const I18N = {
     'xyz.lbVolJson': 'Volume fichier',
     'xyz.lbVolApi': 'Volume actuel',
     'xyz.lbVolJsonTip': 'Volume au dernier export du classement (fichier hebdo).',
-    'xyz.lbVolApiTip': 'Volume Trade XYZ pour l\'estimation (fichier + trades depuis la MAJ).',
+    'xyz.lbVolApiTip': 'Même volume Trade XYZ que l’onglet Trade XYZ (tous les fills HIP-3 chargés pour ce wallet). Le rang estimé compare ce chiffre au snapshot du classement.',
     'xyz.lbEstRank': 'Rang estimé (volume depuis MAJ)',
     'xyz.lbEstRank7d': 'Rang estimé (7j)',
     'xyz.lbEstRankCurrent': 'Rang estimé au volume actuel',
-    'xyz.lbEstRankCurrentHint': 'Rang approximatif si le snapshot était trié au volume instantané T : volume JSON (ligne top 10k, sinon 0) + fills API depuis la MAJ du fichier, ou volume API Tout si l\'adresse est absente du fichier. Rang = 1 + nombre de lignes avec un total_volume_usd supérieur.',
-    'xyz.lbEstRankHint': 'Rang approximatif : volume fichier + trades Trade XYZ depuis la dernière MAJ du fichier, comparé au snapshot.',
+    'xyz.lbEstRankCurrentHint': 'Rang approximatif si le snapshot était trié à ton volume Trade XYZ actuel (même source que l’onglet Trade XYZ). Rang = 1 + nombre de lignes avec un total_volume_usd supérieur.',
+    'xyz.lbEstRankHint': 'Rang approximatif : ton volume Trade XYZ actuel vs le snapshot du classement.',
     'xyz.lbEstRankGlobal': 'Rang global estimé',
     'xyz.lbEstRankRetail': 'Rang retail estimé',
     'xyz.lbEstProjected': 'Volume projeté',
     'xyz.lbVolTotalT': 'Volume total instantané T',
-    'xyz.lbVolTotalTHintProjected': 'Fichier {json} + depuis MAJ ({delta})',
-    'xyz.lbVolTotalTHintApi': 'Hors fichier — volume Trade XYZ total (session)',
+    'xyz.lbVolTotalTHintProjected': 'Repli snapshot : fichier {json} + {delta} depuis MAJ (fills API incomplets).',
+    'xyz.lbVolTotalTHintApi': 'Volume Trade XYZ (même source que Trade XYZ → Tout)',
     'xyz.lbVolTotalTHintJson': 'Volume fichier uniquement',
     'xyz.lbNoFileProd': 'Le classement global traders n\'est pas encore disponible. Connecte un wallet pour voir tes stats Trade XYZ en direct.',
     'xyz.lbVolMismatch': 'Le volume API est nettement supérieur au JSON importé — le build Hydromancer est probablement incomplet (jours ignorés ou lecture S3 partielle). Régénère leaderboard.json avec --by-day.',
@@ -15748,16 +15748,23 @@ function setActiveWallet(wallet) {
   }
 }
 
+function isXyzHip3Fill(f) {
+  const c = String(f?.coin || '');
+  return f?._market === 'hip3' || c.startsWith('xyz:');
+}
+
 function getActiveFills() {
   if (activeWallet === null || wallets.length <= 1) return allFills;
-  const wData = fillsByWallet[activeWallet];
-  return wData ? wData.hl : [];
+  const lower = lbNormAddr(activeWallet) || String(activeWallet || '').toLowerCase();
+  const fromGlobal = (allFills || []).filter(f => (lbNormAddr(f._wallet) || String(f._wallet || '').toLowerCase()) === lower);
+  if (fromGlobal.length) return fromGlobal;
+  const wData = fillsByWallet[activeWallet] || fillsByWallet[lower];
+  return wData ? (wData.hl || []).filter(f => !isXyzHip3Fill(f)) : [];
 }
 
 function getActiveXyzFills() {
   if (activeWallet === null || wallets.length <= 1) return xyzFills;
-  const wData = fillsByWallet[activeWallet];
-  return wData ? wData.xyz : [];
+  return getXyzFillsForWallet(activeWallet);
 }
 
 function getActiveBridgeOps() {
@@ -16051,6 +16058,7 @@ async function loadDemoWalletData() {
     setText('dataStats', `${allFills.length} HL · ${xyzFills.length} XYZ · ${bridgeOps.length} bridge · demo`);
     await glpPaintFrame();
     renderAll();
+    if (typeof refreshLeaderboardAfterFills === 'function') refreshLeaderboardAfterFills();
     glpSetProgress(96);
     if (_pendingDashboardReveal) {
       _pendingDashboardReveal = false;
@@ -16239,7 +16247,8 @@ async function loadData(opts = {}) {
       target.push(f);
       // Also store per-wallet — only here, after dedup check
       if (!fillsByWallet[w]) fillsByWallet[w] = { hl: [], xyz: [], bridge: [], funding: [], positions: [] };
-      if (f.coin?.startsWith('xyz:')) fillsByWallet[w].xyz.push(f);
+      // Same HIP-3 rule as xyzFills partition (_market hip3 OR xyz:…), not xyz: prefix alone.
+      if (isXyzHip3Fill(f)) fillsByWallet[w].xyz.push(f);
       else fillsByWallet[w].hl.push(f);
       return true;
     };
@@ -16340,9 +16349,8 @@ async function loadData(opts = {}) {
           for (const f of twapW.value) merged.push(f);
         }
         for (const f of merged) {
-          const c = f.coin || '';
-          if (f?._market === 'hip3' || c.startsWith('xyz:')) pushFillUnique(xyzFills, f, w);
-          else                      pushFillUnique(allFills, f, w);
+          if (isXyzHip3Fill(f)) pushFillUnique(xyzFills, f, w);
+          else                  pushFillUnique(allFills, f, w);
         }
         if (fundingRes.status === 'fulfilled' && Array.isArray(fundingRes.value)) {
           fundingRes.value.forEach(ev => {
@@ -16457,6 +16465,7 @@ async function loadData(opts = {}) {
     if (typeof setXyzPageLoading === 'function') setXyzPageLoading(false);
     _loadDataRunning = false;
     window._loadDataRunning = false;
+    if (typeof refreshLeaderboardAfterFills === 'function') refreshLeaderboardAfterFills();
     try {
       if (typeof window.__hsFlushPendingOmniImportUi === 'function') {
         window.__hsFlushPendingOmniImportUi();
@@ -21510,25 +21519,36 @@ function getLeaderboardActiveAddrs() {
 }
 
 function getXyzFillsForWallet(addr) {
-  const lower = String(addr).toLowerCase()
+  const lower = lbNormAddr(addr) || String(addr || '').toLowerCase()
+  if (!lower) return []
+  // Canonical source = xyzFills (same bucket as Trade XYZ KPI), filtered by _wallet.
+  const fromGlobal = (xyzFills || []).filter(f => (lbNormAddr(f._wallet) || String(f._wallet || '').toLowerCase()) === lower)
+  if (fromGlobal.length) return fromGlobal
   const exact = fillsByWallet?.[addr]?.xyz || fillsByWallet?.[lower]?.xyz
-  if (exact?.length) return exact
+  if (exact?.length) return exact.filter(isXyzHip3Fill)
   const key = Object.keys(fillsByWallet || {}).find(k => k.toLowerCase() === lower)
-  if (key && fillsByWallet[key]?.xyz?.length) return fillsByWallet[key].xyz
-  if (wallets.length === 1 && wallets[0].toLowerCase() === lower && typeof getActiveXyzFills === 'function') {
-    return getActiveXyzFills()
-  }
+  if (key && fillsByWallet[key]?.xyz?.length) return fillsByWallet[key].xyz.filter(isXyzHip3Fill)
+  if (wallets.length === 1 && lbNormAddr(wallets[0]) === lower) return xyzFills || []
   return []
 }
 
 function getApiXyzVolumeForAddrs(addrs) {
   if (!addrs?.length) return { vol: 0, trades: 0 }
+  const req = [...new Set(addrs.map(a => lbNormAddr(a) || String(a || '').toLowerCase()).filter(Boolean))]
+  const allW = [...new Set((wallets || []).map(w => lbNormAddr(w) || String(w || '').toLowerCase()).filter(Boolean))]
+  // Same wallet scope as Trade XYZ "all wallets" → reuse the exact xyzFills array.
+  const sameAllWallets = allW.length > 0 && req.length === allW.length && req.every(a => allW.includes(a))
+  const scopeFills = (sameAllWallets && (activeWallet == null || wallets.length <= 1))
+    ? (xyzFills || [])
+    : null
   let vol = 0
   const seen = new Set()
   let trades = 0
-  for (const addr of addrs) {
-    for (const f of getXyzFillsForWallet(addr)) {
-      const key = (f.tid || `${f.time}-${f.coin}-${f.px}-${f.sz}-${f.side}-${f.oid}`) + '|' + addr
+  const fillLists = scopeFills ? [scopeFills] : req.map(a => getXyzFillsForWallet(a))
+  for (let i = 0; i < fillLists.length; i++) {
+    const addrTag = scopeFills ? 'all' : req[i]
+    for (const f of fillLists[i]) {
+      const key = (f.tid || `${f.time}-${f.coin}-${f.px}-${f.sz}-${f.side}-${f.oid}`) + '|' + (f._wallet || addrTag)
       if (seen.has(key)) continue
       seen.add(key)
       vol += typeof fillVolume === 'function' ? fillVolume(f) : Math.abs(parseFloat(f.sz || 0)) * parseFloat(f.px || 0)
@@ -21600,13 +21620,37 @@ function getNextLeaderboardMilestone(rank) {
 function getLeaderboardCurrentVol(jsonVol, addrs) {
   const since = getApiVolSinceLeaderboardUpdate(addrs)
   const apiAll = getApiXyzVolumeForAddrs(addrs)
-  if (jsonVol > 0 && parseLeaderboardUpdatedAtMs() != null) {
-    const projected = jsonVol + since.vol
-    if (projected > 0) return { vol: projected, source: 'projected', delta: since.vol }
+  const hasFileTs = parseLeaderboardUpdatedAtMs() != null
+  const projected = (jsonVol > 0 && hasFileTs) ? (jsonVol + since.vol) : null
+
+  // While fills are still loading, do not flash a JSON/projected rank (causes double estimated rank).
+  if (typeof _loadDataRunning !== 'undefined' && _loadDataRunning && wallets.length) {
+    return { vol: 0, source: 'loading', delta: 0, apiVol: apiAll.vol, trades: apiAll.trades }
   }
-  if (jsonVol > 0) return { vol: jsonVol, source: 'json', delta: 0 }
-  if (apiAll.vol > 0) return { vol: apiAll.vol, source: 'api', delta: 0 }
-  return { vol: 0, source: 'none', delta: 0 }
+
+  // Always mirror Trade XYZ KPI when session HIP-3 fills exist (never JSON+delta).
+  if (apiAll.vol > 0 || apiAll.trades > 0) {
+    return {
+      vol: apiAll.vol,
+      source: 'api',
+      delta: 0,
+      apiVol: apiAll.vol,
+      trades: apiAll.trades,
+    }
+  }
+  if (projected != null && projected > 0) {
+    return { vol: projected, source: 'projected', delta: since.vol, apiVol: 0, trades: since.trades }
+  }
+  if (jsonVol > 0) return { vol: jsonVol, source: 'json', delta: 0, apiVol: 0, trades: 0 }
+  return { vol: 0, source: 'none', delta: 0, apiVol: 0, trades: 0 }
+}
+
+function refreshLeaderboardAfterFills() {
+  if ((document.body?.dataset?.page || '') !== 'leaderboard') return
+  if (!_leaderboardAllRows?.length) return
+  if (typeof renderLeaderboard === 'function') {
+    renderLeaderboard(_leaderboardAllRows, _leaderboardCache?.updatedAt)
+  }
 }
 
 function normalizeLbLookupAddr(raw) {
@@ -21809,13 +21853,14 @@ function renderLeaderboardPersonalBlock(opts) {
 
   const fileRank = mode === 'retail' ? retailStats.rank : globalStats.rank
   const fileTotal = mode === 'retail' ? retailStats.total : globalStats.total
+  const estLoading = curVolInfo?.source === 'loading'
   const estRank = mode === 'retail' ? estRetailRank : estGlobalRank
   const modeLabel = mode === 'retail' ? t('xyz.lbModeRetail') : t('xyz.lbModeGlobal')
   const volEstHint = getLeaderboardVolTotalTHint(curVolInfo, userVol, isFr)
   const rankPct = fileRank ? Math.round((1 - fileRank / viewTotal) * 100) : null
   const isPersonalGoto = !(lookupAddrs && lookupAddrs.length)
   const fileRankArg = fileRank > 0 ? fileRank : 0
-  const estRankArg = estRank > 0 ? estRank : 0
+  const estRankArg = (!estLoading && estRank > 0) ? estRank : 0
   const altEstRank = mode === 'retail' ? estGlobalRank : estRetailRank
   const altEstLabel = mode === 'retail' ? t('xyz.lbRankGlobal') : t('xyz.lbRankRetail')
   const fileColTitle = [t('xyz.lbVolJsonTip'), isPersonalGoto ? t('xyz.lbGotoFileHint') : ''].filter(Boolean).join(' · ')
@@ -21823,7 +21868,7 @@ function renderLeaderboardPersonalBlock(opts) {
   const fileGotoAttr = isPersonalGoto
     ? ` class="lb-hero-rank-col lb-hero-rank-col--leaderboard lb-hero-rank-col--goto" role="button" tabindex="0" title="${fileColTitle.replace(/"/g, '&quot;')}" onclick="lbGotoMyRank('file',${fileRankArg})" onkeydown="lbGotoRankKey(event,'file',${fileRankArg})"`
     : ` class="lb-hero-rank-col lb-hero-rank-col--leaderboard" title="${fileColTitle.replace(/"/g, '&quot;')}"`
-  const estGotoAttr = isPersonalGoto
+  const estGotoAttr = isPersonalGoto && !estLoading
     ? ` class="lb-hero-rank-col lb-hero-rank-col--goto" role="button" tabindex="0" title="${estColTitle.replace(/"/g, '&quot;')}" onclick="lbGotoMyRank('est',${estRankArg})" onkeydown="lbGotoRankKey(event,'est',${estRankArg})"`
     : ` class="lb-hero-rank-col" title="${estColTitle.replace(/"/g, '&quot;')}"`
 
@@ -21842,12 +21887,12 @@ function renderLeaderboardPersonalBlock(opts) {
     </div>
     <div${estGotoAttr}>
       <div class="lb-rank-section-title estimated">${t('xyz.lbRankEstimated')}</div>
-      <div class="lb-hero-rank-num" style="color:${lbRankColor(estRank)}">${estRank ? '#' + estRank.toLocaleString() : '—'}</div>
-      <div class="lb-hero-rank-vol-label">${t('xyz.lbVolApi')}</div>
-      <div class="lb-hero-rank-vol">${displayVol > 0 ? fmtLbVol(displayVol) : (apiVol > 0 ? fmtLbVol(apiVol) : '—')}</div>
-      ${estRank && altEstRank && altEstRank !== estRank
+      <div class="lb-hero-rank-num" style="color:${lbRankColor(estLoading ? null : estRank)}">${estLoading ? '…' : (estRank ? '#' + estRank.toLocaleString() : '—')}</div>
+      <div class="lb-hero-rank-vol-label" title="${t('xyz.lbVolApiTip').replace(/"/g, '&quot;')}">${t('xyz.lbVolApi')}</div>
+      <div class="lb-hero-rank-vol">${estLoading ? (isFr ? 'Chargement…' : 'Loading…') : (displayVol > 0 ? fmtLbVol(displayVol) : (apiVol > 0 ? fmtLbVol(apiVol) : '—'))}</div>
+      ${!estLoading && estRank && altEstRank && altEstRank !== estRank
         ? `<div class="lb-hero-rank-meta">${altEstLabel} #${altEstRank.toLocaleString()}</div>`
-        : ''}
+        : (estLoading ? `<div class="lb-hero-rank-meta">${isFr ? 'Volume Trade XYZ en cours de chargement' : 'Loading Trade XYZ volume'}</div>` : '')}
     </div>
   </div>
   <div class="lb-hero-milestones">${renderLeaderboardMilestones(userVol, globalStats.rank, isFr, lookupAddrs)}</div>`
@@ -21856,6 +21901,9 @@ function renderLeaderboardPersonalBlock(opts) {
 }
 
 function getLeaderboardVolTotalTHint(curVolInfo, jsonVol, isFr) {
+  if (curVolInfo?.source === 'loading') {
+    return isFr ? 'Chargement du volume Trade XYZ…' : 'Loading Trade XYZ volume…'
+  }
   if (curVolInfo.source === 'projected') {
     return t('xyz.lbVolTotalTHintProjected').replace('{json}', fmtLbVol(jsonVol)).replace('{delta}', fmtLbVol(curVolInfo.delta))
   }
