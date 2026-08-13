@@ -5418,6 +5418,340 @@
     return bestDist < 36 * 3600 * 1000 ? best : null;
   }
 
+  const VAR_FARM_HL_TO_VARIA = {
+    XAU: ['xyz:GOLD', 'GOLD', 'XAU'], XAG: ['xyz:SILVER', 'SILVER', 'XAG'],
+    XPT: ['xyz:PLATINUM', 'PLATINUM', 'XPT'], XPD: ['xyz:PALLADIUM', 'PALLADIUM', 'XPD'],
+    GOLD: ['xyz:GOLD', 'GOLD', 'XAU'], SILVER: ['xyz:SILVER', 'SILVER', 'XAG'],
+    US500: ['xyz:SP500', 'SP500'], SPX: ['xyz:SP500', 'SP500'], SP500: ['xyz:SP500', 'SP500'],
+    NDX: ['xyz:XYZ100', 'XYZ100'], QQQ: ['xyz:XYZ100', 'XYZ100'],
+    CL: ['xyz:CL', 'CL'], BZ: ['xyz:BRENTOIL', 'BRENTOIL', 'BZ'],
+    BRENTOIL: ['xyz:BRENTOIL', 'BRENTOIL', 'BZ'], NATGAS: ['xyz:NATGAS'],
+    COPPER: ['xyz:COPPER'], ALUM: ['xyz:ALUMINIUM'], ALUMINIUM: ['xyz:ALUMINIUM'],
+    EWY: ['xyz:EWY', 'EWY'], EWJ: ['xyz:EWJ', 'EWJ'],
+  };
+
+  let _varFarmHlHealPromise = null;
+  let _varFarmHlHealDoneKey = '';
+
+  function varFarmHlIsSpotCoin(coin) {
+    const c = String(coin || '');
+    return c.startsWith('@') || c.includes('/');
+  }
+
+  function varFarmHlCoinBase(coin) {
+    const c = String(coin || '').trim();
+    if (!c) return '';
+    if (c.includes(':')) return c.split(':').pop().toUpperCase();
+    return c.toUpperCase();
+  }
+
+  function varFarmHlIsFarmingCoin(coin, marketSet) {
+    if (!coin || varFarmHlIsSpotCoin(coin) || !marketSet || !marketSet.size) return false;
+    const rawUp = String(coin).trim().toUpperCase();
+    const base = varFarmHlCoinBase(coin);
+    if (!base) return false;
+    for (const m of marketSet) {
+      const M = String(m).toUpperCase();
+      if (base === M || rawUp === M) return true;
+      if (rawUp.endsWith(':' + M)) return true;
+      const alts = VAR_FARM_HL_TO_VARIA[M];
+      if (alts) {
+        for (const a of alts) {
+          const A = String(a).toUpperCase();
+          if (rawUp === A || base === varFarmHlCoinBase(a)) return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  function varFarmHlFillFeeUsd(f) {
+    const raw = Number(f && f.fee);
+    if (!isFinite(raw) || !raw) return 0;
+    const tok = String((f && f.feeToken) || 'USDC').toUpperCase();
+    if (['USDC', 'USDC.SPOT', 'USDT', 'USDE', 'USDH', 'USD'].includes(tok)) return raw;
+    const px = Number(f && f.px);
+    return px > 0 ? raw * px : raw;
+  }
+
+  function varFarmOmniMarketsInWeek(start, end) {
+    const set = new Set();
+    const startMs = varFarmParseEpochTs(start);
+    const endMs = varFarmParseEpochTs(end);
+    if (!isFinite(startMs) || !isFinite(endMs)) return set;
+    const wallets = varFarmEpochWalletSources();
+    for (const w of wallets) {
+      for (const t of (w.csv && w.csv.trades) || []) {
+        const ts = varParseTs(t.timestamp || t.time || t.date);
+        if (!isFinite(ts) || ts < startMs || ts >= endMs) continue;
+        const m = t.market || t.symbol || t.asset || t.coin;
+        if (m) set.add(String(m).toUpperCase().replace(/^XYZ:/i, ''));
+      }
+      const ep = (w.epochs || []).length
+        ? varFarmEpochFindHlEpoch({ epochs: w.epochs }, startMs, endMs)
+        : null;
+      for (const m of (ep && ep.markets) || []) set.add(String(m).toUpperCase());
+    }
+    const suivi = varFarmVariaStateLoad();
+    for (const v of Object.values((suivi && suivi.variaWallets) || {})) {
+      const e = varFarmEpochFindHlEpoch({ epochs: (v && v.epochs) || [] }, startMs, endMs);
+      for (const m of (e && e.markets) || []) set.add(String(m).toUpperCase());
+    }
+    return set;
+  }
+
+  function varFarmOmniVolumeInWeek(start, end) {
+    let vol = 0;
+    const wallets = varFarmEpochWalletSources();
+    for (const w of wallets) {
+      if (!w.csv) continue;
+      const stats = varEpochWindowSummary(w.csv, start, end);
+      vol += Number(stats.volume) || 0;
+    }
+    return vol;
+  }
+
+  async function varFarmHlFetchFills(wallet, startTime) {
+    if (typeof hlPost !== 'function') throw new Error('hlPost unavailable');
+    const PAGE = 2000;
+    const MAX = 40;
+    const seen = new Set();
+    const results = [];
+    let cursorStart = startTime;
+    let cursorEnd = Date.now();
+    let order = null;
+    for (let p = 0; p < MAX; p++) {
+      const batch = await hlPost({
+        type: 'userFillsByTime',
+        user: wallet,
+        startTime: cursorStart,
+        endTime: cursorEnd,
+        aggregateByTime: false,
+      });
+      if (!Array.isArray(batch) || !batch.length) break;
+      if (order === null && batch.length > 1) {
+        order = batch[0].time <= batch[batch.length - 1].time ? 'asc' : 'desc';
+      }
+      let minTime = Infinity;
+      let maxTime = -Infinity;
+      let newCount = 0;
+      for (const f of batch) {
+        const key = f.tid || `${f.time}-${f.coin}-${f.px}-${f.sz}-${f.side}-${f.oid}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          results.push(f);
+          newCount++;
+        }
+        if (f.time < minTime) minTime = f.time;
+        if (f.time > maxTime) maxTime = f.time;
+      }
+      if (batch.length < PAGE || newCount === 0) break;
+      if (order === 'asc') {
+        if (maxTime <= cursorStart) break;
+        cursorStart = maxTime + 1;
+        if (cursorStart >= cursorEnd) break;
+      } else {
+        if (minTime >= cursorEnd) break;
+        cursorEnd = minTime - 1;
+        if (cursorEnd <= cursorStart) break;
+      }
+    }
+    return results;
+  }
+
+  async function varFarmHlFetchFunding(wallet, startTime) {
+    if (typeof hlPost !== 'function') throw new Error('hlPost unavailable');
+    const PAGE = 500;
+    const MAX = 40;
+    const seen = new Set();
+    const results = [];
+    let cursorStart = startTime;
+    let cursorEnd = Date.now();
+    let order = null;
+    for (let p = 0; p < MAX; p++) {
+      const batch = await hlPost({
+        type: 'userFunding',
+        user: wallet,
+        startTime: cursorStart,
+        endTime: cursorEnd,
+      });
+      if (!Array.isArray(batch) || !batch.length) break;
+      if (order === null && batch.length > 1) {
+        order = batch[0].time <= batch[batch.length - 1].time ? 'asc' : 'desc';
+      }
+      let minTime = Infinity;
+      let maxTime = -Infinity;
+      let newCount = 0;
+      for (const ev of batch) {
+        const d = ev.delta || {};
+        const key = ev.hash || `${ev.time}-${d.coin}-${d.usdc}-${d.szi}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          results.push({ time: ev.time, coin: d.coin || '', usdc: Number(d.usdc) || 0 });
+          newCount++;
+        }
+        if (ev.time < minTime) minTime = ev.time;
+        if (ev.time > maxTime) maxTime = ev.time;
+      }
+      if (batch.length < PAGE || newCount === 0) break;
+      if (order === 'asc') {
+        if (maxTime <= cursorStart) break;
+        cursorStart = maxTime + 1;
+        if (cursorStart >= cursorEnd) break;
+      } else {
+        if (minTime >= cursorEnd) break;
+        cursorEnd = minTime - 1;
+        if (cursorEnd <= cursorStart) break;
+      }
+    }
+    return results;
+  }
+
+  function varFarmHlWindowsFromOmni(epochRows, hl) {
+    const map = new Map();
+    const add = (start, end) => {
+      const sMs = varFarmParseEpochTs(start);
+      if (!isFinite(sMs)) return;
+      const thu = varEpochStartUtc(sMs);
+      const eMs = varFarmParseEpochTs(end);
+      const endUse = isFinite(eMs) && eMs > thu ? eMs : (thu + 7 * 864e5);
+      const startIso = new Date(thu).toISOString();
+      const endIso = new Date(endUse).toISOString();
+      const k = varFarmEpochThursdayKey(thu);
+      if (!map.has(k)) map.set(k, { start: startIso, end: endIso, startMs: thu, endMs: endUse });
+    };
+    for (const r of epochRows || []) add(r.start, r.end);
+    for (const e of (hl && hl.epochs) || []) add(e.start, e.end);
+    return [...map.values()].sort((a, b) => b.startMs - a.startMs);
+  }
+
+  function varFarmRebuildHlEpochs(hl, fills, funding, windows) {
+    const asc = [...windows].sort((a, b) => a.startMs - b.startMs);
+    const marketsByKey = new Map();
+    asc.forEach((w, i) => {
+      const set = varFarmOmniMarketsInWeek(w.startMs, w.endMs);
+      if (i > 0) {
+        for (const m of varFarmOmniMarketsInWeek(asc[i - 1].startMs, asc[i - 1].endMs)) set.add(m);
+      }
+      marketsByKey.set(varFarmEpochThursdayKey(w.startMs), set);
+    });
+
+    hl.epochs = windows.map((w) => {
+      const key = varFarmEpochThursdayKey(w.startMs);
+      const marketSet = marketsByKey.get(key) || new Set();
+      let realizedRaw = 0;
+      let feesRaw = 0;
+      let volumeRaw = 0;
+      let tradesRaw = 0;
+      let fundingRaw = 0;
+      const matchedCoins = new Set();
+      for (const f of fills || []) {
+        if (f.time < w.startMs || f.time >= w.endMs) continue;
+        if (varFarmHlIsSpotCoin(f.coin)) continue;
+        if (!marketSet.size || !varFarmHlIsFarmingCoin(f.coin, marketSet)) continue;
+        realizedRaw += Number(f.closedPnl) || 0;
+        feesRaw += -varFarmHlFillFeeUsd(f);
+        volumeRaw += Math.abs((Number(f.px) || 0) * (Number(f.sz) || 0));
+        tradesRaw++;
+        matchedCoins.add(String(f.coin));
+      }
+      for (const ev of funding || []) {
+        if (ev.time < w.startMs || ev.time >= w.endMs) continue;
+        if (varFarmHlIsSpotCoin(ev.coin)) continue;
+        if (!marketSet.size || !varFarmHlIsFarmingCoin(ev.coin, marketSet)) continue;
+        fundingRaw += Number(ev.usdc) || 0;
+      }
+      const omniVol = varFarmOmniVolumeInWeek(w.startMs, w.endMs);
+      const use = omniVol > 0 || tradesRaw > 0 || volumeRaw > 0
+        || Math.abs(realizedRaw) > 0 || Math.abs(fundingRaw) > 0 || Math.abs(feesRaw) > 0;
+      return {
+        start: w.start,
+        end: w.end,
+        points: 0,
+        competition: 0,
+        markets: [...marketSet].sort(),
+        matchedCoins: [...matchedCoins].sort(),
+        realizedRaw,
+        fundingRaw,
+        feesRaw,
+        volumeRaw,
+        tradesRaw,
+        realized: use ? realizedRaw : 0,
+        funding: use ? fundingRaw : 0,
+        fees: use ? feesRaw : 0,
+        volume: use ? volumeRaw : 0,
+        trades: use ? tradesRaw : 0,
+        farming: !!use,
+        needsSync: false,
+        hasHedge: tradesRaw > 0 || realizedRaw !== 0 || fundingRaw !== 0 || feesRaw !== 0,
+        variaVolume: omniVol,
+        pnl: use ? (realizedRaw + fundingRaw + feesRaw) : 0,
+      };
+    }).filter((ep) =>
+      ep.farming
+      || ep.tradesRaw || ep.fundingRaw || ep.realizedRaw || ep.feesRaw || ep.volumeRaw
+    );
+    hl.syncedAt = new Date().toISOString();
+  }
+
+  function varFarmHlNeedsHeal(epochRows, hlWallets) {
+    for (const hl of hlWallets || []) {
+      for (const r of epochRows || []) {
+        if (!varFarmEpochFindHlEpoch(hl, r.start, r.end)) return true;
+      }
+    }
+    return false;
+  }
+
+  async function varFarmAutoHealHlGaps(epochRows) {
+    const rows = epochRows || [];
+    if (!rows.length || typeof hlPost !== 'function') return false;
+    const state = varFarmVariaStateLoad();
+    if (!state || !state.hlWallets) return false;
+    const hlList = Object.values(state.hlWallets).filter((w) =>
+      w && /^0x[a-fA-F0-9]{40}$/i.test(String(w.address || '').trim())
+    );
+    if (!hlList.length) return false;
+    if (!varFarmHlNeedsHeal(rows, hlList.map((w) => ({
+      ...w,
+      epochs: w.epochs || [],
+    })))) return false;
+
+    const healKey = rows.map((r) => varFarmEpochThursdayKey(r.start)).join('|')
+      + '::' + hlList.map((h) => h.id || h.address).join(',');
+    if (_varFarmHlHealDoneKey === healKey) return false;
+    if (_varFarmHlHealPromise) return _varFarmHlHealPromise;
+
+    _varFarmHlHealPromise = (async () => {
+      try {
+        for (const hl of hlList) {
+          const addr = String(hl.address).trim();
+          const windows = varFarmHlWindowsFromOmni(rows, hl);
+          if (!windows.length) continue;
+          const startTime = Math.min(...windows.map((w) => w.startMs)) - 2 * 864e5;
+          const [fills, funding] = await Promise.all([
+            varFarmHlFetchFills(addr, startTime),
+            varFarmHlFetchFunding(addr, startTime),
+          ]);
+          varFarmRebuildHlEpochs(hl, fills, funding, windows);
+          hl.fillsCount = fills.length;
+          hl.fundingCount = funding.length;
+          hl.address = addr;
+        }
+        localStorage.setItem('farm-varia-dashboard-v4', JSON.stringify(state));
+        _varFarmHlHealDoneKey = healKey;
+        return true;
+      } catch (err) {
+        console.warn('[HS] HL auto-heal failed', err);
+        return false;
+      } finally {
+        _varFarmHlHealPromise = null;
+      }
+    })();
+
+    return _varFarmHlHealPromise;
+  }
+
   function varFmtSuiviUsd(n) {
     const v = Number(n);
     if (!isFinite(v)) return '—';
@@ -5655,6 +5989,15 @@
         || `<div class="var-pos-empty">${varEsc(varT('var.farmEpochsEmpty'))}</div>`;
       return;
     }
+
+    // Fill HL calendar holes (e.g. 06/08 missing between 30/07 and 13/08) via HL API.
+    try {
+      if (hlWallets.length && varFarmHlNeedsHeal(epochRows, hlWallets)) {
+        varFarmAutoHealHlGaps(epochRows).then((ok) => {
+          if (ok) varRenderFarmEpochMini();
+        }).catch(() => {});
+      }
+    } catch (_) {}
 
     const head = `<thead><tr>
       <th>${varEsc(varT('var.epochWeek'))}</th>

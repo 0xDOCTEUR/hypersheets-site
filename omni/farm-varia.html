@@ -1377,6 +1377,13 @@ async function fetchAllFunding(wallet, startTime) {
   return results;
 }
 
+function thursdayUtcMs(ms) {
+  const d = new Date(ms);
+  const day = d.getUTCDay();
+  const diff = (day + 3) % 7; // days since Thursday
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) - diff * 864e5;
+}
+
 function variaEpochWindows() {
   const map = new Map();
   for (const w of variaList()) {
@@ -1385,7 +1392,30 @@ function variaEpochWindows() {
       if (!map.has(k)) map.set(k, { start: e.start, end: e.end });
     }
   }
-  return [...map.values()].sort((a, b) => b.start.localeCompare(a.start));
+  // Keep HL weeks already stored (avoids dropping a closed week after Varia re-import).
+  for (const hl of hlList()) {
+    for (const e of hl.epochs || []) {
+      const k = epochKey(e.start, e.end);
+      if (!map.has(k)) map.set(k, { start: e.start, end: e.end });
+    }
+  }
+  // Fill Thursday→Thursday gaps between first and last (incl. current week).
+  // Fixes holes like 06/08 missing while 30/07 and 13/08 exist.
+  const times = [...map.values()].map((w) => parseEpochMs(w.start)).filter(isFinite);
+  if (times.length) {
+    let t = thursdayUtcMs(Math.min(...times));
+    let last = thursdayUtcMs(Math.max(...times));
+    const cur = thursdayUtcMs(Date.now());
+    if (cur > last) last = cur;
+    while (t <= last) {
+      const startIso = new Date(t).toISOString();
+      const endIso = new Date(t + 7 * 864e5).toISOString();
+      const k = epochKey(startIso, endIso);
+      if (!map.has(k)) map.set(k, { start: startIso, end: endIso });
+      t += 7 * 864e5;
+    }
+  }
+  return [...map.values()].sort((a, b) => String(b.start).localeCompare(String(a.start)));
 }
 
 function variaActivity(key) {
