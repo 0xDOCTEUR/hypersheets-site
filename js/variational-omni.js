@@ -8734,7 +8734,7 @@
   function varCollectorHref() {
     let logo = 'https://hypersheets.xyz/img/hypersheets-logo.png';
     try { logo = new URL('img/hypersheets-logo.png', location.href).href; } catch (_) {}
-    let appUrl = 'https://hypersheets.xyz/omni/#var-omni-import';
+    let appUrl = 'https://hypersheets.xyz/#var-omni-import';
     try {
       const u = new URL(location.href);
       u.hash = 'var-omni-import';
@@ -10204,7 +10204,7 @@
       .replace('{fdv}', varFmtCompactUsd(metrics.fdv))
       .replace('{share}', inputs.sharePct.toFixed(1))
       .replace('{total}', varFmtPtsMillions(inputs.totalPtsM));
-    const url = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(text + ' https://hypersheets.xyz/omni');
+    const url = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(text + ' https://hypersheets.xyz/#var-omni-live');
     window.open(url, '_blank', 'noopener,noreferrer');
   }
 
