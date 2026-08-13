@@ -848,7 +848,13 @@
 
   function varCsvNormalize(bundle) {
     if (!bundle) return null;
-    if (bundle.v === 2) {
+    // v2, or already-split cash arrays (e.g. multi-slot merge) — never re-derive
+    // only from leftover transfers (deposits/withdrawals), which would zero PnL/funding.
+    if (
+      bundle.v === 2
+      || (bundle.funding && bundle.funding.length)
+      || (bundle.realizedPnl && bundle.realizedPnl.length)
+    ) {
       return {
         v: 2,
         trades: bundle.trades || [],
@@ -873,7 +879,7 @@
       funding,
       realizedPnl,
       transfers,
-      files: {},
+      files: bundle.files || {},
     };
   }
 
@@ -1338,13 +1344,15 @@
         transfers.push.apply(transfers, tag(bundle.transfers));
       }
       if (!any) return null;
-      return varCsvNormalize({
+      // Must keep v:2 — plain normalize() would drop funding/rpnl and resplit empty leftovers.
+      return {
+        v: 2,
         trades,
         funding,
         realizedPnl,
         transfers,
         files: {},
-      });
+      };
     } catch {
       return null;
     }
@@ -4245,6 +4253,39 @@
     return { start: isFinite(minTs) ? minTs : now - 864e5, end: now };
   }
 
+  /** Fallback PnL/funding from precomputed slot.epochs when transfer cash arrays are empty. */
+  function varDashCashFromEpochs(period, rangeStart, exclusiveEnd) {
+    const acc = varAccountsLoad();
+    varCsvScopeLoad();
+    const ids = _varCsvScope === 'all'
+      ? varOmniSlotIds(acc)
+      : [varAccountsActiveId()].filter(Boolean);
+    let realized = 0;
+    let funding = 0;
+    let any = false;
+    const wantThu = (period === 'this_epoch' || period === 'last_epoch')
+      ? varFarmEpochThursdayKey(rangeStart)
+      : '';
+    for (const id of ids) {
+      const epochs = (acc.slots[id] && acc.slots[id].epochs) || [];
+      for (const e of epochs) {
+        const es = varFarmParseEpochTs(e.start);
+        if (!isFinite(es)) continue;
+        if (wantThu) {
+          if (varFarmEpochThursdayKey(es) !== wantThu) continue;
+        } else if (period !== 'all') {
+          const ee = varFarmParseEpochTs(e.end);
+          const endMs = isFinite(ee) ? ee : (es + 7 * 864e5);
+          if (endMs <= rangeStart || es >= exclusiveEnd) continue;
+        }
+        any = true;
+        realized += Number(e.realized != null ? e.realized : e.realizedRaw) || 0;
+        funding += Number(e.funding != null ? e.funding : e.fundingRaw) || 0;
+      }
+    }
+    return any ? { realized, funding } : null;
+  }
+
   function varOiUsd(posQ, lastPx) {
     let n = 0;
     for (const k of Object.keys(posQ)) n += Math.abs(posQ[k]) * (lastPx[k] || 0);
@@ -4344,6 +4385,21 @@
       } else if (t.type === 'funding') {
         funding += t.qty;
       }
+    }
+
+    // If Live collect missed transfers but Suivi-style epochs exist, use them for epoch TFs.
+    if (
+      Math.abs(realizedPnl) < 1e-9
+      && Math.abs(funding) < 1e-9
+      && (period === 'all' || period === 'this_epoch' || period === 'last_epoch')
+    ) {
+      try {
+        const fb = varDashCashFromEpochs(period, start, exclusiveEnd);
+        if (fb && (Math.abs(fb.realized) > 1e-9 || Math.abs(fb.funding) > 1e-9)) {
+          realizedPnl = fb.realized;
+          funding = fb.funding;
+        }
+      } catch (_) {}
     }
 
     const allTs = tradesAll.map(t => t.ts);
@@ -8398,7 +8454,12 @@
   function varBuildDashAnalyticsCached(bundle, period, opts) {
     const light = !!(opts && opts.light);
     const tradesN = bundle?.trades?.length || 0;
-    const key = (light ? 'L:' : 'F:') + String(period) + ':' + tradesN + ':' + (bundle?.trades?.[tradesN - 1]?.created_at || '') + ':' + (bundle?.realizedPnl?.length || 0);
+    const key = (light ? 'L:' : 'F:') + String(period) + ':' + tradesN
+      + ':' + (bundle?.trades?.[tradesN - 1]?.created_at || '')
+      + ':' + (bundle?.realizedPnl?.length || 0)
+      + ':' + (bundle?.funding?.length || 0)
+      + ':' + (bundle?.transfers?.length || 0)
+      + ':' + (_varCsvScope || 'active');
     if (_varDashAnalyticsMemo && _varDashAnalyticsMemoKey === key && Date.now() - _varDashAnalyticsMemoTs < 2500) {
       return _varDashAnalyticsMemo;
     }
