@@ -1580,11 +1580,14 @@ function rebuildHlEpochsFor(hlId) {
 
   let totalKept = 0, totalSpot = 0, totalOther = 0;
   hl.epochs = windows.map(({ start, end }) => {
-    const s = parseEpochMs(start);
-    const eMs = parseEpochMs(end);
-    const key = epochKey(start, end);
-    const act = variaActivity(key);
-    const marketSet = marketsByKey.get(key) || new Set();
+    const rawS = parseEpochMs(start);
+    const s = isFinite(rawS) ? thursdayUtcMs(rawS) : rawS;
+    // Always Thu→Thu+7d exclusive — same grid as Hypersheets Omni Par-epoch.
+    const eMs = isFinite(s) ? (s + 7 * 864e5) : parseEpochMs(end);
+    const key = epochKey(new Date(s).toISOString(), new Date(eMs).toISOString());
+    const origKey = epochKey(start, end);
+    const act = variaActivity(origKey) || variaActivity(key);
+    const marketSet = marketsByKey.get(origKey) || marketsByKey.get(key) || new Set();
     let realizedRaw = 0, feesRaw = 0, volumeRaw = 0, tradesRaw = 0, fundingRaw = 0;
     const matchedCoins = new Set();
     for (const f of fills) {
@@ -1605,9 +1608,12 @@ function rebuildHlEpochsFor(hlId) {
       fundingRaw += num(ev.usdc);
     }
     const use = act.isFarming;
-    const variaEp = variaList().map(w => (w.epochs || []).find(x => epochKey(x.start, x.end) === key)).find(Boolean);
+    const variaEp = variaList().map(w => (w.epochs || []).find(x =>
+      epochKey(x.start, x.end) === origKey || epochKey(x.start, x.end) === key
+    )).find(Boolean);
     return {
-      start, end,
+      start: isFinite(s) ? new Date(s).toISOString() : start,
+      end: isFinite(eMs) ? new Date(eMs).toISOString() : end,
       points: 0, competition: 0,
       markets: [...marketSet].sort(),
       matchedCoins: [...matchedCoins].sort(),

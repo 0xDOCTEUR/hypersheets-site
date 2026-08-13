@@ -5280,6 +5280,22 @@
     return new Date(varEpochStartUtc(ms)).toISOString().slice(0, 10);
   }
 
+  /** Canonical Variational epoch: Thursday 00:00 UTC → +7d exclusive (same grid for Omni + HL). */
+  function varFarmEpochBounds(startRaw, endRaw) {
+    void endRaw;
+    const rawMs = varFarmParseEpochTs(startRaw);
+    if (!isFinite(rawMs)) return null;
+    const startMs = varEpochStartUtc(rawMs);
+    const endMs = startMs + 7 * 864e5;
+    return {
+      startMs,
+      endMs,
+      start: new Date(startMs).toISOString(),
+      end: new Date(endMs).toISOString(),
+      thuKey: new Date(startMs).toISOString().slice(0, 10),
+    };
+  }
+
   function varFarmEpochDateBadge(startTs, endTs, inProgress, finalising) {
     const fmt = (ts) => {
       if (!isFinite(ts)) return '—';
@@ -5919,19 +5935,30 @@
 
   function varFarmHlWindowsFromOmni(epochRows, hl) {
     const map = new Map();
-    const add = (start, end) => {
-      const sMs = varFarmParseEpochTs(start);
-      if (!isFinite(sMs)) return;
-      const thu = varEpochStartUtc(sMs);
-      const eMs = varFarmParseEpochTs(end);
-      const endUse = isFinite(eMs) && eMs > thu ? eMs : (thu + 7 * 864e5);
-      const startIso = new Date(thu).toISOString();
-      const endIso = new Date(endUse).toISOString();
-      const k = varFarmEpochThursdayKey(thu);
-      if (!map.has(k)) map.set(k, { start: startIso, end: endIso, startMs: thu, endMs: endUse });
+    const add = (start) => {
+      const b = varFarmEpochBounds(start);
+      if (!b) return;
+      if (!map.has(b.thuKey)) {
+        map.set(b.thuKey, {
+          start: b.start,
+          end: b.end,
+          startMs: b.startMs,
+          endMs: b.endMs,
+        });
+      }
     };
-    for (const r of epochRows || []) add(r.start, r.end);
-    for (const e of (hl && hl.epochs) || []) add(e.start, e.end);
+    for (const r of epochRows || []) add(r.start);
+    for (const e of (hl && hl.epochs) || []) add(e.start);
+    // Fill Thursday gaps so HL never buckets into a neighbouring Omni week.
+    const keys = [...map.keys()].sort();
+    if (keys.length >= 2) {
+      let t = map.get(keys[0]).startMs;
+      const last = map.get(keys[keys.length - 1]).startMs;
+      while (t <= last) {
+        add(t);
+        t += 7 * 864e5;
+      }
+    }
     return [...map.values()].sort((a, b) => b.startMs - a.startMs);
   }
 
@@ -5977,6 +6004,8 @@
       return {
         start: w.start,
         end: w.end,
+        startMs: w.startMs,
+        endMs: w.endMs,
         points: 0,
         competition: 0,
         markets: [...marketSet].sort(),
@@ -6857,22 +6886,21 @@
     const now = Date.now();
     const rows = [...(points?.points_history || [])]
       .map(h => {
-        const start = Date.parse(h.start_window || 0);
-        const end = Date.parse(h.end_window || 0);
+        const bounds = varFarmEpochBounds(h.start_window || h.start, h.end_window || h.end);
+        if (!bounds) return null;
         const self = parseFloat(h.self_points || 0);
         const referral = parseFloat(h.referral_points || 0);
         const total = parseFloat(h.total_points || 0);
-        if (!isFinite(start) || !isFinite(end)) return null;
-        // Keep zero-point history rows — they may still be finalising (TimberJ shows ~estimate).
+        // Snap to canonical Thu→Thu so Omni volume and HL fills share the same bucket.
         return {
-          id: `h:${start}`,
-          start,
-          end: end > start ? end : start + 7 * 864e5,
+          id: `h:${bounds.startMs}`,
+          start: bounds.startMs,
+          end: bounds.endMs,
           self: isFinite(self) ? self : 0,
           referral: isFinite(referral) ? referral : 0,
           total: isFinite(total) ? total : 0,
           estimated: false,
-          inProgress: now >= start && now < end,
+          inProgress: now >= bounds.startMs && now < bounds.endMs,
         };
       })
       .filter(Boolean);
