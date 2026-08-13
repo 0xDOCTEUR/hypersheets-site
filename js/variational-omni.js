@@ -6438,6 +6438,7 @@
 
     const body = epochRows.map((r) => {
       const badge = varFarmEpochDateBadge(r.start, r.end, !!r.inProgress, !!r.finalising);
+      const open = _varEpochExpanded.has(r.id);
       const lines = [];
       let tVolOmni = 0;
       let tHlVol = 0;
@@ -6552,6 +6553,53 @@
           <td class="muted"></td>
           <td class="muted"></td>
         </tr>`);
+
+        // Per-wallet Open Interest + markets (each JSON), when epoch is expanded.
+        if (open) {
+          const wid = r.id + ':' + w.id;
+          let analytics = oiCache.get(wid);
+          if (!analytics) {
+            analytics = w.csv
+              ? varEpochWindowAnalytics(w.csv, r.start, r.end)
+              : {
+                  volume: 0, trades: 0, realizedPnl: 0, funding: 0, fees: 0, pnl: 0,
+                  winRate: null, avgOi: 0, peakOi: 0, heldPct: 0, pairs: [],
+                };
+            oiCache.set(wid, analytics);
+          }
+          // Prefer table cash (CSV / stored epoch) when analytics cash is empty.
+          const cashWeak = !(Math.abs(Number(analytics.pnl) || 0) > 1e-9)
+            && !(Math.abs(Number(analytics.realizedPnl) || 0) > 1e-9)
+            && !(Math.abs(Number(analytics.funding) || 0) > 1e-9);
+          const merged = (pnl != null && cashWeak)
+            ? {
+                ...analytics,
+                realizedPnl: Number(stats.realizedPnl) || 0,
+                funding: Number(stats.funding) || 0,
+                fees: Number(stats.fees) || 0,
+                pnl: pnl,
+                volume: (analytics.volume > 0) ? analytics.volume : (stats.volume || 0),
+              }
+            : analytics;
+          const detailPts = (pts > 0) ? pts : (ptsForEst > 0 ? ptsForEst : 0);
+          const detailRow = {
+            id: wid,
+            start: r.start,
+            end: r.end,
+            estimated: !!(r.estimated || ((r.inProgress || r.finalising) && !(pts > 0) && ptsForEst > 0)),
+            self: detailPts,
+            total: detailPts,
+            estRate: r.estRate,
+            inProgress: !!r.inProgress,
+            finalising: !!r.finalising,
+          };
+          lines.push(`<tr class="var-farm-epoch-detail-tr"><td colspan="8">${
+            varEpochDetailHtml(detailRow, merged, _varEpochMarketsOpen.has(wid), {
+              walletLabel: w.label,
+              walletColor: w.color,
+            })
+          }</td></tr>`);
+        }
       });
 
       hlWallets.forEach((hl) => {
@@ -6651,9 +6699,9 @@
         : '';
       const totPnlCls = pnlRounded > 0 ? 'is-pos' : (pnlRounded < 0 ? 'is-neg' : '');
       const totEstCls = estNetRounded > 0 ? 'is-pos' : (estNetRounded < 0 ? 'is-neg' : '');
-      const open = _varEpochExpanded.has(r.id);
+      // Fallback aggregate detail only when there are no per-wallet JSON rows.
       let detailTr = '';
-      if (open) {
+      if (open && !wallets.length) {
         let analytics = oiCache.get(r.id);
         if (!analytics) {
           analytics = varEpochWindowAnalytics(viewBundle, r.start, r.end);
@@ -7244,7 +7292,7 @@
     return rows + more;
   }
 
-  function varEpochDetailHtml(row, stats, marketsOpen) {
+  function varEpochDetailHtml(row, stats, marketsOpen, opts) {
     const wr = stats.winRate != null
       ? varT('var.epochWinRate').replace('{pct}', stats.winRate.toFixed(1))
       : varT('var.epochWinRate').replace('{pct}', '—');
@@ -7257,7 +7305,10 @@
     const rate = row.estimated && row.estRate != null && isFinite(row.estRate)
       ? row.estRate
       : (stats.volume > 0 && pts > 0 ? (pts / stats.volume) * 1e6 : null);
-    return `<div class="var-epoch-detail">
+    const walletLbl = opts && opts.walletLabel
+      ? `<div class="var-epoch-detail-wallet"${opts.walletColor ? ` style="color:${varEsc(opts.walletColor)}"` : ''}>${varEsc(opts.walletLabel)}</div>`
+      : '';
+    return `${walletLbl}<div class="var-epoch-detail">
       <div class="var-epoch-detail-col var-epoch-oi-card">
         <div class="var-epoch-detail-h">${varEsc(varT('var.epochOiTitle'))}</div>
         <div class="var-epoch-oi-grid">
