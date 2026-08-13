@@ -3577,9 +3577,15 @@
 
     const dash = hasTrades ? varBuildDashAnalyticsCached(bundle, 'all', { light: true }) : null;
     if (dash) {
+      const hlCash = varLiveHlCashForRange('all', dash.start, (dash.end || Date.now()) + 1);
+      const pnlCombined = Number(dash.realizedPnl || 0) + Number(hlCash.realized || 0);
       el('varKpiVol', varFmtCompactUsd(dash.volume), varT('var.kpiTradesSub').replace('{n}', String(dash.tradeCount || 0)));
-      setSigned('varKpiTvl', dash.realizedPnl,
+      setSigned('varKpiTvl', pnlCombined,
         dash.winRate != null ? varT('var.kpiWinRateSub').replace('{pct}', dash.winRate.toFixed(1)) : '');
+      const tvlEl = document.getElementById('varKpiTvl');
+      if (tvlEl && hlCash.weeks > 0) {
+        tvlEl.title = `Omni ${varFmtSignedUsdExact(dash.realizedPnl)} + HL ${varFmtSignedUsdExact(hlCash.realized)}`;
+      }
     } else {
       el('varKpiVol', '—', varT('var.kpiVolSubEmpty'));
       el('varKpiTvl', '—', '');
@@ -4267,6 +4273,48 @@
     return NaN;
   }
 
+  /** HL hedge cash for a Live / dash time window (aligned with Par-epoch Total = Varia + HL). */
+  function varLiveHlCashForRange(period, rangeStart, exclusiveEnd) {
+    const out = { realized: 0, funding: 0, fees: 0, pnl: 0, volume: 0, weeks: 0 };
+    let sources = [];
+    try { sources = varFarmEpochHlSources(); } catch (_) { sources = []; }
+    if (!sources.length) return out;
+    const wantThu = (period === 'this_epoch' || period === 'last_epoch')
+      ? varFarmEpochThursdayKey(rangeStart)
+      : '';
+    const startMs = Number(rangeStart);
+    const endMs = Number(exclusiveEnd);
+    for (const hl of sources) {
+      for (const e of hl.epochs || []) {
+        const es = varFarmParseEpochTs(e.start);
+        if (!isFinite(es)) continue;
+        if (wantThu) {
+          if (varFarmEpochThursdayKey(es) !== wantThu) continue;
+        } else if (period === 'today') {
+          // No daily HL buckets — keep Live "today" Omni-only for HL cash.
+          continue;
+        } else if (period !== 'all') {
+          const ee = varFarmParseEpochTs(e.end);
+          const eEnd = isFinite(ee) ? ee : (es + 7 * 864e5);
+          if (!(isFinite(endMs) && eEnd > startMs && es < endMs)) continue;
+        }
+        const realized = Number(e.realized != null ? e.realized : e.realizedRaw) || 0;
+        const funding = Number(e.funding != null ? e.funding : e.fundingRaw) || 0;
+        const fees = Number(e.fees != null ? e.fees : e.feesRaw) || 0;
+        const pnl = (e.pnl != null && isFinite(Number(e.pnl)))
+          ? Number(e.pnl)
+          : (realized + funding + fees);
+        out.realized += realized;
+        out.funding += funding;
+        out.fees += fees;
+        out.pnl += pnl;
+        out.volume += Number(e.volume || e.volumeRaw || 0) || 0;
+        out.weeks += 1;
+      }
+    }
+    return out;
+  }
+
   function varDashRange(period, trades, nowTs) {
     const now = nowTs || Date.now();
     const dayStart = new Date(now);
@@ -4450,7 +4498,7 @@
     // Live / hero: volume + PnL only — skip O(hours×trades) chart rebuild (freezes large exports).
     if (light) {
       return {
-        period, start, end: displayEnd,
+        period, start, end: displayEnd, exclusiveEnd,
         tradeCount: winTrades.length,
         volume, largest, realizedPnl, funding,
         winRate, avgOi: 0, peakOi: 0, heldPct: 0,
@@ -4545,7 +4593,7 @@
       .sort((a, b) => b.notional - a.notional);
 
     return {
-      period, start, end: displayEnd,
+      period, start, end: displayEnd, exclusiveEnd,
       tradeCount: winTrades.length,
       volume, largest, realizedPnl, funding,
       winRate, avgOi, peakOi, heldPct,
@@ -8862,12 +8910,31 @@
           varT('var.liveVolMeta').replace('{n}', String(dash.tradeCount || 0))
             + (rangeLbl ? ` · ${rangeLbl}` : '')
         );
-        setSigned('varLivePnlValue', dash.realizedPnl);
-        setTxt('varLivePnlMeta', dash.winRate != null
+        const excl = dash.exclusiveEnd != null
+          ? dash.exclusiveEnd
+          : ((Number(dash.end) || Date.now()) + 1);
+        const hlCash = varLiveHlCashForRange(period, dash.start, excl);
+        const pnlCombined = Number(dash.realizedPnl || 0) + Number(hlCash.realized || 0);
+        const fundCombined = Number(dash.funding || 0) + Number(hlCash.funding || 0);
+        setSigned('varLivePnlValue', pnlCombined);
+        const pnlMeta = dash.winRate != null
           ? varT('var.livePnlMeta').replace('{pct}', dash.winRate.toFixed(1))
-          : '');
-        setSigned('varLiveFundingValue', dash.funding);
+          : '';
+        setTxt('varLivePnlMeta', hlCash.weeks > 0
+          ? (pnlMeta ? `${pnlMeta} · Omni+HL` : 'Omni+HL')
+          : pnlMeta);
+        const pnlEl = document.getElementById('varLivePnlValue');
+        if (pnlEl) {
+          pnlEl.title = hlCash.weeks > 0
+            ? `Omni ${varFmtSignedUsdExact(dash.realizedPnl)} + HL ${varFmtSignedUsdExact(hlCash.realized)}`
+            : '';
+        }
+        setSigned('varLiveFundingValue', fundCombined);
         setTxt('varLiveFundingMeta', rangeLbl || varT('var.liveFundingSub'));
+        const fundEl = document.getElementById('varLiveFundingValue');
+        if (fundEl && hlCash.weeks > 0) {
+          fundEl.title = `Omni ${varFmtSignedUsdExact(dash.funding)} + HL ${varFmtSignedUsdExact(hlCash.funding)}`;
+        }
         setTxt('varLiveTradesValue', String(dash.tradeCount || 0));
         setTxt('varLiveTradesMeta', dash.avgTrade > 0
           ? varT('var.dashLargest').replace('{usd}', varFmtCompactUsd(dash.largest || dash.avgTrade))
