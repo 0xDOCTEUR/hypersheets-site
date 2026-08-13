@@ -17156,16 +17156,23 @@ function setActiveWallet(wallet) {
   }
 }
 
+function isXyzHip3Fill(f) {
+  const c = String(f?.coin || '');
+  return f?._market === 'hip3' || c.startsWith('xyz:');
+}
+
 function getActiveFills() {
   if (activeWallet === null || wallets.length <= 1) return allFills;
-  const wData = fillsByWallet[activeWallet];
-  return wData ? wData.hl : [];
+  const lower = lbNormAddr(activeWallet) || String(activeWallet || '').toLowerCase();
+  const fromGlobal = (allFills || []).filter(f => (lbNormAddr(f._wallet) || String(f._wallet || '').toLowerCase()) === lower);
+  if (fromGlobal.length) return fromGlobal;
+  const wData = fillsByWallet[activeWallet] || fillsByWallet[lower];
+  return wData ? (wData.hl || []).filter(f => !isXyzHip3Fill(f)) : [];
 }
 
 function getActiveXyzFills() {
   if (activeWallet === null || wallets.length <= 1) return xyzFills;
-  const wData = fillsByWallet[activeWallet];
-  return wData ? wData.xyz : [];
+  return getXyzFillsForWallet(activeWallet);
 }
 
 function getActiveBridgeOps() {
@@ -17615,7 +17622,8 @@ async function loadData(opts = {}) {
       target.push(f);
       // Also store per-wallet — only here, after dedup check
       if (!fillsByWallet[w]) fillsByWallet[w] = { hl: [], xyz: [], bridge: [], funding: [], positions: [] };
-      if (f.coin?.startsWith('xyz:')) fillsByWallet[w].xyz.push(f);
+      // Same HIP-3 rule as xyzFills partition (_market hip3 OR xyz:…), not xyz: prefix alone.
+      if (isXyzHip3Fill(f)) fillsByWallet[w].xyz.push(f);
       else fillsByWallet[w].hl.push(f);
       return true;
     };
@@ -17704,9 +17712,8 @@ async function loadData(opts = {}) {
           for (const f of twapW.value) merged.push(f);
         }
         for (const f of merged) {
-          const c = f.coin || '';
-          if (f?._market === 'hip3' || c.startsWith('xyz:')) pushFillUnique(xyzFills, f, w);
-          else                      pushFillUnique(allFills, f, w);
+          if (isXyzHip3Fill(f)) pushFillUnique(xyzFills, f, w);
+          else                  pushFillUnique(allFills, f, w);
         }
         if (fundingRes.status === 'fulfilled' && Array.isArray(fundingRes.value)) {
           fundingRes.value.forEach(ev => {
@@ -22809,25 +22816,36 @@ function getLeaderboardActiveAddrs() {
 }
 
 function getXyzFillsForWallet(addr) {
-  const lower = String(addr).toLowerCase()
+  const lower = lbNormAddr(addr) || String(addr || '').toLowerCase()
+  if (!lower) return []
+  // Canonical source = xyzFills (same bucket as Trade XYZ KPI), filtered by _wallet.
+  const fromGlobal = (xyzFills || []).filter(f => (lbNormAddr(f._wallet) || String(f._wallet || '').toLowerCase()) === lower)
+  if (fromGlobal.length) return fromGlobal
   const exact = fillsByWallet?.[addr]?.xyz || fillsByWallet?.[lower]?.xyz
-  if (exact?.length) return exact
+  if (exact?.length) return exact.filter(isXyzHip3Fill)
   const key = Object.keys(fillsByWallet || {}).find(k => k.toLowerCase() === lower)
-  if (key && fillsByWallet[key]?.xyz?.length) return fillsByWallet[key].xyz
-  if (wallets.length === 1 && wallets[0].toLowerCase() === lower && typeof getActiveXyzFills === 'function') {
-    return getActiveXyzFills()
-  }
+  if (key && fillsByWallet[key]?.xyz?.length) return fillsByWallet[key].xyz.filter(isXyzHip3Fill)
+  if (wallets.length === 1 && lbNormAddr(wallets[0]) === lower) return xyzFills || []
   return []
 }
 
 function getApiXyzVolumeForAddrs(addrs) {
   if (!addrs?.length) return { vol: 0, trades: 0 }
+  const req = [...new Set(addrs.map(a => lbNormAddr(a) || String(a || '').toLowerCase()).filter(Boolean))]
+  const allW = [...new Set((wallets || []).map(w => lbNormAddr(w) || String(w || '').toLowerCase()).filter(Boolean))]
+  // Same wallet scope as Trade XYZ "all wallets" → reuse the exact xyzFills array.
+  const sameAllWallets = allW.length > 0 && req.length === allW.length && req.every(a => allW.includes(a))
+  const scopeFills = (sameAllWallets && (activeWallet == null || wallets.length <= 1))
+    ? (xyzFills || [])
+    : null
   let vol = 0
   const seen = new Set()
   let trades = 0
-  for (const addr of addrs) {
-    for (const f of getXyzFillsForWallet(addr)) {
-      const key = (f.tid || `${f.time}-${f.coin}-${f.px}-${f.sz}-${f.side}-${f.oid}`) + '|' + addr
+  const fillLists = scopeFills ? [scopeFills] : req.map(a => getXyzFillsForWallet(a))
+  for (let i = 0; i < fillLists.length; i++) {
+    const addrTag = scopeFills ? 'all' : req[i]
+    for (const f of fillLists[i]) {
+      const key = (f.tid || `${f.time}-${f.coin}-${f.px}-${f.sz}-${f.side}-${f.oid}`) + '|' + (f._wallet || addrTag)
       if (seen.has(key)) continue
       seen.add(key)
       vol += typeof fillVolume === 'function' ? fillVolume(f) : Math.abs(parseFloat(f.sz || 0)) * parseFloat(f.px || 0)
@@ -22902,18 +22920,8 @@ function getLeaderboardCurrentVol(jsonVol, addrs) {
   const hasFileTs = parseLeaderboardUpdatedAtMs() != null
   const projected = (jsonVol > 0 && hasFileTs) ? (jsonVol + since.vol) : null
 
-  // Prefer the same all-time Trade XYZ fills volume as the Trade XYZ page KPI.
-  // Fall back to fichier+delta only when API fills look truncated vs the snapshot projection.
-  if (apiAll.vol > 0) {
-    if (projected != null && projected > apiAll.vol * 1.02 + 2500) {
-      return {
-        vol: projected,
-        source: 'projected',
-        delta: since.vol,
-        apiVol: apiAll.vol,
-        trades: apiAll.trades,
-      }
-    }
+  // Always mirror Trade XYZ KPI when session HIP-3 fills exist (never JSON+delta).
+  if (apiAll.vol > 0 || apiAll.trades > 0) {
     return {
       vol: apiAll.vol,
       source: 'api',
