@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Hypersheets Omni Live",
-  "version": "2.9.69",
-  "description": "Positions Omni + HL en live · volumes Epoch/1D/7D · referral Omni & Hyperliquid.",
+  "version": "2.9.70",
+  "description": "Positions Omni + HL en live · volumes Epoch/Last/1D/All · referral Omni & Hyperliquid.",
   "icons": {
     "16": "icons/16.png",
     "48": "icons/48.png",

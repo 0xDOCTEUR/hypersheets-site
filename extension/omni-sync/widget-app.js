@@ -676,12 +676,25 @@
   function applyVolEpochUi(res) {
     syncVolEpochChrome();
     if (volSource !== "omni") return;
+    var per = (res && res.period) || volPeriod;
+    var win = res && res.window;
     var info = res && res.epochInfo;
+    if (per === "last" && win) {
+      if (volEpochStartLbl) {
+        volEpochStartLbl.textContent = win.startLabel || "—";
+      }
+      if (volEpochEndLbl) {
+        volEpochEndLbl.textContent = win.endLabel || "—";
+      }
+      startVolCountdown(0);
+      if (volEpochCdEl) volEpochCdEl.textContent = t("volEpochLast");
+      return;
+    }
     if (volEpochStartLbl) {
-      volEpochStartLbl.textContent = (info && info.startLabel) || "—";
+      volEpochStartLbl.textContent = (info && info.startLabel) || (win && win.startLabel) || "—";
     }
     if (volEpochEndLbl) {
-      volEpochEndLbl.textContent = (info && info.endLabel) || "—";
+      volEpochEndLbl.textContent = (info && info.endLabel) || (win && win.endLabel) || "—";
     }
     startVolCountdown(info && info.end);
   }

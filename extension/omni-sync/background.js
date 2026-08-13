@@ -2328,7 +2328,11 @@ function collectOmniPointWindows(payload, slotId) {
     for (const row of rows || []) {
       const start = Date.parse(row?.start_window || 0);
       const end = Date.parse(row?.end_window || 0);
-      if (start > 0 && end > start) out.push({ start, end });
+      if (!(start > 0 && end > start)) continue;
+      // Weekly farm epochs only (~7d). Skip 14d competition / odd windows.
+      const days = (end - start) / 864e5;
+      if (days < 6.5 || days > 7.5) continue;
+      out.push({ start, end });
     }
   };
   if (accounts?.slots) {
@@ -2342,20 +2346,23 @@ function collectOmniPointWindows(payload, slotId) {
   return out;
 }
 
-/** Unique Variational epochs (newest first), always includes the live week. */
+/** Unique Variational epochs (newest first). Always includes live + previous Thu week. */
 function listOmniEpochs(payload, slotId, now) {
   const t = now || Date.now();
   const byStart = new Map();
   for (const row of collectOmniPointWindows(payload, slotId)) {
-    byStart.set(row.start, { start: row.start, end: row.end });
+    // Snap to calendar Thursday so history ms quirks don't duplicate weeks.
+    const start = epochStartUtc(row.start);
+    const end = start + 7 * 864e5;
+    byStart.set(start, { start, end });
   }
   const liveStart = epochStartUtc(t);
   const liveEnd = liveStart + 7 * 864e5;
-  if (!byStart.has(liveStart)) {
-    byStart.set(liveStart, { start: liveStart, end: liveEnd });
-  } else {
-    const cur = byStart.get(liveStart);
-    if (!(cur.end > cur.start)) cur.end = liveEnd;
+  const prevStart = liveStart - 7 * 864e5;
+  // Always inject current + last calendar weeks (points publish lag must not skip last).
+  byStart.set(liveStart, { start: liveStart, end: liveEnd });
+  if (!byStart.has(prevStart)) {
+    byStart.set(prevStart, { start: prevStart, end: liveStart });
   }
   return [...byStart.values()]
     .sort((a, b) => b.start - a.start)
@@ -2374,25 +2381,9 @@ function listOmniEpochs(payload, slotId, now) {
 
 function currentOmniEpochBounds(payload, slotId, now) {
   const t = now || Date.now();
-  const rows = collectOmniPointWindows(payload, slotId);
-  let active = null;
-  let latest = null;
-  for (const row of rows) {
-    if (!latest || row.end > latest.end) latest = row;
-    if (row.start <= t && t < row.end) {
-      if (!active || row.start > active.start) active = row;
-    }
-  }
-  if (active) {
-    return { start: active.start, end: active.end };
-  }
-  if (latest && latest.end > t - 21 * 864e5) {
-    const nextStart = latest.end;
-    const nextEnd = nextStart + 7 * 864e5;
-    if (nextStart <= t && t < nextEnd) {
-      return { start: nextStart, end: nextEnd };
-    }
-  }
+  // Prefer calendar Thursday week (same as Suivi / Hypersheets farm epochs).
+  void payload;
+  void slotId;
   const start = epochStartUtc(t);
   return { start, end: start + 7 * 864e5 };
 }
@@ -2409,6 +2400,8 @@ function resolveOmniEpochWindow(payload, slotId, epochStart, now) {
       start: b.start,
       end: Math.min(t, b.end - 1),
       exclusiveEnd: b.end,
+      startLabel: fmtUtcShort(b.start),
+      endLabel: fmtUtcShort(b.end),
       label: 'Epoch · ' + fmtUtcShort(b.start) + ' → now',
     };
   }
@@ -2418,6 +2411,8 @@ function resolveOmniEpochWindow(payload, slotId, epochStart, now) {
     start: hit.start,
     end,
     exclusiveEnd,
+    startLabel: fmtUtcShort(hit.start),
+    endLabel: fmtUtcShort(exclusiveEnd),
     label:
       'Epoch · ' +
       fmtUtcShort(hit.start) +
@@ -2427,21 +2422,20 @@ function resolveOmniEpochWindow(payload, slotId, epochStart, now) {
 
 function resolveLastOmniEpochWindow(payload, slotId, now) {
   const t = now || Date.now();
-  const epochs = listOmniEpochs(payload, slotId, t);
-  let hit = null;
-  for (const e of epochs) {
-    if (e.current) continue;
-    if (!hit || e.start > hit.start) hit = e;
-  }
-  if (!hit) {
-    const cur = currentOmniEpochBounds(payload, slotId, t);
-    hit = { start: cur.start - 7 * 864e5, end: cur.start, current: false };
-  }
+  // Always the previous UTC Thursday week — never "latest published points row"
+  // (after rollover, points_history often still lacks the week that just closed).
+  void payload;
+  void slotId;
+  const liveStart = epochStartUtc(t);
+  const start = liveStart - 7 * 864e5;
+  const exclusiveEnd = liveStart;
   return {
-    start: hit.start,
-    end: hit.end - 1,
-    exclusiveEnd: hit.end,
-    label: 'Last epoch · ' + fmtUtcShort(hit.start) + ' → ' + fmtUtcShort(hit.end),
+    start,
+    end: exclusiveEnd - 1,
+    exclusiveEnd,
+    startLabel: fmtUtcShort(start),
+    endLabel: fmtUtcShort(exclusiveEnd),
+    label: 'Last epoch · ' + fmtUtcShort(start) + ' → ' + fmtUtcShort(exclusiveEnd),
   };
 }
 
@@ -2461,7 +2455,8 @@ function omniEpochInfo(payload, slotId, now) {
   };
 }
 
-function omniTradeVolume(trades, start, end) {
+/** Volume in [start, exclusiveEnd). */
+function omniTradeVolume(trades, start, exclusiveEnd) {
   let volume = 0;
   let count = 0;
   for (const t of trades || []) {
@@ -2469,7 +2464,7 @@ function omniTradeVolume(trades, start, end) {
     const ts = Date.parse(t.created_at || 0);
     if (!(ts > 0)) continue;
     if (start > 0 && ts < start) continue;
-    if (end > 0 && ts > end) continue;
+    if (exclusiveEnd > 0 && !(ts < exclusiveEnd)) continue;
     const px = parseFloat(t.price || t.mark_price || 0);
     const qty = parseFloat(t.qty || 0);
     if (!(px > 0) || !(qty > 0)) continue;
@@ -2671,7 +2666,11 @@ async function computeVolumeReport(source, period, slotId, epochStart) {
       };
     }
     const trades = collectOmniTrades(payload, slot);
-    const agg = omniTradeVolume(trades, effectiveWin.start, effectiveWin.end);
+    const exclusiveEnd =
+      effectiveWin.exclusiveEnd > 0
+        ? effectiveWin.exclusiveEnd
+        : (effectiveWin.end > 0 ? effectiveWin.end + 1 : 0);
+    const agg = omniTradeVolume(trades, effectiveWin.start, exclusiveEnd);
     return {
       ok: true,
       source: src,

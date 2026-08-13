@@ -1962,6 +1962,221 @@
     return '';
   }
 
+  /** Same Number() coercion as Suivi farm-varia-dashboard `num()`. */
+  function varSuiviNum(v) {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  function varSuiviInWin(d, s, e) {
+    const t = new Date(d).getTime();
+    return t >= new Date(s).getTime() && t < new Date(e).getTime();
+  }
+
+  function varSuiviAddDaysIso(iso, days) {
+    const d = new Date(iso);
+    d.setUTCDate(d.getUTCDate() + days);
+    return d.toISOString().replace(/\.\d{3}Z$/, 'Z');
+  }
+
+  /** Thursday-week windows aligned to points history (Suivi `variaWeekContaining`). */
+  function varSuiviWeekContaining(at, refStartIso) {
+    const t = new Date(at).getTime();
+    let start = new Date(refStartIso);
+    if (Number.isNaN(start.getTime())) {
+      start = new Date(at);
+      const day = start.getUTCDay();
+      const back = (day - 4 + 7) % 7;
+      start.setUTCDate(start.getUTCDate() - back);
+      start.setUTCHours(0, 0, 0, 0);
+    }
+    let s = start.getTime();
+    const week = 7 * 864e5;
+    while (t < s) s -= week;
+    while (t >= s + week) s += week;
+    const startIso = new Date(s).toISOString().replace(/\.\d{3}Z$/, 'Z');
+    return { start: startIso, end: varSuiviAddDaysIso(startIso, 7) };
+  }
+
+  function varSuiviEpochKey(start, end) {
+    return `${String(start || '').slice(0, 10)}|${String(end || '').slice(0, 10)}`;
+  }
+
+  /**
+   * Exact Suivi `aggregateEpochActivity` cash math:
+   * confirmed only, qty via Number(), transfers array only (funding + rpnl + fee).
+   */
+  function varAggregateEpochActivityLikeSuivi(j, start, end) {
+    let vol = 0;
+    let rpnl = 0;
+    let fund = 0;
+    let fee = 0;
+    let trades = 0;
+    const markets = new Set();
+    for (const t of j.trades || []) {
+      if (t.status !== 'confirmed' || !varSuiviInWin(t.created_at, start, end)) continue;
+      vol += Math.abs(varSuiviNum(t.price) * varSuiviNum(t.qty));
+      trades++;
+      const u = t.instrument?.underlying || t.underlying;
+      if (u) markets.add(String(u).toUpperCase());
+    }
+    for (const t of j.transfers || []) {
+      if (t.status !== 'confirmed' || !varSuiviInWin(t.created_at, start, end)) continue;
+      if (t.transfer_type === 'realized_pnl') rpnl += varSuiviNum(t.qty);
+      if (t.transfer_type === 'funding') fund += varSuiviNum(t.qty);
+      if (t.transfer_type === 'fee') fee += varSuiviNum(t.qty);
+      const u = t.reference_instrument?.underlying || t.underlying;
+      if (u && (t.transfer_type === 'realized_pnl' || t.transfer_type === 'funding' || t.transfer_type === 'fee')) {
+        markets.add(String(u).toUpperCase());
+      }
+    }
+    return {
+      volume: vol,
+      trades,
+      markets: [...markets].sort(),
+      realized: rpnl,
+      funding: fund,
+      fees: fee,
+      pnl: rpnl + fund + fee,
+    };
+  }
+
+  function varCsvCashRowCount(bundle) {
+    if (!bundle) return 0;
+    return (bundle.funding?.length || 0)
+      + (bundle.realizedPnl?.length || 0)
+      + (bundle.transfers?.length || 0);
+  }
+
+  /** Keep fuller funding/rpnl/fee when a thinner Live collect would overwrite a file import. */
+  function varPreferRicherCashCsv(prev, next) {
+    if (!prev) return next;
+    if (!next) return prev;
+    const prevCash = varCsvCashRowCount(prev);
+    const nextCash = varCsvCashRowCount(next);
+    const prevTrades = prev.trades?.length || 0;
+    const nextTrades = next.trades?.length || 0;
+    if (
+      prevCash > 25
+      && nextCash < prevCash * 0.55
+      && nextTrades >= prevTrades * 0.85
+    ) {
+      return {
+        ...next,
+        funding: prev.funding || [],
+        realizedPnl: prev.realizedPnl || [],
+        transfers: prev.transfers || [],
+        files: {
+          ...(next.files || {}),
+          funding: (prev.files && prev.files.funding) || next.files?.funding,
+          realizedPnl: (prev.files && prev.files.realizedPnl) || next.files?.realizedPnl,
+          transfers: (prev.files && prev.files.transfers) || next.files?.transfers,
+        },
+      };
+    }
+    return next;
+  }
+
+  function varMergeSuiviEpochsPreferRicher(prevList, nextList) {
+    if (!Array.isArray(prevList) || !prevList.length) return nextList || [];
+    if (!Array.isArray(nextList) || !nextList.length) return prevList;
+    const prevMap = new Map(prevList.map((e) => [varSuiviEpochKey(e.start, e.end), e]));
+    return nextList.map((n) => {
+      const p = prevMap.get(varSuiviEpochKey(n.start, n.end));
+      if (!p) return n;
+      const pv = Math.abs(Number(p.volume) || 0);
+      const nv = Math.abs(Number(n.volume) || 0);
+      const similarVol = Math.abs(pv - nv) <= Math.max(pv, nv) * 0.18 + 2500;
+      const pp = Math.abs(Number(p.pnl) || 0);
+      const np = Math.abs(Number(n.pnl) || 0);
+      if (similarVol && pp > 15 && np < pp * 0.45) {
+        return {
+          ...n,
+          realized: p.realized,
+          funding: p.funding,
+          fees: p.fees,
+          pnl: p.pnl,
+          volume: (nv > 0 ? n.volume : p.volume),
+          trades: (Number(n.trades) || 0) > 0 ? n.trades : p.trades,
+          markets: (n.markets && n.markets.length) ? n.markets : p.markets,
+        };
+      }
+      return n;
+    });
+  }
+
+  /** Precompute Par-epoch cash like Suivi `parseExport` (same files → same PnL). */
+  function varBuildSuiviStyleEpochs(data) {
+    const j = data && typeof data === 'object' ? data : {};
+    const trades = j.trades || [];
+    const transfers = j.transfers || [];
+    const exportShape = { trades, transfers };
+    const weekly = (j.points_history || []).filter((p) => {
+      const d = (new Date(p.end_window) - new Date(p.start_window)) / 864e5;
+      return d >= 6.5 && d <= 7.5;
+    }).slice().sort((a, b) => String(a.start_window).localeCompare(String(b.start_window)));
+
+    const epochs = weekly.map((p) => {
+      const act = varAggregateEpochActivityLikeSuivi(exportShape, p.start_window, p.end_window);
+      return {
+        start: p.start_window,
+        end: p.end_window,
+        points: varSuiviNum(p.total_points),
+        self_points: varSuiviNum(p.self_points),
+        referral: varSuiviNum(p.referral_points),
+        volume: act.volume,
+        trades: act.trades,
+        markets: act.markets,
+        realized: act.realized,
+        funding: act.funding,
+        fees: act.fees,
+        pnl: act.pnl,
+        ongoing: false,
+        pointsFromHistory: true,
+      };
+    });
+
+    const nowIso = j.exported_at || new Date().toISOString();
+    const refStart = weekly[0]?.start_window || weekly[weekly.length - 1]?.start_window;
+    if (refStart || epochs.length) {
+      const anchor = epochs.length ? epochs[epochs.length - 1].start : refStart;
+      const cur = varSuiviWeekContaining(nowIso, anchor);
+      const already = epochs.some((e) => varSuiviEpochKey(e.start, e.end) === varSuiviEpochKey(cur.start, cur.end));
+      if (!already && new Date(nowIso) < new Date(cur.end)) {
+        const act = varAggregateEpochActivityLikeSuivi(exportShape, cur.start, cur.end);
+        epochs.push({
+          start: cur.start,
+          end: cur.end,
+          points: 0,
+          self_points: 0,
+          referral: 0,
+          volume: act.volume,
+          trades: act.trades,
+          markets: act.markets,
+          realized: act.realized,
+          funding: act.funding,
+          fees: act.fees,
+          pnl: act.pnl,
+          ongoing: true,
+          pointsFromHistory: false,
+        });
+      } else if (already) {
+        const e = epochs.find((x) => varSuiviEpochKey(x.start, x.end) === varSuiviEpochKey(cur.start, cur.end));
+        if (e && new Date(nowIso) < new Date(e.end)) {
+          e.ongoing = true;
+          if (!e.pointsFromHistory) {
+            e.points = 0;
+            e.self_points = 0;
+            e.referral = 0;
+          }
+        }
+      }
+    }
+
+    epochs.sort((a, b) => String(b.start).localeCompare(String(a.start)));
+    return epochs;
+  }
+
   function varApplyOmniExport(data, fileName) {
     const trades = (data.trades || []).map(varNormalizeOmniTrade);
     const transfersRaw = (data.transfers || []).map(varNormalizeOmniTransfer);
@@ -1984,7 +2199,12 @@
       bundle.transfers = varDedupeRows(split.transfers);
       bundle.files.transfers = { ...metaBase, rows: bundle.transfers.length };
     }
-    varCsvSave(bundle);
+
+    const accPre = varAccountsLoad();
+    const slotId = varAccountsActiveId();
+    const prevSlot = accPre.slots[slotId] || null;
+    const toSave = varPreferRicherCashCsv(prevSlot?.csv || null, bundle);
+    varCsvSave(toSave);
 
     const competition = data.competition;
     const hasCompetition = competition && (
@@ -2000,6 +2220,30 @@
       sourceFile: fileName || null,
       importedAt: Date.now(),
     });
+
+    // Suivi-style precomputed epochs for Par-epoch PnL (survives thinner Live overwrites).
+    try {
+      const epochSource = toSave === bundle
+        ? data
+        : {
+          ...data,
+          trades: toSave.trades || [],
+          transfers: [
+            ...(toSave.funding || []),
+            ...(toSave.realizedPnl || []),
+            ...(toSave.transfers || []),
+          ],
+        };
+      const nextEpochs = varBuildSuiviStyleEpochs(epochSource);
+      const mergedEpochs = varMergeSuiviEpochsPreferRicher(prevSlot?.epochs || [], nextEpochs);
+      const acc = varAccountsLoad();
+      const id = varAccountsActiveId();
+      if (acc.slots[id]) {
+        acc.slots[id].epochs = mergedEpochs;
+        varAccountsSave(acc);
+      }
+    } catch (_) {}
+
     // Auto chip label = last 2 chars of wallet from the JSON.
     try {
       const addr = varExtractOmniAddress(data);
@@ -2018,7 +2262,7 @@
     if (data.positions != null || data.positions_meta != null) {
       varApplyLivePositions(data);
     }
-    return { bundle, points: varPointsLoad() };
+    return { bundle: toSave, points: varPointsLoad() };
   }
 
   function varFmtCompactUsd(n) {
@@ -4982,12 +5226,31 @@
         : (csvId ? ('csv:' + csvId) : ('slot:' + id));
       if (seenKey.has(key)) return;
       seenKey.add(key);
+      let epochs = Array.isArray(slot.epochs) ? slot.epochs : [];
+      // Display-only rebuild when slot has CSV but no stored Suivi epochs yet.
+      if ((!epochs || !epochs.length) && csv) {
+        try {
+          epochs = varBuildSuiviStyleEpochs({
+            trades: csv.trades || [],
+            transfers: [
+              ...(csv.funding || []),
+              ...(csv.realizedPnl || []),
+              ...(csv.transfers || []),
+            ],
+            points_history: points?.points_history || [],
+            exported_at: points?.exported_at || null,
+          });
+        } catch (_) {
+          epochs = [];
+        }
+      }
       out.push({
         id,
         label: varOmniSlotLabel(slot, id, i),
         color: varFarmEpochWalletColor(out.length),
         csv,
         points,
+        epochs,
         omniAddress: String(slot.omniAddress || ''),
         isHl: false,
       });
@@ -5375,7 +5638,8 @@
     const body = epochRows.map((r) => {
       const badge = varFarmEpochDateBadge(r.start, r.end, !!(r.inProgress || r.finalising));
       const lines = [];
-      let tVol = 0;
+      let tVolOmni = 0;
+      let tHlVol = 0;
       let tPts = 0;
       let tReal = 0;
       let tFund = 0;
@@ -5386,7 +5650,30 @@
         let stats = w.csv
           ? varEpochWindowSummary(w.csv, r.start, r.end)
           : { volume: 0, realizedPnl: 0, funding: 0, fees: 0, pnl: 0, trades: 0, hasPnlData: false, cashRows: 0 };
-        // Prefer Suivi (farm-varia) precomputed cash when Live CSV has volume but no transfers.
+        // 1) Prefer epochs precomputed at JSON import (same math as Suivi parseExport).
+        try {
+          const stored = (w.epochs && w.epochs.length)
+            ? varFarmEpochFindHlEpoch({ epochs: w.epochs }, r.start, r.end)
+            : null;
+          if (stored && (stored.pnl != null || stored.realized != null || stored.funding != null || stored.fees != null)) {
+            const vr = Number(stored.realized) || 0;
+            const vf = Number(stored.funding) || 0;
+            const vfee = Number(stored.fees) || 0;
+            const vp = Number(stored.pnl != null ? stored.pnl : (vr + vf + vfee)) || 0;
+            stats = {
+              ...stats,
+              realizedPnl: vr,
+              funding: vf,
+              fees: vfee,
+              pnl: vp,
+              hasPnlData: true,
+              cashRows: Math.max(stats.cashRows || 0, 1),
+              volume: (Number(stored.volume) > 0) ? Number(stored.volume) : stats.volume,
+              trades: (Number(stored.trades) > 0) ? Number(stored.trades) : stats.trades,
+            };
+          }
+        } catch (_) {}
+        // 2) Fallback: Suivi farm-varia localStorage on same origin when Live CSV cash is empty.
         try {
           const variaE = varFarmFindVariaEpoch(w, r.start, r.end);
           const csvCashWeak = !(stats.cashRows > 0) || !(Math.abs(Number(stats.pnl) || 0) > 1e-9);
@@ -5420,7 +5707,7 @@
           ? (stats.pnl != null ? stats.pnl : (Number(stats.realizedPnl || 0) + Number(stats.funding || 0) + Number(stats.fees || 0)))
           : null;
         const s = varEpochSuiviMetrics(pts, { ...stats, pnl: pnl != null ? pnl : 0 }, pp);
-        tVol += stats.volume || 0;
+        tVolOmni += stats.volume || 0;
         tPts += pts || 0;
         if (pnl != null) {
           tReal += s.realized;
@@ -5462,7 +5749,7 @@
           Number(e.realized || 0) + Number(e.funding || 0) + Number(e.fees || 0)
         );
         const vol = Number(e.volume || 0);
-        tVol += vol;
+        tHlVol += vol;
         tReal += Number(e.realized || 0);
         tFund += Number(e.funding || 0);
         tFees += Number(e.fees || 0);
@@ -5485,7 +5772,7 @@
         const stats = varEpochWindowSummary(bundle || {}, r.start, r.end);
         const pts = r.estimated ? r.self : r.total;
         const s = varEpochSuiviMetrics(pts, stats, pp);
-        tVol = stats.volume || 0;
+        tVolOmni = stats.volume || 0;
         tPts = pts || 0;
         tReal = s.realized;
         tFund = s.funding;
@@ -5501,13 +5788,14 @@
       };
       const tot = varEpochSuiviMetrics(tPts, totStats, pp);
       const totTip = `R ${varFmtSignedUsdExact(tReal)} · F ${varFmtSignedUsdExact(tFund)} · Fees ${varFmtSignedUsdExact(tFees)}`;
+      const totVolTip = tHlVol > 0 ? `HL ${varFmtCompactUsd(tHlVol)}` : '';
       const totPnlCls = tot.pnl > 0 ? 'is-pos' : (tot.pnl < 0 ? 'is-neg' : '');
       const totEstCls = tot.estNet > 0 ? 'is-pos' : (tot.estNet < 0 ? 'is-neg' : '');
 
       return `<tr class="var-farm-epoch-total">
         <td class="left"><span class="var-farm-epoch-pill is-epoch">${varEsc(badge)}</span></td>
         <td class="left"><strong>${varEsc(varT('var.epochTotal'))}</strong></td>
-        <td class="text-right mono">${tVol > 0 ? varFmtCompactUsd(tVol) : '—'}</td>
+        <td class="text-right mono"${totVolTip ? ` title="${varEsc(totVolTip)}"` : ''}>${tVolOmni > 0 ? varFmtCompactUsd(tVolOmni) : '—'}</td>
         <td class="text-right mono">${varFmtPoints(tPts)}</td>
         <td class="text-right mono ${totPnlCls}" title="${varEsc(totTip)}">${varFmtSignedUsdExact(tot.pnl)}</td>
         <td class="text-right mono ${tot.costPerPt != null ? 'is-neg' : 'muted'}">${varFarmEpochCostDisp(tot.costPerPt)}</td>
@@ -6169,11 +6457,11 @@
     let volume = 0;
     let tradeCount = 0;
     for (const t of bundle?.trades || []) {
-      if (t.status && t.status !== 'confirmed') continue;
+      if (t.status !== 'confirmed') continue;
       const ts = Date.parse(t.created_at || 0);
       if (!(ts >= start && ts < exclusiveEnd)) continue;
-      const px = parseFloat(t.price || t.mark_price || 0);
-      const qty = parseFloat(t.qty || 0);
+      const px = varSuiviNum(t.price);
+      const qty = varSuiviNum(t.qty);
       const notional = Math.abs(px * qty);
       if (!(notional > 0)) continue;
       volume += notional;
@@ -6186,13 +6474,14 @@
     const seenCash = new Set();
     const applyRow = (t, forcedType) => {
       if (!t || typeof t !== 'object') return;
-      // Suivi: only confirmed. Missing status still accepted (API quirks).
-      if (t.status && t.status !== 'confirmed') return;
+      // Suivi aggregateEpochActivity: status must be exactly 'confirmed' (missing → skip).
+      if (t.status !== 'confirmed') return;
       const ts = Date.parse(t.created_at || 0);
       if (!(ts >= start && ts < exclusiveEnd)) return;
       const tt = String(forcedType || t.transfer_type || '').toLowerCase();
       if (tt !== 'realized_pnl' && tt !== 'funding' && tt !== 'fee') return;
-      const qty = varTransferQty(t);
+      // Suivi uses Number(t.qty) only — keep that for Par-epoch parity.
+      const qty = varSuiviNum(t.qty);
       const id = t.id != null && t.id !== ''
         ? 'id:' + String(t.id)
         : [tt, t.created_at || '', qty, t.underlying || t.asset || ''].join('|');
@@ -8415,6 +8704,7 @@
       label: acc.slots[id]?.label || varOmniLabelForIndex(idx),
       csv: null,
       points: null,
+      epochs: null,
       importedAt: null,
     };
     varAccountsSave(acc);
