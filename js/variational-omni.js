@@ -4462,13 +4462,11 @@
   function varFmtSignedUsdExact(n) {
     const v = Number(n);
     if (!isFinite(v)) return '—';
-    if (v === 0) return '$0';
-    const abs = Math.abs(v);
-    const num = abs.toLocaleString('en-US', {
-      maximumFractionDigits: abs >= 100 ? 0 : 2,
-      minimumFractionDigits: 0,
-    });
-    return `${v > 0 ? '+' : '-'}$${num}`;
+    // Suivi fmtUsdFull: always whole dollars so Total = visible sum of rows.
+    const rounded = Math.round(v);
+    if (rounded === 0) return '$0';
+    const num = Math.abs(rounded).toLocaleString('en-US', { maximumFractionDigits: 0 });
+    return `${rounded > 0 ? '+' : '-'}$${num}`;
   }
 
   function varFmtSignedUsd(n) {
@@ -5161,7 +5159,7 @@
     return `${s}|${e}`;
   }
 
-  function varFarmEpochDateBadge(startTs, endTs, inProgress) {
+  function varFarmEpochDateBadge(startTs, endTs, inProgress, finalising) {
     const fmt = (ts) => {
       if (!isFinite(ts)) return '—';
       const d = new Date(ts);
@@ -5173,6 +5171,7 @@
     const endShow = isFinite(endTs) ? endTs - 1 : endTs;
     let label = `${fmt(startTs)} - ${fmt(endShow)}`;
     if (inProgress) label += ` - ${varT('var.epochInProgress').toLowerCase()}`;
+    else if (finalising) label += ` - ${varT('var.epochFinalisingShort') || 'finalisation'}`;
     return label;
   }
 
@@ -5366,23 +5365,36 @@
   }
 
   function varFarmEpochFindHlEpoch(hlSrc, start, end) {
+    const startMs = isFinite(start) ? Number(start) : Date.parse(start || 0);
+    const endMs = isFinite(end) ? Number(end) : Date.parse(end || 0);
     const key = varFarmEpochKey(
-      new Date(start).toISOString(),
-      new Date(end).toISOString()
+      new Date(startMs).toISOString(),
+      new Date(endMs).toISOString()
     );
+    const calStart = varEpochStartUtc(startMs);
     const list = hlSrc.epochs || [];
+    let exact = null;
     let best = null;
     let bestDist = Infinity;
     for (const e of list) {
       const es = Date.parse(e.start || 0);
       if (!isFinite(es)) continue;
-      const dist = Math.abs(es - start);
+      if (varFarmEpochKey(e.start, e.end) === key) {
+        exact = e;
+        break;
+      }
+      // Snap both sides to Thursday calendar so 06/08 vs 06/08T00:00:00.000Z still match.
+      if (varEpochStartUtc(es) === calStart) {
+        exact = e;
+        break;
+      }
+      const dist = Math.abs(es - startMs);
       if (dist < bestDist) {
         bestDist = dist;
         best = e;
       }
-      if (varFarmEpochKey(e.start, e.end) === key) return e;
     }
+    if (exact) return exact;
     return bestDist < 36 * 3600 * 1000 ? best : null;
   }
 
@@ -5636,7 +5648,7 @@
     </tr></thead>`;
 
     const body = epochRows.map((r) => {
-      const badge = varFarmEpochDateBadge(r.start, r.end, !!(r.inProgress || r.finalising));
+      const badge = varFarmEpochDateBadge(r.start, r.end, !!r.inProgress, !!r.finalising);
       const lines = [];
       let tVolOmni = 0;
       let tHlVol = 0;
@@ -5651,50 +5663,59 @@
         let stats = w.csv
           ? varEpochWindowSummary(w.csv, r.start, r.end)
           : { volume: 0, realizedPnl: 0, funding: 0, fees: 0, pnl: 0, trades: 0, hasPnlData: false, cashRows: 0 };
-        // 1) Prefer epochs precomputed at JSON import (same math as Suivi parseExport).
-        try {
-          const stored = (w.epochs && w.epochs.length)
-            ? varFarmEpochFindHlEpoch({ epochs: w.epochs }, r.start, r.end)
-            : null;
-          if (stored && (stored.pnl != null || stored.realized != null || stored.funding != null || stored.fees != null)) {
-            const vr = Number(stored.realized) || 0;
-            const vf = Number(stored.funding) || 0;
-            const vfee = Number(stored.fees) || 0;
-            const vp = Number(stored.pnl != null ? stored.pnl : (vr + vf + vfee)) || 0;
-            stats = {
-              ...stats,
-              realizedPnl: vr,
-              funding: vf,
-              fees: vfee,
-              pnl: vp,
-              hasPnlData: true,
-              cashRows: Math.max(stats.cashRows || 0, 1),
-              volume: (Number(stored.volume) > 0) ? Number(stored.volume) : stats.volume,
-              trades: (Number(stored.trades) > 0) ? Number(stored.trades) : stats.trades,
-            };
-          }
-        } catch (_) {}
-        // 2) Fallback: Suivi farm-varia localStorage on same origin when Live CSV cash is empty.
-        try {
-          const variaE = varFarmFindVariaEpoch(w, r.start, r.end);
-          const csvCashWeak = !(stats.cashRows > 0) || !(Math.abs(Number(stats.pnl) || 0) > 1e-9);
-          if (variaE && csvCashWeak) {
-            const vr = Number(variaE.realized != null ? variaE.realized : variaE.realizedRaw) || 0;
-            const vf = Number(variaE.funding != null ? variaE.funding : variaE.fundingRaw) || 0;
-            const vfee = Number(variaE.fees != null ? variaE.fees : variaE.feesRaw) || 0;
-            const vp = Number(variaE.pnl != null ? variaE.pnl : (vr + vf + vfee)) || 0;
-            stats = {
-              ...stats,
-              realizedPnl: vr,
-              funding: vf,
-              fees: vfee,
-              pnl: vp,
-              hasPnlData: true,
-              cashRows: Math.max(stats.cashRows || 0, 1),
-              volume: (stats.volume > 0) ? stats.volume : (Number(variaE.volume) || 0),
-            };
-          }
-        } catch (_) {}
+        const csvCashStrong = (stats.cashRows > 0) && (
+          Math.abs(Number(stats.pnl) || 0) > 1e-9
+          || Math.abs(Number(stats.realizedPnl) || 0) > 1e-9
+          || Math.abs(Number(stats.funding) || 0) > 1e-9
+          || Math.abs(Number(stats.fees) || 0) > 1e-9
+          || stats.cashRows >= 3
+        );
+        // Prefer live CSV cash. Stored epochs / Suivi only when CSV cash is empty/weak
+        // (extension sync can refresh trades without rebuilding slot.epochs).
+        if (!csvCashStrong) {
+          try {
+            const stored = (w.epochs && w.epochs.length)
+              ? varFarmEpochFindHlEpoch({ epochs: w.epochs }, r.start, r.end)
+              : null;
+            if (stored && (stored.pnl != null || stored.realized != null || stored.funding != null || stored.fees != null)) {
+              const vr = Number(stored.realized) || 0;
+              const vf = Number(stored.funding) || 0;
+              const vfee = Number(stored.fees) || 0;
+              const vp = Number(stored.pnl != null ? stored.pnl : (vr + vf + vfee)) || 0;
+              stats = {
+                ...stats,
+                realizedPnl: vr,
+                funding: vf,
+                fees: vfee,
+                pnl: vp,
+                hasPnlData: true,
+                cashRows: Math.max(stats.cashRows || 0, 1),
+                volume: (stats.volume > 0) ? stats.volume : (Number(stored.volume) || 0),
+                trades: (Number(stats.trades) > 0) ? stats.trades : (Number(stored.trades) || 0),
+              };
+            }
+          } catch (_) {}
+          try {
+            const variaE = varFarmFindVariaEpoch(w, r.start, r.end);
+            const stillWeak = !(stats.cashRows > 0) || !(Math.abs(Number(stats.pnl) || 0) > 1e-9);
+            if (variaE && stillWeak) {
+              const vr = Number(variaE.realized != null ? variaE.realized : variaE.realizedRaw) || 0;
+              const vf = Number(variaE.funding != null ? variaE.funding : variaE.fundingRaw) || 0;
+              const vfee = Number(variaE.fees != null ? variaE.fees : variaE.feesRaw) || 0;
+              const vp = Number(variaE.pnl != null ? variaE.pnl : (vr + vf + vfee)) || 0;
+              stats = {
+                ...stats,
+                realizedPnl: vr,
+                funding: vf,
+                fees: vfee,
+                pnl: vp,
+                hasPnlData: true,
+                cashRows: Math.max(stats.cashRows || 0, 1),
+                volume: (stats.volume > 0) ? stats.volume : (Number(variaE.volume) || 0),
+              };
+            }
+          } catch (_) {}
+        }
         let pts = varSlotPointsInEpoch(w.points, r.start, r.end);
         let estPts = 0;
         if (!(pts > 0) && w.csv) {
@@ -5753,16 +5774,19 @@
           </tr>`);
           return;
         }
-        const pnl = Number(e.pnl) || (
-          Number(e.realized || 0) + Number(e.funding || 0) + Number(e.fees || 0)
-        );
+        const realized = Number(e.realized || 0) || 0;
+        const funding = Number(e.funding || 0) || 0;
+        const fees = Number(e.fees || 0) || 0;
+        const pnl = (e.pnl != null && isFinite(Number(e.pnl)))
+          ? Number(e.pnl)
+          : (realized + funding + fees);
         const vol = Number(e.volume || 0);
         tHlVol += vol;
-        tReal += Number(e.realized || 0);
-        tFund += Number(e.funding || 0);
-        tFees += Number(e.fees || 0);
+        tReal += realized;
+        tFund += funding;
+        tFees += fees;
         tPnl += pnl;
-        const tip = `R ${varFmtSignedUsdExact(e.realized || 0)} · F ${varFmtSignedUsdExact(e.funding || 0)} · Fees ${varFmtSignedUsdExact(e.fees || 0)}`;
+        const tip = `R ${varFmtSignedUsdExact(realized)} · F ${varFmtSignedUsdExact(funding)} · Fees ${varFmtSignedUsdExact(fees)}`;
         const pnlCls = pnl > 0 ? 'is-pos' : (pnl < 0 ? 'is-neg' : '');
         lines.push(`<tr class="var-farm-epoch-wrow">
           <td></td>
@@ -5800,13 +5824,17 @@
       };
       const tot = varEpochSuiviMetrics(tPts, totStats, pp);
       const totEst = varEpochSuiviMetrics(tEstPts > 0 ? tEstPts : tPts, totStats, pp);
+      // Est. nette = rounded Est + rounded PnL so the three cells stay consistent.
+      const estRounded = Math.round(totEst.est);
+      const pnlRounded = Math.round(tot.pnl);
+      const estNetRounded = estRounded + pnlRounded;
       const totVolTip = tHlVol > 0 ? `HL ${varFmtCompactUsd(tHlVol)}` : '';
       const totTip = `R ${varFmtSignedUsdExact(tReal)} · F ${varFmtSignedUsdExact(tFund)} · Fees ${varFmtSignedUsdExact(tFees)}`;
       const totEstTip = tEstPts > 0 && !(tPts > 0)
         ? `Est. ${varFmtPoints(tEstPts)} pts · ${VAR_EPOCH_EST_PTS_PER_100K} pts / $100k`
         : '';
-      const totPnlCls = tot.pnl > 0 ? 'is-pos' : (tot.pnl < 0 ? 'is-neg' : '');
-      const totEstCls = totEst.estNet > 0 ? 'is-pos' : (totEst.estNet < 0 ? 'is-neg' : '');
+      const totPnlCls = pnlRounded > 0 ? 'is-pos' : (pnlRounded < 0 ? 'is-neg' : '');
+      const totEstCls = estNetRounded > 0 ? 'is-pos' : (estNetRounded < 0 ? 'is-neg' : '');
 
       return `<tr class="var-farm-epoch-total">
         <td class="left"><span class="var-farm-epoch-pill is-epoch">${varEsc(badge)}</span></td>
@@ -5815,8 +5843,8 @@
         <td class="text-right mono">${varFmtPoints(tPts)}</td>
         <td class="text-right mono ${totPnlCls}" title="${varEsc(totTip)}">${varFmtSignedUsdExact(tot.pnl)}</td>
         <td class="text-right mono ${tot.costPerPt != null ? 'is-neg' : 'muted'}">${varFarmEpochCostDisp(tot.costPerPt)}</td>
-        <td class="text-right mono"${totEstTip ? ` title="${varEsc(totEstTip)}"` : ''}>${varFmtSignedUsdExact(totEst.est)}</td>
-        <td class="text-right mono ${totEstCls}">${varFmtSignedUsdExact(totEst.estNet)}</td>
+        <td class="text-right mono"${totEstTip ? ` title="${varEsc(totEstTip)}"` : ''}>${varFmtSignedUsdExact(estRounded)}</td>
+        <td class="text-right mono ${totEstCls}">${varFmtSignedUsdExact(estNetRounded)}</td>
       </tr>${lines.join('')}`;
     }).join('');
 
