@@ -21431,7 +21431,14 @@ let _lbShareUrlApplied = false
 /** { rank, mode } après clic tuile « rang estimé » — bandeau + repère dans le tableau */
 let _lbEstGotoMarker = null
 const _lbPageSize = 100
-const LEADERBOARD_MILESTONES = [10, 100, 500, 1000, 5000, 10000]
+const LEADERBOARD_MILESTONES_MAJOR = [10, 100, 500, 1000, 5000, 10000]
+/** Dense tiers so "next objective" stays near the estimated rank (not a huge jump). */
+const LEADERBOARD_MILESTONES_ALL = [
+  10, 25, 50, 100, 250, 500, 750, 1000,
+  1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000,
+  6000, 7500, 10000,
+]
+const LEADERBOARD_MILESTONES = LEADERBOARD_MILESTONES_MAJOR
 const LEADERBOARD_CACHE_TTL = 30 * 60 * 1000
 const LEADERBOARD_POLL_MS = 45000
 const LEADERBOARD_MAX_POLLS = 45
@@ -21613,11 +21620,26 @@ function getLeaderboardThresholdVol(rankN, mode) {
 
 function getNextLeaderboardMilestone(rank) {
   if (!(rank > 0)) return 10000
-  if (rank > 10000) return 10000
-  for (let i = LEADERBOARD_MILESTONES.length - 1; i >= 0; i--) {
-    if (rank > LEADERBOARD_MILESTONES[i]) return LEADERBOARD_MILESTONES[i]
+  if (rank <= 10) return null
+  // Closest better Top-N: largest tier strictly below current estimated rank.
+  let best = null
+  for (const m of LEADERBOARD_MILESTONES_ALL) {
+    if (m < rank) best = m
+    else break
   }
-  return null
+  return best
+}
+
+/** Upper band for progress (e.g. rank 4575 → 5000 while aiming Top 4500). */
+function getLeaderboardMilestoneBandStart(rank, nextM) {
+  if (!(nextM > 0)) return null
+  for (const m of LEADERBOARD_MILESTONES_ALL) {
+    if (m > nextM && m >= rank) return m
+  }
+  for (const m of LEADERBOARD_MILESTONES_ALL) {
+    if (m > nextM) return m
+  }
+  return Math.max(rank, nextM + 1)
 }
 
 function getLeaderboardCurrentVol(jsonVol, addrs) {
@@ -22052,10 +22074,13 @@ function renderLeaderboardMilestones(jsonVol, jsonRank, isFr, addrs, opts) {
   if (!(effRank > 0) && jsonRank > 0) effRank = jsonRank
   if (!(effRank > 0)) return ''
   const nextM = getNextLeaderboardMilestone(effRank)
+  const chipSet = new Set(LEADERBOARD_MILESTONES_MAJOR)
+  if (nextM) chipSet.add(nextM)
+  const chips = Array.from(chipSet).sort((a, b) => a - b)
   let html = `<div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(251,191,36,.15)">
     <div style="font-size:.62rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">${t('xyz.lbMilestoneTitle')}</div>
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:${nextM ? '10px' : '0'}">`
-  LEADERBOARD_MILESTONES.forEach(m => {
+  chips.forEach(m => {
     const inTier = effRank <= m
     const isNext = m === nextM
     const bg = isNext ? 'rgba(251,191,36,.14)' : inTier ? 'rgba(34,197,94,.08)' : 'rgba(255,255,255,.03)'
@@ -22075,8 +22100,13 @@ function renderLeaderboardMilestones(jsonVol, jsonRank, isFr, addrs, opts) {
     return html
   }
   const need = Math.max(0, threshold - (vol || 0))
-  const pct = Math.min(100, Math.max(0, Math.round(((vol || 0) / threshold) * 100)))
-  // Volume already past threshold but rank not yet in tier → still show remaining 0 clearly.
+  const bandStart = getLeaderboardMilestoneBandStart(effRank, nextM)
+  let pct
+  if (bandStart > nextM && effRank > nextM) {
+    pct = Math.min(100, Math.max(0, Math.round(((bandStart - effRank) / (bandStart - nextM)) * 100)))
+  } else {
+    pct = Math.min(100, Math.max(0, Math.round(((vol || 0) / threshold) * 100)))
+  }
   const needStr = need > 0 ? fmtLbVol(need) : (isFr ? '0 $' : '$0')
   const needLine = need > 0
     ? t('xyz.lbMilestoneNeed').replace('{vol}', needStr).replace('{n}', String(nextM))
