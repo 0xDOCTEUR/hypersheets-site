@@ -6077,6 +6077,10 @@
       let tFund = 0;
       let tFees = 0;
       let tPnl = 0;
+      let tHlPnl = 0;
+      let tHlReal = 0;
+      let tHlFund = 0;
+      let tHlFees = 0;
 
       wallets.forEach((w) => {
         let stats = w.csv
@@ -6217,10 +6221,11 @@
           ? ` <span class="muted">${varEsc(varT('var.epochHlOff'))}</span>`
           : '';
         tHlVol += vol;
-        tReal += realized;
-        tFund += funding;
-        tFees += fees;
-        tPnl += pnl;
+        tHlReal += realized;
+        tHlFund += funding;
+        tHlFees += fees;
+        tHlPnl += pnl;
+        // Total row stays Omni-only (same as Live Last epoch / volume) — HL stays on its row.
         const tip = `R ${varFmtSignedUsdExact(realized)} · F ${varFmtSignedUsdExact(funding)} · Fees ${varFmtSignedUsdExact(fees)}`;
         const pnlCls = pnl > 0 ? 'is-pos' : (pnl < 0 ? 'is-neg' : '');
         lines.push(`<tr class="var-farm-epoch-wrow">
@@ -6259,12 +6264,15 @@
       };
       const tot = varEpochSuiviMetrics(tPts, totStats, pp);
       const totEst = varEpochSuiviMetrics(tEstPts > 0 ? tEstPts : tPts, totStats, pp);
-      // Est. nette = rounded Est + rounded PnL so the three cells stay consistent.
+      // Est. nette = rounded Est + rounded Omni PnL (HL is not in Total — see HL row).
       const estRounded = Math.round(totEst.est);
       const pnlRounded = Math.round(tot.pnl);
       const estNetRounded = estRounded + pnlRounded;
       const totVolTip = tHlVol > 0 ? `HL ${varFmtCompactUsd(tHlVol)}` : '';
-      const totTip = `R ${varFmtSignedUsdExact(tReal)} · F ${varFmtSignedUsdExact(tFund)} · Fees ${varFmtSignedUsdExact(tFees)}`;
+      let totTip = `R ${varFmtSignedUsdExact(tReal)} · F ${varFmtSignedUsdExact(tFund)} · Fees ${varFmtSignedUsdExact(tFees)}`;
+      if (tHlPnl !== 0 || tHlVol > 0) {
+        totTip += ` · HL ${varFmtSignedUsdExact(tHlPnl)} (R ${varFmtSignedUsdExact(tHlReal)} · F ${varFmtSignedUsdExact(tHlFund)} · Fees ${varFmtSignedUsdExact(tHlFees)})`;
+      }
       const totEstTip = tEstPts > 0 && !(tPts > 0)
         ? `Est. ${varFmtPoints(tEstPts)} pts · ${VAR_EPOCH_EST_PTS_PER_100K} pts / $100k`
         : '';
