@@ -2418,7 +2418,6 @@ const RB_FDV_PRESETS = [
   { id: 'hype', label: 'Hyperliquid', fdvB: 52 },
   { id: 'aster', label: 'Aster', fdvB: 4.7 },
   { id: 'lighter', label: 'Lighter', fdvB: 2.3 },
-  { id: 'edgex', label: 'edgeX', fdvB: 0.25 },
   { id: 'custom', label: 'Custom', fdvB: null }
 ];
 
@@ -2433,6 +2432,7 @@ function ensureRankBoard() {
   if (!Array.isArray(state.rankBoard.customObs)) state.rankBoard.customObs = [];
   if (state.rankBoard.weeks == null) state.rankBoard.weeks = 0;
   if (!state.rankBoard.fdvPreset) state.rankBoard.fdvPreset = 'aster';
+  if (state.rankBoard.fdvPreset === 'edgex') state.rankBoard.fdvPreset = 'custom';
   if (state.rankBoard.fdvB == null || !(Number(state.rankBoard.fdvB) >= 0)) state.rankBoard.fdvB = 4.7;
   if (state.rankBoard.airdropPct == null || !(Number(state.rankBoard.airdropPct) >= 0)) state.rankBoard.airdropPct = 25;
   if (!(Number(state.rankBoard.totalPool) > 0)) state.rankBoard.totalPool = 10000000;
