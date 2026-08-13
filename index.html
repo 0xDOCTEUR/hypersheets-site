@@ -7995,8 +7995,6 @@ const HS_CONFIG = {
       height: 100%;
       pointer-events: none;
       z-index: 9999;
-      contain: strict;
-      transform: translateZ(0);
     }
     .lb-rank-est-box { background:rgba(251,191,36,.08); border:1px dashed rgba(251,191,36,.45); border-radius:12px; padding:12px 14px; margin-bottom:14px; }
     .lb-milestone-progress-track {
@@ -21730,68 +21728,6 @@ let _lbConfettiRaf = 0
 let _lbConfettiCanvas = null
 const LB_CONFETTI_TOP_N = 10000
 
-function lbCreateConfettiBurst(cx, cy, count, opts) {
-  const colors = opts.colors || ['#6ee7ff', '#97FCE4', '#FBBF24', '#fde047', '#ffffff', '#a5f3fc']
-  const speedMin = opts.speedMin ?? 7
-  const speedMax = opts.speedMax ?? 16
-  const spread = opts.spread ?? 18
-  const lifeMul = opts.lifeMul ?? 1
-  const a0 = opts.angleMin ?? 0
-  const a1 = opts.angleMax ?? Math.PI * 2
-  const out = []
-  for (let i = 0; i < count; i++) {
-    const t = count <= 1 ? 0.5 : i / (count - 1)
-    const angle = a0 + (a1 - a0) * (0.15 + 0.7 * Math.random() + 0.05 * t)
-    const speed = speedMin + Math.random() * (speedMax - speedMin)
-    const kind = Math.random()
-    let w = 4.5 + Math.random() * 4.5
-    let h = 3 + Math.random() * 3.5
-    let shape = 0
-    if (kind > 0.78) { shape = 1; w = h = 2.5 + Math.random() * 3.5 }
-    else if (kind > 0.28) { shape = 2; w = 1.6 + Math.random() * 1.8; h = 10 + Math.random() * 14 }
-    out.push(
-      cx + (Math.random() - 0.5) * spread,
-      cy + (Math.random() - 0.5) * spread,
-      Math.cos(angle) * speed,
-      Math.sin(angle) * speed,
-      w, h, shape,
-      (Math.random() * colors.length) | 0,
-      Math.random() * Math.PI * 2,
-      (Math.random() - 0.5) * 0.42,
-      0.35 + Math.random() * 0.65,
-      1,
-      (0.22 + Math.random() * 0.28) / lifeMul
-    )
-  }
-  return out
-}
-
-function lbCreateConfettiRain(w, count, colorCount) {
-  const out = []
-  for (let i = 0; i < count; i++) {
-    const kind = Math.random()
-    let shape = 2
-    let pw = 1.5 + Math.random() * 1.6
-    let ph = 9 + Math.random() * 12
-    if (kind > 0.72) { shape = 0; pw = 3.5 + Math.random() * 4; ph = 2.5 + Math.random() * 3 }
-    else if (kind > 0.9) { shape = 1; pw = ph = 2 + Math.random() * 2.5 }
-    out.push(
-      Math.random() * w,
-      -12 - Math.random() * 80,
-      (Math.random() - 0.5) * 1.2,
-      1.6 + Math.random() * 2.8,
-      pw, ph, shape,
-      (Math.random() * colorCount) | 0,
-      Math.random() * Math.PI * 2,
-      (Math.random() - 0.5) * 0.22,
-      0.4 + Math.random() * 0.5,
-      1,
-      0.2 + Math.random() * 0.22
-    )
-  }
-  return out
-}
-
 function lbStopRankConfetti() {
   if (_lbConfettiRaf) {
     cancelAnimationFrame(_lbConfettiRaf)
@@ -21803,121 +21739,127 @@ function lbStopRankConfetti() {
   }
 }
 
+function lbCreateConfettiBurst(cx, cy, count, opts) {
+  const colors = opts.colors || ['#6ee7ff', '#97FCE4', '#FBBF24', '#fde047', '#34d399', '#f472b6', '#a78bfa', '#ffffff']
+  const speedMin = opts.speedMin ?? 6
+  const speedMax = opts.speedMax ?? 18
+  const spread = opts.spread ?? 48
+  const lifeMul = opts.lifeMul ?? 1
+  const out = []
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2
+    const speed = speedMin + Math.random() * (speedMax - speedMin)
+    const kind = Math.random()
+    let w = 6 + Math.random() * 8
+    let h = 4 + Math.random() * 6
+    let shape = 'rect'
+    if (kind > 0.72) { shape = 'circle'; w = h = 4 + Math.random() * 7 }
+    else if (kind > 0.45) { w = 3 + Math.random() * 4; h = 14 + Math.random() * 18; shape = 'streamer' }
+    out.push({
+      x: cx + (Math.random() - 0.5) * spread,
+      y: cy + (Math.random() - 0.5) * spread,
+      vx: Math.cos(angle) * speed + (Math.random() - 0.5) * 2,
+      vy: Math.sin(angle) * speed - 2 - Math.random() * 3,
+      w, h, shape,
+      color: colors[(Math.random() * colors.length) | 0],
+      rot: Math.random() * Math.PI * 2,
+      vr: (Math.random() - 0.5) * 0.35,
+      wobble: (Math.random() - 0.5) * 0.08,
+      life: 1,
+      decay: (0.004 + Math.random() * 0.006) / lifeMul,
+    })
+  }
+  return out
+}
+
+function lbCreateConfettiRain(w, count, colors) {
+  const out = []
+  for (let i = 0; i < count; i++) {
+    const kind = Math.random()
+    let shape = 'rect'
+    let pw = 5 + Math.random() * 7
+    let ph = 4 + Math.random() * 5
+    if (kind > 0.6) { shape = 'streamer'; pw = 3 + Math.random() * 3; ph = 12 + Math.random() * 16 }
+    out.push({
+      x: Math.random() * w,
+      y: -20 - Math.random() * w * 0.35,
+      vx: (Math.random() - 0.5) * 3,
+      vy: 2 + Math.random() * 5,
+      w: pw, h: ph, shape,
+      color: colors[(Math.random() * colors.length) | 0],
+      rot: Math.random() * Math.PI * 2,
+      vr: (Math.random() - 0.5) * 0.2,
+      wobble: (Math.random() - 0.5) * 0.06,
+      life: 1,
+      decay: 0.003 + Math.random() * 0.004,
+    })
+  }
+  return out
+}
+
 function lbFireRankConfetti() {
   if (typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
   lbStopRankConfetti()
-
-  const cssW = window.innerWidth
-  const cssH = window.innerHeight
-  const dpr = Math.min(window.devicePixelRatio || 1, 2)
+  const w = window.innerWidth
+  const h = window.innerHeight
   const canvas = document.createElement('canvas')
   canvas.className = 'lb-confetti-canvas'
-  canvas.width = Math.max(1, Math.floor(cssW * dpr))
-  canvas.height = Math.max(1, Math.floor(cssH * dpr))
-  canvas.style.width = cssW + 'px'
-  canvas.style.height = cssH + 'px'
+  canvas.width = w
+  canvas.height = h
   document.body.appendChild(canvas)
   _lbConfettiCanvas = canvas
-
-  const ctx = canvas.getContext('2d', { alpha: true, desynchronized: true })
+  const ctx = canvas.getContext('2d')
   if (!ctx) { lbStopRankConfetti(); return }
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-
-  // Brand palette — cyan / mint / gold (no loud rainbow)
-  const colors = ['#6ee7ff', '#97FCE4', '#FBBF24', '#fde68a', '#ffffff', '#67e8f9']
-  const mobile = cssW < 640
-  const scale = mobile ? 0.62 : 1
-  const leftX = cssW * 0.08
-  const rightX = cssW * 0.92
-  const baseY = cssH * 0.78
-  const leftOpts = { colors, angleMin: -1.35, angleMax: -0.25, speedMin: 9, speedMax: 17, spread: 10, lifeMul: 1.35 }
-  const rightOpts = { colors, angleMin: -2.9, angleMax: -1.8, speedMin: 9, speedMax: 17, spread: 10, lifeMul: 1.35 }
-  let buf = [
-    ...lbCreateConfettiBurst(leftX, baseY, Math.round(48 * scale), leftOpts),
-    ...lbCreateConfettiBurst(rightX, baseY, Math.round(48 * scale), rightOpts),
+  const colors = ['#6ee7ff', '#97FCE4', '#FBBF24', '#fde047', '#34d399', '#f472b6', '#a78bfa', '#ffffff']
+  const cx = w / 2
+  const cy = h / 2
+  const burstOpts = { colors }
+  const particles = [
+    ...lbCreateConfettiBurst(cx, cy, 220, { ...burstOpts, speedMin: 7, speedMax: 22, spread: 64, lifeMul: 1.35 }),
+    ...lbCreateConfettiBurst(cx, cy, 80, { ...burstOpts, speedMin: 3, speedMax: 9, spread: 24, lifeMul: 1.8 }),
   ]
-  const STRIDE = 13
-  const extras = [
-    { t: 0.1, fn: () => [
-      ...lbCreateConfettiBurst(leftX, baseY, Math.round(28 * scale), { ...leftOpts, speedMin: 7, speedMax: 14, lifeMul: 1.2 }),
-      ...lbCreateConfettiBurst(rightX, baseY, Math.round(28 * scale), { ...rightOpts, speedMin: 7, speedMax: 14, lifeMul: 1.2 }),
-    ] },
-    { t: 0.22, fn: () => lbCreateConfettiBurst(cssW * 0.5, cssH * 0.38, Math.round(22 * scale), {
-      colors, angleMin: -Math.PI, angleMax: 0, speedMin: 3, speedMax: 9, spread: 40, lifeMul: 1.5,
-    }) },
-    { t: 0.4, fn: () => lbCreateConfettiRain(cssW, Math.round(32 * scale), colors.length) },
+  const extraBursts = [
+    { frame: 10, fn: () => lbCreateConfettiBurst(cx, cy, 140, { ...burstOpts, speedMin: 6, speedMax: 18, spread: 56 }) },
+    { frame: 22, fn: () => lbCreateConfettiBurst(cx, cy, 100, { ...burstOpts, speedMin: 5, speedMax: 14, spread: 40, lifeMul: 1.5 }) },
+    { frame: 38, fn: () => lbCreateConfettiRain(w, 120, colors) },
+    { frame: 55, fn: () => lbCreateConfettiRain(w, 80, colors) },
   ]
-  let extraI = 0
-  const start = performance.now()
-  let last = start
-  const duration = 2.85
-  const hasRoundRect = typeof ctx.roundRect === 'function'
-
-  const tick = (now) => {
-    const elapsed = (now - start) / 1000
-    let dt = (now - last) / 1000
-    last = now
-    if (dt > 0.05) dt = 0.05
-    if (dt < 0.001) dt = 0.001
-
-    while (extraI < extras.length && elapsed >= extras[extraI].t) {
-      buf.push(...extras[extraI].fn())
-      extraI++
+  let frame = 0
+  const maxFrames = 280
+  const drawParticle = (p) => {
+    ctx.save()
+    ctx.globalAlpha = Math.max(0, Math.min(1, p.life))
+    ctx.fillStyle = p.color
+    ctx.translate(p.x, p.y)
+    ctx.rotate(p.rot)
+    if (p.shape === 'circle') {
+      ctx.beginPath()
+      ctx.arc(0, 0, p.w / 2, 0, Math.PI * 2)
+      ctx.fill()
+    } else {
+      ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h)
     }
-
-    ctx.clearRect(0, 0, cssW, cssH)
-    let write = 0
-    let alive = 0
-    const n = (buf.length / STRIDE) | 0
-    const grav = 280 * dt
-    const drag = Math.pow(0.991, dt * 60)
-
-    for (let i = 0; i < n; i++) {
-      const o = i * STRIDE
-      let life = buf[o + 11] - buf[o + 12] * dt
-      if (life <= 0) continue
-      const sway = Math.sin(elapsed * 4.2 + buf[o + 8] * 3) * buf[o + 10] * 11 * dt * 60
-      let x = buf[o] + buf[o + 2] * dt * 60 + sway
-      let y = buf[o + 1] + buf[o + 3] * dt * 60
-      let vy = buf[o + 3] + grav
-      let vx = buf[o + 2] * drag
-      let rot = buf[o + 8] + buf[o + 9] * dt * 60
-      const ww = buf[o + 4]
-      const hh = buf[o + 5]
-      const shape = buf[o + 6]
-      const color = colors[buf[o + 7]]
-
-      // Soft fade: hold, then ease out
-      const alpha = life > 0.35 ? 0.92 : Math.max(0, (life / 0.35) * 0.92)
-      ctx.globalAlpha = alpha
-      ctx.fillStyle = color
-      ctx.setTransform(dpr, 0, 0, dpr, x * dpr, y * dpr)
-      ctx.rotate(rot)
-      if (shape === 1) {
-        ctx.beginPath()
-        ctx.arc(0, 0, ww / 2, 0, Math.PI * 2)
-        ctx.fill()
-      } else if (hasRoundRect && shape === 0) {
-        ctx.beginPath()
-        ctx.roundRect(-ww / 2, -hh / 2, ww, hh, 1.2)
-        ctx.fill()
-      } else {
-        ctx.fillRect(-ww / 2, -hh / 2, ww, hh)
-      }
-
-      const wo = write * STRIDE
-      buf[wo] = x; buf[wo + 1] = y; buf[wo + 2] = vx; buf[wo + 3] = vy
-      buf[wo + 4] = ww; buf[wo + 5] = hh; buf[wo + 6] = shape; buf[wo + 7] = buf[o + 7]
-      buf[wo + 8] = rot; buf[wo + 9] = buf[o + 9]; buf[wo + 10] = buf[o + 10]
-      buf[wo + 11] = life; buf[wo + 12] = buf[o + 12]
-      write++
-      alive++
+    ctx.restore()
+  }
+  const tick = () => {
+    for (const b of extraBursts) {
+      if (b.frame === frame) particles.push(...b.fn())
     }
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-    ctx.globalAlpha = 1
-    buf.length = write * STRIDE
-
-    if ((alive > 0 || elapsed < 0.55) && elapsed < duration) {
+    ctx.clearRect(0, 0, w, h)
+    let alive = false
+    for (const p of particles) {
+      if (p.life <= 0) continue
+      alive = true
+      p.x += p.vx + Math.sin(frame * 0.08 + p.rot) * p.wobble * 8
+      p.y += p.vy
+      p.vy += 0.16
+      p.vx *= 0.992
+      p.life -= p.decay
+      p.rot += p.vr
+      drawParticle(p)
+    }
+    frame += 1
+    if ((alive || frame < 50) && frame < maxFrames) {
       _lbConfettiRaf = requestAnimationFrame(tick)
     } else {
       _lbConfettiRaf = 0
@@ -21927,10 +21869,10 @@ function lbFireRankConfetti() {
   _lbConfettiRaf = requestAnimationFrame(tick)
 }
 
-function lbMaybeConfettiOnRankShow(estRank, mode) {
-  if (!estRank || estRank < 1 || estRank > LB_CONFETTI_TOP_N) return
+function lbMaybeConfettiOnRankShow(rank, mode) {
+  if (!rank || rank < 1 || rank > LB_CONFETTI_TOP_N) return
   const addrs = typeof getLeaderboardActiveAddrs === 'function' ? getLeaderboardActiveAddrs() : []
-  const key = (mode || _lbMode) + '|est|' + estRank + '|' + addrs.join(',')
+  const key = (mode || _lbMode) + '|top10k|' + rank + '|' + addrs.join(',')
   if (_lbConfettiKey === key) return
   _lbConfettiKey = key
   requestAnimationFrame(() => {
@@ -21969,22 +21911,23 @@ function renderLeaderboardPersonalBlock(opts) {
 
   const fileRank = mode === 'retail' ? retailStats.rank : globalStats.rank
   const fileTotal = mode === 'retail' ? retailStats.total : globalStats.total
-  const estLoading = curVolInfo?.source === 'loading'
+  // Hold both columns until estimated volume is ready so they reveal together (+ confetti).
+  const ranksPending = curVolInfo?.source === 'loading'
   const estRank = mode === 'retail' ? estRetailRank : estGlobalRank
   const modeLabel = mode === 'retail' ? t('xyz.lbModeRetail') : t('xyz.lbModeGlobal')
   const volEstHint = getLeaderboardVolTotalTHint(curVolInfo, userVol, isFr)
   const rankPct = fileRank ? Math.round((1 - fileRank / viewTotal) * 100) : null
   const isPersonalGoto = !(lookupAddrs && lookupAddrs.length)
-  const fileRankArg = fileRank > 0 ? fileRank : 0
-  const estRankArg = (!estLoading && estRank > 0) ? estRank : 0
+  const fileRankArg = (!ranksPending && fileRank > 0) ? fileRank : 0
+  const estRankArg = (!ranksPending && estRank > 0) ? estRank : 0
   const altEstRank = mode === 'retail' ? estGlobalRank : estRetailRank
   const altEstLabel = mode === 'retail' ? t('xyz.lbRankGlobal') : t('xyz.lbRankRetail')
   const fileColTitle = [t('xyz.lbVolJsonTip'), isPersonalGoto ? t('xyz.lbGotoFileHint') : ''].filter(Boolean).join(' · ')
   const estColTitle = [t('xyz.lbEstRankHint'), volEstHint, isPersonalGoto ? t('xyz.lbGotoEstHint') : ''].filter(Boolean).join(' · ')
-  const fileGotoAttr = isPersonalGoto
+  const fileGotoAttr = isPersonalGoto && !ranksPending
     ? ` class="lb-hero-rank-col lb-hero-rank-col--leaderboard lb-hero-rank-col--goto" role="button" tabindex="0" title="${fileColTitle.replace(/"/g, '&quot;')}" onclick="lbGotoMyRank('file',${fileRankArg})" onkeydown="lbGotoRankKey(event,'file',${fileRankArg})"`
     : ` class="lb-hero-rank-col lb-hero-rank-col--leaderboard" title="${fileColTitle.replace(/"/g, '&quot;')}"`
-  const estGotoAttr = isPersonalGoto && !estLoading
+  const estGotoAttr = isPersonalGoto && !ranksPending
     ? ` class="lb-hero-rank-col lb-hero-rank-col--goto" role="button" tabindex="0" title="${estColTitle.replace(/"/g, '&quot;')}" onclick="lbGotoMyRank('est',${estRankArg})" onkeydown="lbGotoRankKey(event,'est',${estRankArg})"`
     : ` class="lb-hero-rank-col" title="${estColTitle.replace(/"/g, '&quot;')}"`
 
@@ -21994,24 +21937,26 @@ function renderLeaderboardPersonalBlock(opts) {
   html += `<div class="lb-hero-rank-row">
     <div${fileGotoAttr}>
       <div class="lb-rank-section-title actual">${t('xyz.lbRankLeaderboard')}</div>
-      <div class="lb-hero-rank-num" style="color:${lbRankColor(fileRank)}">${fileRank ? '#' + fileRank.toLocaleString() : '—'}</div>
+      <div class="lb-hero-rank-num" style="color:${lbRankColor(ranksPending ? null : fileRank)}">${ranksPending ? '…' : (fileRank ? '#' + fileRank.toLocaleString() : '—')}</div>
       <div class="lb-hero-rank-vol-label">${t('xyz.lbVolJson')}</div>
-      <div class="lb-hero-rank-vol">${userVol > 0 ? fmtLbVol(userVol) : '—'}</div>
-      ${fileRank
-        ? `<div class="lb-hero-rank-meta">${modeLabel} · Top ${rankPct !== null ? (rankPct < 1 ? '<1' : rankPct) : '—'}% · ${isFr ? 'sur' : 'of'} ${fileTotal.toLocaleString()}</div>`
-        : `<div class="lb-hero-rank-meta">${isFr ? 'Absent du fichier top 10k' : 'Not in top 10k file'}</div>`}
+      <div class="lb-hero-rank-vol">${ranksPending ? (isFr ? 'Chargement…' : 'Loading…') : (userVol > 0 ? fmtLbVol(userVol) : '—')}</div>
+      ${ranksPending
+        ? `<div class="lb-hero-rank-meta">${isFr ? 'Chargement du classement…' : 'Loading leaderboard…'}</div>`
+        : (fileRank
+          ? `<div class="lb-hero-rank-meta">${modeLabel} · Top ${rankPct !== null ? (rankPct < 1 ? '<1' : rankPct) : '—'}% · ${isFr ? 'sur' : 'of'} ${fileTotal.toLocaleString()}</div>`
+          : `<div class="lb-hero-rank-meta">${isFr ? 'Absent du fichier top 10k' : 'Not in top 10k file'}</div>`)}
     </div>
     <div${estGotoAttr}>
       <div class="lb-rank-section-title estimated">${t('xyz.lbRankEstimated')}</div>
-      <div class="lb-hero-rank-num" style="color:${lbRankColor(estLoading ? null : estRank)}">${estLoading ? '…' : (estRank ? '#' + estRank.toLocaleString() : '—')}</div>
+      <div class="lb-hero-rank-num" style="color:${lbRankColor(ranksPending ? null : estRank)}">${ranksPending ? '…' : (estRank ? '#' + estRank.toLocaleString() : '—')}</div>
       <div class="lb-hero-rank-vol-label" title="${t('xyz.lbVolApiTip').replace(/"/g, '&quot;')}">${t('xyz.lbVolApi')}</div>
-      <div class="lb-hero-rank-vol">${estLoading ? (isFr ? 'Chargement…' : 'Loading…') : (displayVol > 0 ? fmtLbVol(displayVol) : (apiVol > 0 ? fmtLbVol(apiVol) : '—'))}</div>
-      ${!estLoading && estRank && altEstRank && altEstRank !== estRank
+      <div class="lb-hero-rank-vol">${ranksPending ? (isFr ? 'Chargement…' : 'Loading…') : (displayVol > 0 ? fmtLbVol(displayVol) : (apiVol > 0 ? fmtLbVol(apiVol) : '—'))}</div>
+      ${!ranksPending && estRank && altEstRank && altEstRank !== estRank
         ? `<div class="lb-hero-rank-meta">${altEstLabel} #${altEstRank.toLocaleString()}</div>`
-        : (estLoading ? `<div class="lb-hero-rank-meta">${isFr ? 'Volume Trade XYZ en cours de chargement' : 'Loading Trade XYZ volume'}</div>` : '')}
+        : (ranksPending ? `<div class="lb-hero-rank-meta">${isFr ? 'Volume Trade XYZ en cours de chargement' : 'Loading Trade XYZ volume'}</div>` : '')}
     </div>
   </div>
-  <div class="lb-hero-milestones">${renderLeaderboardMilestones(userVol, globalStats.rank, isFr, lookupAddrs, { mode, estRank: estLoading ? null : estRank, displayVol })}</div>`
+  <div class="lb-hero-milestones">${ranksPending ? '' : renderLeaderboardMilestones(userVol, globalStats.rank, isFr, lookupAddrs, { mode, estRank, displayVol })}</div>`
   html += `</div>`
   return html
 }
@@ -22892,8 +22837,12 @@ function renderLeaderboard(rows, updatedAt) {
     return
   }
 
-  const lbConfettiEstRank = lbPersonalBlockShown && modeEstRank && modeEstRank >= 1 && modeEstRank <= LB_CONFETTI_TOP_N
-    ? modeEstRank
+  const modeFileRank = _lbMode === 'retail' ? retailStats.rank : globalStats.rank
+  const ranksReady = curVolInfo?.source !== 'loading'
+  const lbConfettiRank = (lbPersonalBlockShown && ranksReady)
+    ? ((modeEstRank >= 1 && modeEstRank <= LB_CONFETTI_TOP_N)
+        ? modeEstRank
+        : (modeFileRank >= 1 && modeFileRank <= LB_CONFETTI_TOP_N ? modeFileRank : null))
     : null
 
 
@@ -22955,8 +22904,8 @@ function renderLeaderboard(rows, updatedAt) {
 
   container.innerHTML = html
   if (typeof applyLeaderboardImportUi === 'function') applyLeaderboardImportUi()
-  if (lbConfettiEstRank && document.body.dataset.page === 'leaderboard') {
-    lbMaybeConfettiOnRankShow(lbConfettiEstRank, _lbMode)
+  if (lbConfettiRank && document.body.dataset.page === 'leaderboard') {
+    lbMaybeConfettiOnRankShow(lbConfettiRank, _lbMode)
   }
 }
 
