@@ -121,6 +121,27 @@
     border-radius: 10px;
     background: rgba(255,255,255,.04);
     border: 1px solid rgba(255,255,255,.1);
+    margin: 0;
+  }
+  html.hs-fv-embed .rank-board .rb-fdv-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 8px 10px;
+    margin: 0 0 10px;
+  }
+  html.hs-fv-embed .rank-board .rb-fdv-custom {
+    min-width: 96px;
+    max-width: 120px;
+  }
+  html.hs-fv-embed .rank-board .rb-fdv-custom label {
+    color: #9aa8bc !important;
+  }
+  html.hs-fv-embed .rank-board .rb-fdv-custom input {
+    background: #0b1220 !important;
+    color: #e8eef7 !important;
+    border: 1px solid rgba(255,255,255,.14) !important;
+    border-radius: 10px !important;
   }
   html.hs-fv-embed .tabs button,
   html.hs-fv-embed .rank-board .rb-fdv-tabs button {
@@ -559,8 +580,15 @@
     font-size: .78rem; font-weight: 700; text-transform: uppercase;
     letter-spacing: .05em; color: var(--muted); margin-bottom: 6px;
   }
+  .rank-board .rb-fdv-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 8px 10px;
+    margin: 0 0 10px;
+  }
   .rank-board .rb-fdv-tabs {
-    display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px;
+    display: flex; flex-wrap: wrap; gap: 6px; margin: 0;
   }
   .rank-board .rb-fdv-tabs button {
     border: 1px solid var(--line); background: var(--card); color: var(--ink);
@@ -573,6 +601,23 @@
   }
   html[data-theme="dark"] .rank-board .rb-fdv-tabs button.active {
     background: #eef1ee; color: #121615;
+  }
+  .rank-board .rb-fdv-custom {
+    min-width: 96px;
+    max-width: 120px;
+    flex: 0 0 auto;
+  }
+  .rank-board .rb-fdv-custom label {
+    font-size: .65rem;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .rank-board .rb-fdv-custom input {
+    width: 100%;
+    min-width: 0;
   }
   .rank-board .table-wrap { margin-bottom: 12px; }
   .rank-board table { min-width: 560px; }
@@ -786,12 +831,14 @@ Omni ne publie pas le board points officiel.">Classement approx. (points)</h2>
                 Part = tes pts ÷ pool final. $ ≈ part × FDV concurrent × % supply alloué aux points.
                 FDV indicatifs (perp DEX live) — à ajuster.
               </p>
-              <div class="rb-fdv-tabs" id="rbFdvTabs"></div>
-              <div class="rb-row">
-                <div class="rb-field">
+              <div class="rb-fdv-row">
+                <div class="rb-fdv-tabs" id="rbFdvTabs"></div>
+                <div class="rb-field rb-fdv-custom">
                   <label>FDV ($B)</label>
                   <input id="rbFdvB" type="number" min="0" step="0.1" />
                 </div>
+              </div>
+              <div class="rb-row">
                 <div class="rb-field">
                   <label>% supply airdrop</label>
                   <input id="rbAirdropPct" type="number" min="0" max="100" step="1" />
