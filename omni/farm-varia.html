@@ -800,16 +800,10 @@
         <h2 data-tip="Approximation communautaire (Grok + calages).
 Tes wallets importés + observations manuelles.
 Omni ne publie pas le board points officiel.">Classement approx. (points)</h2>
-        <div class="tabs" id="rankWeekTabs">
-          <button type="button" data-rank-week="0" class="active">10 août</button>
-          <button type="button" data-rank-week="1">+1 sem</button>
-          <button type="button" data-rank-week="2">+2</button>
-          <button type="button" data-rank-week="4">+4</button>
-          <button type="button" data-rank-week="8">+8</button>
-        </div>
+        <div class="tabs" id="rankWeekTabs" aria-label="Horizon des seuils"></div>
       </div>
-        <p class="rb-hint" style="margin:0 0 12px">
-          Seuils Grok au <strong>10 août 2026</strong> (×1,019/sem), recalibrés log-log avec calages communauté + tes exports.
+        <p class="rb-hint" id="rbHorizonHint" style="margin:0 0 12px">
+          Seuils Grok (calage 10 août, ×1,019/sem) projetés à la date choisie. Les observations wallet restent à leurs pts/rang actuels.
           Le rang Omni reste <strong>par wallet</strong> — choisis un JSON (comme sur le Dashboard) ou Tous.
         </p>
       <div class="rb-grid">
@@ -2425,6 +2419,9 @@ function bindSetupEvents() {
 
 /* ===== Classement approx. points (Grok 10 août 2026 + calages) ===== */
 const RB_WEEKLY = 1.019;
+/** Calage Grok (seuils de base) — les chips projettent depuis « maintenant ». */
+const RB_BASE_MS = Date.UTC(2026, 7, 10);
+const RB_HORIZON_OFFSETS = [0, 1, 2, 4, 8];
 // Bases = milieu des fourchettes Grok (10 août 2026). Top 15k/20k extrapolés.
 const RB_TIERS = [
   { rank: 20000, label: 'Top 20 000', base: 31 },
@@ -2507,6 +2504,34 @@ function rbAirdropEstimate(pts) {
 function rbProject(base, weeks) {
   return base * Math.pow(RB_WEEKLY, weeks);
 }
+
+/** Semaines entières écoulées depuis le calage Grok (10 août 2026). */
+function rbWeeksSinceBase(now) {
+  const t = now != null ? Number(now) : Date.now();
+  if (!isFinite(t)) return 0;
+  const ms = t - RB_BASE_MS;
+  if (!(ms > 0)) return 0;
+  return Math.floor(ms / (7 * 864e5));
+}
+
+/** Date absolue du horizon = calage + (semaines écoulées + offset). */
+function rbHorizonMs(offsetWeeks, now) {
+  const o = Math.max(0, Number(offsetWeeks) || 0);
+  return RB_BASE_MS + (rbWeeksSinceBase(now) + o) * 7 * 864e5;
+}
+
+function rbFmtHorizonDate(offsetWeeks, now) {
+  return new Date(rbHorizonMs(offsetWeeks, now)).toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'short',
+  });
+}
+
+/** Semaines totales à appliquer aux seuils Grok pour l’offset UI choisi. */
+function rbProjectWeeks(offsetWeeks, now) {
+  return rbWeeksSinceBase(now) + Math.max(0, Number(offsetWeeks) || 0);
+}
+
 function rbLogInterp(x0, y0, x1, y1, x) {
   if (!(x0 > 0 && x1 > 0 && y0 > 0 && y1 > 0 && x > 0)) return NaN;
   if (x0 === x1) return (y0 + y1) / 2;
@@ -2542,7 +2567,8 @@ function rbEstimatePts(rank, samples) {
 
 function rbCollectRows() {
   ensureRankBoard();
-  const weeks = num(state.rankBoard.weeks) || 0;
+  const offset = num(state.rankBoard.weeks) || 0;
+  const projectWeeks = rbProjectWeeks(offset);
   const rows = [];
 
   for (const w of myRankWallets()) {
@@ -2595,11 +2621,11 @@ function rbCollectRows() {
   const board = allBoard.filter(r => r.source !== 'seed');
 
   const samples = [
-    ...RB_TIERS.map(t => ({ pts: rbProject(t.base, weeks), rank: t.rank })),
+    ...RB_TIERS.map(t => ({ pts: rbProject(t.base, projectWeeks), rank: t.rank })),
     ...allBoard.map(r => ({ pts: r.pts, rank: r.rank }))
   ];
 
-  return { weeks, board, samples };
+  return { weeks: offset, projectWeeks, board, samples };
 }
 
 function rbBandText(pts, samples, weeks) {
@@ -2768,11 +2794,31 @@ function renderRankBoard() {
   const root = $('rankBoard');
   if (!root) return;
   ensureRankBoard();
-  const { weeks, board, samples } = rbCollectRows();
+  const { weeks, projectWeeks, board, samples } = rbCollectRows();
 
-  $('rankWeekTabs')?.querySelectorAll('button[data-rank-week]').forEach(b => {
-    b.classList.toggle('active', Number(b.dataset.rankWeek) === weeks);
-  });
+  const tabs = $('rankWeekTabs');
+  if (tabs) {
+    tabs.innerHTML = RB_HORIZON_OFFSETS.map((o) => {
+      const dateLbl = rbFmtHorizonDate(o);
+      const label = o === 0 ? 'Maintenant' : dateLbl;
+      const tip = o === 0
+        ? ('Seuils actuels · projection depuis le calage (' + dateLbl + ')')
+        : ('Horizon ' + dateLbl + ' · +' + o + ' sem depuis maintenant');
+      return '<button type="button" data-rank-week="' + o + '"' +
+        (Number(weeks) === o ? ' class="active"' : '') +
+        ' title="' + escHtml(tip) + '">' + escHtml(label) + '</button>';
+    }).join('');
+  }
+
+  const hint = $('rbHorizonHint');
+  if (hint) {
+    const when = rbFmtHorizonDate(weeks);
+    hint.innerHTML =
+      'Seuils Grok (calage 10 août, ×1,019/sem) projetés au <strong>' + escHtml(when) + '</strong>' +
+      (weeks === 0 ? ' (maintenant)' : '') +
+      '. Les observations wallet restent à leurs pts/rang actuels. ' +
+      'Le rang Omni reste <strong>par wallet</strong> — choisis un JSON (comme sur le Dashboard) ou Tous.';
+  }
 
   const kpis = $('rbThresholdKpis');
   if (kpis) {
@@ -2788,7 +2834,7 @@ function renderRankBoard() {
     const show = tiersAsc.slice(start, start + 3);
     kpis.innerHTML = show.map((t, i) => {
       const cal = rbEstimatePts(t.rank, samples);
-      const grok = rbProject(t.base, weeks);
+      const grok = rbProject(t.base, projectWeeks);
       const v = cal != null && isFinite(cal) ? cal : grok;
       const short = t.label.replace('Top ', 'Top ');
       return '<div class="rb-kpi' + (i === 0 ? ' accent' : '') + '"><div class="lbl">' + short + ' (cal.)</div><div class="val">~' + fmtPts(v) + ' pts</div></div>';
@@ -2888,7 +2934,7 @@ function renderRankBoard() {
   const thBody = $('rbThreshBody');
   if (thBody) {
     thBody.innerHTML = RB_TIERS.map(t => {
-      const grok = rbProject(t.base, weeks);
+      const grok = rbProject(t.base, projectWeeks);
       const cal = rbEstimatePts(t.rank, samples);
       const pts = cal != null && isFinite(cal) ? cal : grok;
       return '<tr><td class="left">' + t.label + '</td><td>#' + t.rank.toLocaleString('fr-FR') +
