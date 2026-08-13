@@ -895,6 +895,10 @@
       csv: null,
       points: null,
       importedAt: null,
+      omniAddress: '',
+      hlWallet: '',
+      epochs: [],
+      csvIds: null,
     };
   }
 
@@ -974,6 +978,15 @@
         a: varOmniMakeSlot('a', VAR_OMNI_SLOT_DEFAULT_LABELS.a),
         b: varOmniMakeSlot('b', VAR_OMNI_SLOT_DEFAULT_LABELS.b),
       },
+      hlHedge: {
+        address: '',
+        label: 'HL',
+        epochs: [],
+        syncedAt: null,
+        fillsCount: 0,
+        fundingCount: 0,
+        needsSync: false,
+      },
     };
   }
 
@@ -1011,9 +1024,25 @@
         csv: s.csv ? varCsvNormalize(s.csv) : null,
         points: s.points || null,
         importedAt: s.importedAt || null,
+        // Must survive save/normalize — Live cash fallback + HL hedge pairing.
+        omniAddress: String(s.omniAddress || '').trim(),
+        hlWallet: String(s.hlWallet || '').trim(),
+        epochs: Array.isArray(s.epochs) ? s.epochs : [],
+        csvIds: s.csvIds && typeof s.csvIds === 'object' ? s.csvIds : null,
       };
     });
     out.activeImportSlot = order.includes(raw.activeImportSlot) ? raw.activeImportSlot : order[0];
+    // Shared hedge wallet for Par-epoch HL (no Suivi dependency).
+    const hl = raw.hlHedge && typeof raw.hlHedge === 'object' ? raw.hlHedge : {};
+    out.hlHedge = {
+      address: String(hl.address || '').trim(),
+      label: String(hl.label || 'HL').slice(0, 16) || 'HL',
+      epochs: Array.isArray(hl.epochs) ? hl.epochs : [],
+      syncedAt: hl.syncedAt || null,
+      fillsCount: Number(hl.fillsCount) || 0,
+      fundingCount: Number(hl.fundingCount) || 0,
+      needsSync: !!hl.needsSync,
+    };
     out.v = 2;
     return out;
   }
@@ -5413,18 +5442,233 @@
   }
 
   function varFarmEpochHlSources(suiviState) {
+    // Prefer Omni Import HL hedge (no Suivi required). Fall back to Suivi store.
+    try {
+      const acc = varAccountsLoad();
+      const h = acc && acc.hlHedge;
+      const addr = String((h && h.address) || '').trim();
+      if (addr && /^0x[a-fA-F0-9]{40}$/i.test(addr)) {
+        return [{
+          id: 'omni-hl-hedge',
+          label: (h && h.label) || 'HL',
+          color: varFarmEpochWalletColor(100),
+          epochs: (h && h.epochs) || [],
+          address: addr,
+          syncedAt: h && h.syncedAt,
+          isHl: true,
+          source: 'omni',
+        }];
+      }
+    } catch (_) {}
+
     const s = suiviState || varFarmVariaStateLoad();
     if (!s?.hlWallets) return [];
     return Object.values(s.hlWallets)
-      .filter((w) => w && (w.epochs || []).length)
+      .filter((w) => w && ((w.epochs || []).length || String(w.address || '').trim()))
       .sort((a, b) => String(a.label || '').localeCompare(String(b.label || ''), 'fr'))
       .map((w, i) => ({
         id: w.id,
         label: w.label || 'HL',
         color: varFarmEpochWalletColor(100 + i),
         epochs: w.epochs || [],
+        address: w.address || '',
+        syncedAt: w.syncedAt,
         isHl: true,
+        source: 'suivi',
       }));
+  }
+
+  function varGetHlHedge() {
+    const acc = varAccountsLoad();
+    return (acc && acc.hlHedge) || {
+      address: '', label: 'HL', epochs: [], syncedAt: null, fillsCount: 0, fundingCount: 0, needsSync: false,
+    };
+  }
+
+  function varSetHlHedgeAddress(rawAddr, label) {
+    const addr = String(rawAddr || '').trim();
+    if (addr && !/^0x[a-fA-F0-9]{40}$/i.test(addr)) {
+      return { ok: false, error: 'invalid' };
+    }
+    const acc = varAccountsLoad();
+    const prev = acc.hlHedge || {};
+    const same = String(prev.address || '').toLowerCase() === addr.toLowerCase();
+    acc.hlHedge = {
+      address: addr,
+      label: String(label || prev.label || 'HL').slice(0, 16) || 'HL',
+      epochs: same ? (prev.epochs || []) : [],
+      syncedAt: same ? (prev.syncedAt || null) : null,
+      fillsCount: same ? (Number(prev.fillsCount) || 0) : 0,
+      fundingCount: same ? (Number(prev.fundingCount) || 0) : 0,
+      needsSync: !!addr && (!same || !(prev.epochs || []).length),
+    };
+    varAccountsSave(acc);
+    try { varRenderHlHedgeImportUi(); } catch (_) {}
+    try { varRenderFarmEpochMini(); } catch (_) {}
+    return { ok: true, hedge: acc.hlHedge };
+  }
+
+  async function varSyncHlHedgeFromImport(opts) {
+    const silent = !!(opts && opts.silent);
+    const acc = varAccountsLoad();
+    const h = acc.hlHedge || {};
+    const addr = String(h.address || '').trim();
+    if (!/^0x[a-fA-F0-9]{40}$/i.test(addr)) {
+      if (!silent && typeof toast === 'function') toast(varT('var.hlHedgeInvalid'), true);
+      return { ok: false, error: 'invalid' };
+    }
+    if (typeof hlPost !== 'function') {
+      if (!silent && typeof toast === 'function') toast(varT('var.hlHedgeNoApi'), true);
+      return { ok: false, error: 'api' };
+    }
+    const btn = document.getElementById('varHlHedgeSyncBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '…'; }
+    try {
+      if (!silent && typeof toast === 'function') toast(varT('var.hlHedgeSyncing'));
+      // Build windows from Omni Par-epoch calendar + any stored HL weeks.
+      let epochRows = [];
+      try {
+        const wallets = varFarmEpochWalletSources();
+        const unionPts = varPointsUnionFromWallets(wallets) || varPointsLoad();
+        const allBundle = varCsvLoadAll() || varCsvLoadForView() || { trades: [] };
+        epochRows = varBuildEpochRows(unionPts, allBundle).slice(0, 16);
+      } catch (_) {
+        epochRows = [];
+      }
+      const windows = varFarmHlWindowsFromOmni(epochRows, h);
+      if (!windows.length) {
+        // Fallback: last 8 Thursday weeks.
+        const now = Date.now();
+        const cur = varEpochStartUtc(now);
+        for (let i = 0; i < 8; i++) {
+          const startMs = cur - i * 7 * 864e5;
+          windows.push({
+            start: new Date(startMs).toISOString(),
+            end: new Date(startMs + 7 * 864e5).toISOString(),
+            startMs,
+            endMs: startMs + 7 * 864e5,
+          });
+        }
+      }
+      const startTime = Math.min(...windows.map((w) => w.startMs)) - 2 * 864e5;
+      const [fills, funding] = await Promise.all([
+        varFarmHlFetchFills(addr, startTime),
+        varFarmHlFetchFunding(addr, startTime),
+      ]);
+      const shell = { epochs: h.epochs || [] };
+      varFarmRebuildHlEpochs(shell, fills, funding, windows);
+      acc.hlHedge = {
+        address: addr,
+        label: h.label || 'HL',
+        epochs: shell.epochs || [],
+        syncedAt: new Date().toISOString(),
+        fillsCount: fills.length,
+        fundingCount: funding.length,
+        needsSync: false,
+      };
+      varAccountsSave(acc);
+      // Optional mirror into Suivi store so embedded Suivi stays in sync if used.
+      try { varMirrorHlHedgeToSuivi(acc.hlHedge); } catch (_) {}
+      _varFarmHlHealDoneKey = '';
+      try { varRenderHlHedgeImportUi(); } catch (_) {}
+      try { varRenderFarmEpochMini(); } catch (_) {}
+      try { varRenderFarmOverview(); } catch (_) {}
+      if (!silent && typeof toast === 'function') {
+        toast(varT('var.hlHedgeSynced')
+          .replace('{n}', String(fills.length))
+          .replace('{w}', String((shell.epochs || []).length)));
+      }
+      return { ok: true, hedge: acc.hlHedge };
+    } catch (err) {
+      console.warn('[HS] HL hedge sync failed', err);
+      if (!silent && typeof toast === 'function') toast(varT('var.hlHedgeSyncFail'), true);
+      return { ok: false, error: String(err && err.message || err) };
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = varT('var.hlHedgeSync');
+      }
+    }
+  }
+
+  function varMirrorHlHedgeToSuivi(hedge) {
+    if (!hedge || !hedge.address) return;
+    const raw = localStorage.getItem('farm-varia-dashboard-v4')
+      || localStorage.getItem('farm-varia-dashboard-v3');
+    let state = null;
+    try { state = raw ? JSON.parse(raw) : null; } catch (_) { state = null; }
+    if (!state || typeof state !== 'object') {
+      state = { v: 4, variaWallets: {}, hlWallets: {} };
+    }
+    if (!state.hlWallets || typeof state.hlWallets !== 'object') state.hlWallets = {};
+    const id = 'omni-import-hl';
+    const prev = state.hlWallets[id] || {};
+    state.hlWallets[id] = {
+      ...prev,
+      id,
+      label: hedge.label || 'HL',
+      address: hedge.address,
+      epochs: hedge.epochs || [],
+      syncedAt: hedge.syncedAt || null,
+      fillsCount: hedge.fillsCount || 0,
+      fundingCount: hedge.fundingCount || 0,
+    };
+    state.v = 4;
+    localStorage.setItem('farm-varia-dashboard-v4', JSON.stringify(state));
+  }
+
+  function varRenderHlHedgeImportUi() {
+    const host = document.getElementById('varHlHedgeImport');
+    if (!host) return;
+    const h = varGetHlHedge();
+    const addr = h.address || '';
+    const synced = h.syncedAt
+      ? new Date(h.syncedAt).toLocaleString(varLoc(), { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+      : '';
+    const weeks = (h.epochs || []).length;
+    let meta = varT('var.hlHedgeEmpty');
+    if (addr) {
+      meta = synced
+        ? varT('var.hlHedgeMeta').replace('{when}', synced).replace('{w}', String(weeks)).replace('{fills}', String(h.fillsCount || 0))
+        : varT('var.hlHedgeNeedSync');
+    }
+    host.innerHTML = `
+      <div class="var-hl-hedge-h">
+        <strong>${varEsc(varT('var.hlHedgeTitle'))}</strong>
+        <span>${varEsc(varT('var.hlHedgeHint'))}</span>
+      </div>
+      <div class="var-hl-hedge-row">
+        <input type="text" id="varHlHedgeAddr" class="var-hl-hedge-input" spellcheck="false" autocomplete="off"
+          placeholder="0x…" value="${varEsc(addr)}" maxlength="42"
+          aria-label="${varEsc(varT('var.hlHedgeTitle'))}" />
+        <button type="button" class="btn btn-ghost text-xs" id="varHlHedgeSaveBtn">${varEsc(varT('var.hlHedgeSave'))}</button>
+        <button type="button" class="btn btn-ac text-xs" id="varHlHedgeSyncBtn"${addr ? '' : ' disabled'}>${varEsc(varT('var.hlHedgeSync'))}</button>
+      </div>
+      <div class="var-hl-hedge-meta" id="varHlHedgeMeta">${varEsc(meta)}</div>`;
+    const save = () => {
+      const input = document.getElementById('varHlHedgeAddr');
+      const res = varSetHlHedgeAddress(input ? input.value : '');
+      if (!res.ok && res.error === 'invalid') {
+        if (typeof toast === 'function') toast(varT('var.hlHedgeInvalid'), true);
+        return;
+      }
+      if (typeof toast === 'function') toast(varT('var.hlHedgeSaved'));
+    };
+    document.getElementById('varHlHedgeSaveBtn')?.addEventListener('click', save);
+    document.getElementById('varHlHedgeSyncBtn')?.addEventListener('click', () => {
+      const input = document.getElementById('varHlHedgeAddr');
+      if (input && String(input.value || '').trim() !== addr) {
+        const res = varSetHlHedgeAddress(input.value);
+        if (!res.ok) {
+          if (typeof toast === 'function') toast(varT('var.hlHedgeInvalid'), true);
+          return;
+        }
+      }
+      varSyncHlHedgeFromImport();
+    });
+    document.getElementById('varHlHedgeAddr')?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); save(); }
+    });
   }
 
   function varFarmFindVariaEpoch(w, start, end) {
@@ -5762,6 +6006,18 @@
   async function varFarmAutoHealHlGaps(epochRows) {
     const rows = epochRows || [];
     if (!rows.length || typeof hlPost !== 'function') return false;
+
+    // Prefer Omni Import HL hedge — no Suivi dependency.
+    try {
+      const omniHl = varFarmEpochHlSources();
+      const primary = omniHl.find((h) => h.source === 'omni' && h.address);
+      if (primary) {
+        if (!varFarmHlNeedsHeal(rows, [primary])) return false;
+        const res = await varSyncHlHedgeFromImport({ silent: true });
+        return !!(res && res.ok);
+      }
+    } catch (_) {}
+
     const state = varFarmVariaStateLoad();
     if (!state || !state.hlWallets) return false;
     const hlList = Object.values(state.hlWallets).filter((w) =>
@@ -5887,7 +6143,7 @@
     };
   }
 
-  /** Lifetime KPIs + wallet cards — same formulas as Suivi header. */
+  /** Lifetime KPIs + wallet cards — Omni volume; PnL tip includes HL hedge. */
   function varFarmComputeGlobal(wallets, hlWallets, pricePerPt) {
     const variaStats = (wallets || []).map(varFarmWalletLifetimeStats);
     const hlStats = (hlWallets || []).map(varFarmHlLifetimeStats);
@@ -5899,6 +6155,7 @@
     let fees = 0;
     let trades = 0;
     let hlPnl = 0;
+    let hlVolume = 0;
     for (const s of variaStats) {
       points += s.points || 0;
       volume += s.volume || 0;
@@ -5909,13 +6166,13 @@
       trades += s.trades || 0;
     }
     for (const s of hlStats) {
-      volume += s.volume || 0;
+      hlVolume += s.volume || 0;
+      hlPnl += s.pnl || 0;
+      // Combined farm PnL = Omni + HL hedge (header only; week Total stays Omni-only).
       pnl += s.pnl || 0;
       realized += s.realized || 0;
       funding += s.funding || 0;
       fees += s.fees || 0;
-      trades += s.trades || 0;
-      hlPnl += s.pnl || 0;
     }
     const pp = pricePerPt != null ? Number(pricePerPt) : varPricePerPoint();
     const est = points * (isFinite(pp) ? pp : 0);
@@ -5926,6 +6183,7 @@
       points,
       totalPts: points,
       volume,
+      hlVolume,
       pnl,
       realized,
       funding,
@@ -5946,13 +6204,13 @@
         label: varT('var.epochPoints'),
         value: varFmtPoints(g.totalPts),
         accent: true,
-        tip: `Volume ${varFmtCompactUsd(g.volume)} · ${g.trades} trades`,
+        tip: `Volume Omni ${varFmtCompactUsd(g.volume)}${g.hlVolume > 0 ? ` · HL ${varFmtCompactUsd(g.hlVolume)}` : ''} · ${g.trades} trades`,
       },
       {
         label: varT('var.epochPnlCombined'),
         value: varFmtSuiviUsd(g.pnl),
         cls: g.pnl < 0 ? 'is-neg' : (g.pnl > 0 ? 'is-pos' : ''),
-        tip: `R ${varFmtSignedUsdExact(g.realized)} · F ${varFmtSignedUsdExact(g.funding)} · Fees ${varFmtSignedUsdExact(g.fees)} · HL ${varFmtSignedUsdExact(g.hlPnl)}`,
+        tip: `Omni+HL · R ${varFmtSignedUsdExact(g.realized)} · F ${varFmtSignedUsdExact(g.funding)} · Fees ${varFmtSignedUsdExact(g.fees)} · HL ${varFmtSignedUsdExact(g.hlPnl)}`,
       },
       {
         label: varT('var.epochCostPt'),
@@ -9394,6 +9652,7 @@
     host.innerHTML = chips + slotsHtml + actions;
     try { varUpdateImportDdBadge(acc, ids, filled); } catch (_) {}
     try { varRenderTopScopeChips(acc, ids, active, scope, filled); } catch (_) {}
+    try { varRenderHlHedgeImportUi(); } catch (_) {}
   }
 
   function varRenderTopScopeChips(acc, ids, active, scope, filled) {
@@ -9842,6 +10101,9 @@
   window.varSetImportDdOpen = varSetImportDdOpen;
   window.varSetDashPeriod = varSetDashPeriod;
   window.varSetLiveVolPeriod = varSetLiveVolPeriod;
+  window.varSyncHlHedgeFromImport = varSyncHlHedgeFromImport;
+  window.varRenderHlHedgeImportUi = varRenderHlHedgeImportUi;
+  window.varSetHlHedgeAddress = varSetHlHedgeAddress;
   window.varToggleLivePanel = varToggleLivePanel;
   window.renderVarDash = renderVarDash;
   window.renderVarUserHeroKpis = renderVarUserHeroKpis;

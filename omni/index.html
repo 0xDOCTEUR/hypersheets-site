@@ -874,6 +874,46 @@ const HS_CONFIG = {
         }
         .var-import-dd-panel .var-json-drop-title { font-size: .8rem; margin-bottom: 8px; }
         .var-import-dd-panel .var-json-drop .btn { font-size: .74rem; padding: 6px 10px; }
+        .var-hl-hedge-import {
+          margin-top: 12px;
+          padding-top: 12px;
+          border-top: 1px solid var(--border);
+        }
+        .var-hl-hedge-h {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          margin-bottom: 8px;
+        }
+        .var-hl-hedge-h strong { font-size: .82rem; }
+        .var-hl-hedge-h span { font-size: .7rem; color: var(--muted); line-height: 1.4; }
+        .var-hl-hedge-row {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          align-items: center;
+        }
+        .var-hl-hedge-input {
+          flex: 1 1 180px;
+          min-width: 0;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+          font-size: .74rem;
+          padding: 7px 10px;
+          border-radius: 8px;
+          border: 1px solid var(--border);
+          background: var(--surface-2, #12151e);
+          color: var(--text);
+        }
+        .var-hl-hedge-input:focus {
+          outline: none;
+          border-color: var(--accent-border, rgba(76,154,248,.55));
+        }
+        .var-hl-hedge-meta {
+          font-size: .7rem;
+          color: var(--muted);
+          margin-top: 6px;
+          line-height: 1.4;
+        }
         .var-import-dd-foot {
           display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px;
           padding-top: 10px; border-top: 1px solid var(--border);
@@ -11454,6 +11494,7 @@ try {
                         <button type="button" class="btn btn-ghost" style="margin-left:6px" onclick="varResetOmniLegs()" data-i18n="var.clearCsv">Tout vider</button>
                         <div class="var-json-drop-meta" id="varJsonMeta" data-i18n="var.jsonNotImported">Aucun import pour l’instant</div>
                       </div>
+                      <div class="var-hl-hedge-import" id="varHlHedgeImport" aria-label="HL hedge wallet"></div>
                     </div>
                     <div class="var-import-dd-foot">
                       <a class="btn btn-ghost" href="https://omni.variational.io/?ref=OMNILD9IBR89" target="_blank" rel="noopener noreferrer" data-i18n="var.onboardLink">Omni ↗</a>
@@ -12737,6 +12778,19 @@ const I18N = {
     'var.epochHlOff': 'off farm',
     'var.epochHlNoData': 'no week data — Sync HL',
     'var.epochHlNoDataTip': 'This HL week is missing in Suivi — open Suivi → Sync HL',
+    'var.hlHedgeTitle': 'HL hedge wallet',
+    'var.hlHedgeHint': 'Hyperliquid address for Par-epoch HL rows — no Suivi required. Save then Sync.',
+    'var.hlHedgeSave': 'Save',
+    'var.hlHedgeSync': 'Sync HL',
+    'var.hlHedgeEmpty': 'No HL wallet yet — paste a 0x address to show hedge volume / PnL.',
+    'var.hlHedgeNeedSync': 'Address saved — click Sync HL to pull fills.',
+    'var.hlHedgeMeta': 'Synced {when} · {w} weeks · {fills} fills',
+    'var.hlHedgeInvalid': 'Invalid HL address (0x + 40 hex)',
+    'var.hlHedgeNoApi': 'HL API unavailable on this page',
+    'var.hlHedgeSyncing': 'Syncing HL fills…',
+    'var.hlHedgeSynced': 'HL synced · {n} fills · {w} weeks',
+    'var.hlHedgeSyncFail': 'HL sync failed',
+    'var.hlHedgeSaved': 'HL wallet saved',
     'var.pricePerPoint': '$/pt',
     'var.epochPtsPer': 'Pts / $1M',
     'var.epochInProgress': 'In progress',
@@ -13895,7 +13949,20 @@ const I18N = {
     'var.epochCostPtHint': 'Affiché seulement si PnL combiné < 0',
     'var.epochHlOff': 'hors farm',
     'var.epochHlNoData': 'pas de semaine — Sync HL',
-    'var.epochHlNoDataTip': 'Semaine HL absente dans Suivi — ouvrir Suivi → Sync HL',
+    'var.epochHlNoDataTip': 'Semaine HL absente — renseigne le wallet HL dans Import → Sync HL',
+    'var.hlHedgeTitle': 'Wallet HL (hedge)',
+    'var.hlHedgeHint': 'Adresse Hyperliquid pour la ligne HL Par-epoch — sans passer par Suivi. Enregistrer puis Sync.',
+    'var.hlHedgeSave': 'Enregistrer',
+    'var.hlHedgeSync': 'Sync HL',
+    'var.hlHedgeEmpty': 'Pas encore de wallet HL — colle une adresse 0x pour le volume / PnL hedge.',
+    'var.hlHedgeNeedSync': 'Adresse enregistrée — clique Sync HL pour tirer les fills.',
+    'var.hlHedgeMeta': 'Sync {when} · {w} semaines · {fills} fills',
+    'var.hlHedgeInvalid': 'Adresse HL invalide (0x + 40 hex)',
+    'var.hlHedgeNoApi': 'API HL indisponible sur cette page',
+    'var.hlHedgeSyncing': 'Sync HL en cours…',
+    'var.hlHedgeSynced': 'HL sync · {n} fills · {w} semaines',
+    'var.hlHedgeSyncFail': 'Échec sync HL',
+    'var.hlHedgeSaved': 'Wallet HL enregistré',
     'var.pricePerPoint': '$/pt',
     'var.epochPtsPer': 'Pts / $1M',
     'var.epochInProgress': 'En cours',
@@ -33256,7 +33323,7 @@ document.addEventListener('DOMContentLoaded', () => {
   </div>
 </div>
 <script src="../js/variational-omni-collector.js"></script>
-<script src="../js/variational-omni.js?v=20260813omnipnl"></script>
+<script src="../js/variational-omni.js?v=20260813hlimport"></script>
 <script>
 (function hsLoadCfWebAnalytics() {
   var token = (typeof HS_CONFIG !== 'undefined' && HS_CONFIG.cfWebAnalyticsToken) || '';
