@@ -5154,9 +5154,35 @@
   }
 
   function varFarmEpochKey(start, end) {
-    const s = String(start || '').slice(0, 10);
-    const e = String(end || '').slice(0, 10);
+    const s = varFarmEpochDayUtc(start);
+    const e = varFarmEpochDayUtc(end);
     return `${s}|${e}`;
+  }
+
+  /** Parse epoch bounds as UTC (date-only strings must not use local TZ). */
+  function varFarmParseEpochTs(raw) {
+    if (raw == null || raw === '') return NaN;
+    if (typeof raw === 'number') return isFinite(raw) ? raw : NaN;
+    if (raw instanceof Date) return +raw;
+    const s = String(raw).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return Date.parse(s + 'T00:00:00.000Z');
+    // "2026-08-06T00:00:00" without Z → treat as UTC, not local.
+    if (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(s)) {
+      return Date.parse(s.replace(' ', 'T') + 'Z');
+    }
+    return Date.parse(s);
+  }
+
+  function varFarmEpochDayUtc(raw) {
+    const ms = varFarmParseEpochTs(raw);
+    if (!isFinite(ms)) return String(raw || '').slice(0, 10);
+    return new Date(ms).toISOString().slice(0, 10);
+  }
+
+  function varFarmEpochThursdayKey(raw) {
+    const ms = varFarmParseEpochTs(raw);
+    if (!isFinite(ms)) return '';
+    return new Date(varEpochStartUtc(ms)).toISOString().slice(0, 10);
   }
 
   function varFarmEpochDateBadge(startTs, endTs, inProgress, finalising) {
@@ -5365,26 +5391,20 @@
   }
 
   function varFarmEpochFindHlEpoch(hlSrc, start, end) {
-    const startMs = isFinite(start) ? Number(start) : Date.parse(start || 0);
-    const endMs = isFinite(end) ? Number(end) : Date.parse(end || 0);
-    const key = varFarmEpochKey(
-      new Date(startMs).toISOString(),
-      new Date(endMs).toISOString()
-    );
-    const calStart = varEpochStartUtc(startMs);
+    void end;
+    const startMs = varFarmParseEpochTs(start);
+    const wantDay = isFinite(startMs) ? varFarmEpochDayUtc(startMs) : '';
+    const wantThu = isFinite(startMs) ? varFarmEpochThursdayKey(startMs) : '';
     const list = hlSrc.epochs || [];
     let exact = null;
     let best = null;
     let bestDist = Infinity;
     for (const e of list) {
-      const es = Date.parse(e.start || 0);
+      const es = varFarmParseEpochTs(e.start);
       if (!isFinite(es)) continue;
-      if (varFarmEpochKey(e.start, e.end) === key) {
-        exact = e;
-        break;
-      }
-      // Snap both sides to Thursday calendar so 06/08 vs 06/08T00:00:00.000Z still match.
-      if (varEpochStartUtc(es) === calStart) {
+      const day = varFarmEpochDayUtc(es);
+      // Same calendar start day, or same UTC Thursday week (date-only / missing Z safe).
+      if ((wantDay && day === wantDay) || (wantThu && varFarmEpochThursdayKey(es) === wantThu)) {
         exact = e;
         break;
       }
@@ -5764,18 +5784,24 @@
       hlWallets.forEach((hl) => {
         const e = varFarmEpochFindHlEpoch(hl, r.start, r.end);
         if (!e) {
-          // Always show the HL jambe — missing week usually means Sync HL is stale
-          // vs the Omni calendar (not that the extension address is wrong).
-          lines.push(`<tr class="var-farm-epoch-wrow">
+          // Week absent from Suivi HL store — keep row quiet; tooltip points to Sync.
+          const tip = varT('var.epochHlNoDataTip') || varT('var.epochHlNoData');
+          lines.push(`<tr class="var-farm-epoch-wrow" title="${varEsc(tip)}">
             <td></td>
-            <td class="left"><span class="var-farm-epoch-pill is-hl">${varEsc(hl.label)}</span> <span class="muted">${varEsc(varT('var.epochHlNoData'))}</span></td>
+            <td class="left"><span class="var-farm-epoch-pill is-hl">${varEsc(hl.label)}</span></td>
             <td class="muted text-right">—</td><td class="muted text-right">—</td>
             <td class="muted text-right">—</td><td class="muted text-right">—</td>
             <td></td><td></td>
           </tr>`);
           return;
         }
-        if (e.farming === false) {
+        // Prefer farming totals; fall back to raw hedge stats (incl. weeks flagged hors farm).
+        const realized = Number(e.realized || e.realizedRaw || 0) || 0;
+        const funding = Number(e.funding || e.fundingRaw || 0) || 0;
+        const fees = Number(e.fees || e.feesRaw || 0) || 0;
+        const vol = Number(e.volume || e.volumeRaw || 0) || 0;
+        const hasRaw = !!(vol || realized || funding || fees || Number(e.tradesRaw || 0));
+        if (e.farming === false && !hasRaw) {
           lines.push(`<tr class="var-farm-epoch-wrow">
             <td></td>
             <td class="left"><span class="var-farm-epoch-pill is-hl">${varEsc(hl.label)}</span> <span class="muted">${varEsc(varT('var.epochHlOff'))}</span></td>
@@ -5785,13 +5811,12 @@
           </tr>`);
           return;
         }
-        const realized = Number(e.realized || 0) || 0;
-        const funding = Number(e.funding || 0) || 0;
-        const fees = Number(e.fees || 0) || 0;
-        const pnl = (e.pnl != null && isFinite(Number(e.pnl)))
+        const pnl = (e.pnl != null && isFinite(Number(e.pnl)) && (Number(e.pnl) !== 0 || realized || funding || fees))
           ? Number(e.pnl)
           : (realized + funding + fees);
-        const vol = Number(e.volume || 0);
+        const offFarmNote = e.farming === false
+          ? ` <span class="muted">${varEsc(varT('var.epochHlOff'))}</span>`
+          : '';
         tHlVol += vol;
         tReal += realized;
         tFund += funding;
@@ -5801,7 +5826,7 @@
         const pnlCls = pnl > 0 ? 'is-pos' : (pnl < 0 ? 'is-neg' : '');
         lines.push(`<tr class="var-farm-epoch-wrow">
           <td></td>
-          <td class="left"><span class="var-farm-epoch-pill is-hl">${varEsc(hl.label)}</span></td>
+          <td class="left"><span class="var-farm-epoch-pill is-hl">${varEsc(hl.label)}</span>${offFarmNote}</td>
           <td class="text-right mono">${vol > 0 ? varFmtCompactUsd(vol) : '—'}</td>
           <td class="muted text-right">—</td>
           <td class="text-right mono ${pnlCls}" title="${varEsc(tip)}">${varFmtSignedUsdExact(pnl)}</td>

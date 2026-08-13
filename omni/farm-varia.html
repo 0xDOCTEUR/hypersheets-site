@@ -1000,8 +1000,25 @@ function fmtDate(iso) {
   if (!iso) return '—';
   return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
 }
+function parseEpochMs(raw) {
+  if (raw == null || raw === '') return NaN;
+  if (typeof raw === 'number') return isFinite(raw) ? raw : NaN;
+  if (raw instanceof Date) return +raw;
+  const s = String(raw).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return Date.parse(s + 'T00:00:00.000Z');
+  if (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(s)) {
+    return Date.parse(s.replace(' ', 'T') + 'Z');
+  }
+  return Date.parse(s);
+}
 function epochKey(start, end) {
-  return (start || '').slice(0, 10) + '|' + (end || '').slice(0, 10);
+  const s = isFinite(parseEpochMs(start))
+    ? new Date(parseEpochMs(start)).toISOString().slice(0, 10)
+    : String(start || '').slice(0, 10);
+  const e = isFinite(parseEpochMs(end))
+    ? new Date(parseEpochMs(end)).toISOString().slice(0, 10)
+    : String(end || '').slice(0, 10);
+  return s + '|' + e;
 }
 function epochLabel(start, end, ongoing) {
   return fmtDate(start) + '–' + fmtDate(end) + (ongoing ? ' · en cours' : '');
@@ -1533,8 +1550,8 @@ function rebuildHlEpochsFor(hlId) {
 
   let totalKept = 0, totalSpot = 0, totalOther = 0;
   hl.epochs = windows.map(({ start, end }) => {
-    const s = new Date(start).getTime();
-    const eMs = new Date(end).getTime();
+    const s = parseEpochMs(start);
+    const eMs = parseEpochMs(end);
     const key = epochKey(start, end);
     const act = variaActivity(key);
     const marketSet = marketsByKey.get(key) || new Set();
@@ -1579,8 +1596,11 @@ function rebuildHlEpochsFor(hlId) {
       pnl: use ? (realizedRaw + fundingRaw + feesRaw) : 0
     };
   });
+  // Keep every Varia calendar week (incl. farming shells with 0 HL fills).
+  // Dropping empty non-farm weeks only — never drop a week Omni Par-epoch may need.
   hl.epochs = hl.epochs.filter(ep =>
-    ep.farming || ep.tradesRaw || ep.fundingRaw || ep.realizedRaw || ep.feesRaw
+    ep.farming
+    || ep.tradesRaw || ep.fundingRaw || ep.realizedRaw || ep.feesRaw || ep.volumeRaw
   );
   hl.matchStats = { kept: totalKept, spot: totalSpot, other: totalOther };
 }
