@@ -20913,12 +20913,6 @@ function shareSnapshot(pageType) {
     const lastSubColor = isFinite(st?.lastEpochPts)
       ? (st.lastEpochPts >= 0 ? '#4ade80' : '#f87171')
       : undefined;
-    const volSub = st?.multi
-      ? (typeof t === 'function' ? t('var.farmVolAllWallets') : 'All wallets volume')
-      : (typeof t === 'function' ? t('var.farmVolTotalSub') : 'Total volume');
-    const rankSub = st?.rankApprox
-      ? (typeof t === 'function' ? t('var.farmLbRankApproxSub') : 'Approx. from Classement')
-      : (typeof t === 'function' ? t('share.varLbRankSub') : 'Omni points leaderboard');
     return {
       title: typeof t === 'function' ? t('tab.variational') : 'Variational',
       accent: '#4c9af8',
@@ -20933,12 +20927,12 @@ function shareSnapshot(pageType) {
         {
           label: typeof t === 'function' ? t('share.varVolumeTotal') : 'Total volume',
           val: st?.volumeLabel || '—',
-          sub: volSub,
+          sub: '',
         },
         {
           label: typeof t === 'function' ? t('share.varLbRank') : 'Variational leaderboard rank',
           val: st?.rankLabel || '—',
-          sub: rankSub,
+          sub: '',
         },
       ],
     };
