@@ -1650,7 +1650,6 @@ const HS_CONFIG = {
 
         /* Farm / epoch styles (from Omni) */
         .var-farm-score.is-tous { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-        }
         .var-farm-epoch-mini {
           display: flex;
           flex-direction: column;
@@ -1836,6 +1835,12 @@ const HS_CONFIG = {
         .var-farm-epoch-row .muted { color: var(--muted); font-size: .72rem; }
         .var-farm-epoch-row .is-pos { color: var(--success); }
         .var-farm-epoch-row .is-neg { color: var(--danger); }
+        .var-farm-suivi-kpi-col {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          min-width: 0;
+        }
         .var-price-pp {
           display: inline-flex;
           align-items: center;
@@ -1844,11 +1849,13 @@ const HS_CONFIG = {
           color: var(--muted);
           font-weight: 600;
         }
-        .var-farm-suivi-kpi .var-price-pp {
+        .var-farm-suivi-kpi-col .var-price-pp {
           display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 4px;
           width: 100%;
-          margin: 0 0 8px;
-          justify-content: flex-start;
+          margin: 0;
         }
         .var-price-pp input {
           width: 64px;
@@ -1859,6 +1866,11 @@ const HS_CONFIG = {
           color: var(--text);
           font: inherit;
           font-variant-numeric: tabular-nums;
+        }
+        .var-farm-suivi-kpi-col .var-price-pp input {
+          width: 100%;
+          max-width: 88px;
+          box-sizing: border-box;
         }
         .nav-beta-badge {
           font-size: .56rem;

@@ -6339,12 +6339,14 @@
         prefix: pricePpHtml,
       },
     ];
-    return `<div class="var-farm-suivi-kpis">${items.map((i) => `
-      <div class="var-farm-suivi-kpi${i.accent ? ' is-accent' : ''}"${i.prefix ? '' : ` title="${varEsc(i.tip)}"`}>
-        ${i.prefix || ''}
-        <div class="lbl"${i.prefix ? ` title="${varEsc(i.tip)}"` : ''}>${varEsc(i.label)}</div>
-        <div class="val mono ${i.cls || ''}"${i.prefix ? ` title="${varEsc(i.tip)}"` : ''}>${i.value}</div>
-      </div>`).join('')}</div>`;
+    return `<div class="var-farm-suivi-kpis">${items.map((i) => {
+      const kpi = `<div class="var-farm-suivi-kpi${i.accent ? ' is-accent' : ''}" title="${varEsc(i.tip)}">
+        <div class="lbl">${varEsc(i.label)}</div>
+        <div class="val mono ${i.cls || ''}">${i.value}</div>
+      </div>`;
+      if (!i.prefix) return kpi;
+      return `<div class="var-farm-suivi-kpi-col">${i.prefix}${kpi}</div>`;
+    }).join('')}</div>`;
   }
 
   function varFarmWalletsHtml(g) {
