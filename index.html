@@ -12778,6 +12778,8 @@ const I18N = {
     'share.varLbRank': 'Variational leaderboard rank',
     'share.varLastEpoch': 'Last epoch',
     'share.varLastEpochNone': 'No last epoch yet',
+    'share.varLastEpochVol': 'Last epoch',
+    'share.varRankPlaces': 'Places',
     'share.varLbRankSub': 'Omni points leaderboard',
     'share.varScopeAria': 'Omni JSON scope',
     'share.periodAll': 'All time',
@@ -13956,6 +13958,8 @@ const I18N = {
     'share.varLbRank': 'Rang leaderboard Variational',
     'share.varLastEpoch': 'Dernière epoch',
     'share.varLastEpochNone': 'Pas encore de dernière epoch',
+    'share.varLastEpochVol': 'Dernière epoch',
+    'share.varRankPlaces': 'Places',
     'share.varLbRankSub': 'Leaderboard points Omni',
     'share.varScopeAria': 'Périmètre JSON Omni',
     'share.periodAll': 'All time',
@@ -20913,6 +20917,15 @@ function shareSnapshot(pageType) {
     const lastSubColor = isFinite(st?.lastEpochPts)
       ? (st.lastEpochPts >= 0 ? '#4ade80' : '#f87171')
       : undefined;
+    const volSub = st?.lastEpochVolumeLabel
+      ? ((typeof t === 'function' ? t('share.varLastEpochVol') : 'Last epoch') + ' ' + st.lastEpochVolumeLabel)
+      : '';
+    const rankSub = st?.rankPlacesLabel
+      ? ((typeof t === 'function' ? t('share.varRankPlaces') : 'Places') + ' ' + st.rankPlacesLabel)
+      : '';
+    const rankSubColor = isFinite(st?.rankPlacesGained)
+      ? (st.rankPlacesGained >= 0 ? '#4ade80' : '#f87171')
+      : undefined;
     return {
       title: typeof t === 'function' ? t('tab.variational') : 'Variational',
       accent: '#4c9af8',
@@ -20927,12 +20940,14 @@ function shareSnapshot(pageType) {
         {
           label: typeof t === 'function' ? t('share.varVolumeTotal') : 'Total volume',
           val: st?.volumeLabel || '—',
-          sub: '',
+          sub: volSub,
+          subColor: volSub ? '#4ade80' : undefined,
         },
         {
           label: typeof t === 'function' ? t('share.varLbRank') : 'Variational leaderboard rank',
           val: st?.rankLabel || '—',
-          sub: '',
+          sub: rankSub,
+          subColor: rankSubColor,
         },
       ],
     };
@@ -33281,7 +33296,7 @@ document.addEventListener('DOMContentLoaded', () => {
 </div>
 
 <script src="js/variational-omni-collector.js"></script>
-<script src="js/variational-omni.js?v=20260814shareVar"></script>
+<script src="js/variational-omni.js?v=20260814shareDelta"></script>
 
 <script>
 (function hsLoadCfWebAnalytics() {

@@ -5280,8 +5280,8 @@
     return null;
   }
 
-  /** Last completed epoch points delta (for share / farm score sub). */
-  function varLastEpochPointsDelta(points) {
+  /** Last completed epoch row (points / window / optional history volume). */
+  function varLastCompletedEpochRow(points) {
     const hist = [...(points?.points_history || [])]
       .map((h) => {
         if (!h || typeof h !== 'object') return null;
@@ -5289,14 +5289,27 @@
         const end = Date.parse(h.end_window || h.end || 0);
         const pts = parseFloat(h.total_points ?? h.points ?? h.self_points);
         if (!isFinite(pts)) return null;
-        return { start: isFinite(start) ? start : 0, end: isFinite(end) ? end : 0, pts };
+        const vol = parseFloat(h.volume ?? h.total_volume ?? h.vol);
+        return {
+          start: isFinite(start) ? start : 0,
+          end: isFinite(end) ? end : 0,
+          pts,
+          volume: isFinite(vol) && vol > 0 ? vol : null,
+          raw: h,
+        };
       })
       .filter(Boolean)
       .sort((a, b) => (b.start - a.start) || (b.end - a.end));
     if (!hist.length) return null;
     const now = Date.now();
     const completed = hist.find((h) => h.end > 0 && h.end <= now + 60 * 1000);
-    return (completed || hist[0]).pts;
+    return completed || hist[0];
+  }
+
+  /** Last completed epoch points delta (for share / farm score sub). */
+  function varLastEpochPointsDelta(points) {
+    const row = varLastCompletedEpochRow(points);
+    return row ? row.pts : null;
   }
 
   /** Snapshot for PARTAGER → Variational (respects JSON / Tous scope). */
@@ -5312,14 +5325,21 @@
       const pointsTotal = isFinite(totalPts)
         ? totalPts
         : ((isFinite(selfPts) ? selfPts : 0) + (isFinite(refPts) ? refPts : 0));
-      const lastEpochPts = varLastEpochPointsDelta(pts);
+      const lastEpoch = varLastCompletedEpochRow(pts);
+      const lastEpochPts = lastEpoch ? lastEpoch.pts : null;
 
       let volume = NaN;
+      let lastEpochVolume = lastEpoch && isFinite(lastEpoch.volume) ? lastEpoch.volume : NaN;
       try {
         const bundle = varCsvLoadForView();
         if (bundle) {
           const dash = varBuildDashAnalytics(bundle, 'all', { light: true });
           if (dash && isFinite(dash.volume) && dash.volume > 0) volume = dash.volume;
+          if (!(lastEpochVolume > 0) && lastEpoch && lastEpoch.start > 0) {
+            const end = lastEpoch.end > lastEpoch.start ? lastEpoch.end : (lastEpoch.start + 7 * 86400000);
+            const win = varEpochWindowSummary(bundle, lastEpoch.start, end);
+            if (win && isFinite(win.volume) && win.volume > 0) lastEpochVolume = win.volume;
+          }
         }
       } catch (_) {}
 
@@ -5338,6 +5358,16 @@
         if (approx != null && isFinite(approx)) {
           rank = Math.round(approx);
           rankApprox = true;
+        }
+      }
+
+      // Places gained since last epoch ≈ rank(before) − rank(now). Lower rank # is better.
+      let rankPlacesGained = null;
+      if (rank != null && isFinite(lastEpochPts) && lastEpochPts !== 0 && isFinite(pointsTotal)) {
+        const ptsBefore = Math.max(0, pointsTotal - lastEpochPts);
+        const rankBefore = varApproxPointsLbRank(ptsBefore);
+        if (rankBefore != null && isFinite(rankBefore)) {
+          rankPlacesGained = Math.round(rankBefore) - Math.round(rank);
         }
       }
 
@@ -5360,6 +5390,10 @@
         || (isFinite(volume) && volume > 0)
         || filled > 0;
 
+      const rankPlacesLabel = isFinite(rankPlacesGained)
+        ? ((rankPlacesGained > 0 ? '+' : '') + Number(rankPlacesGained).toLocaleString(varLoc()))
+        : null;
+
       return {
         hasData,
         multi,
@@ -5369,17 +5403,23 @@
         filled,
         pointsTotal: isFinite(pointsTotal) ? pointsTotal : null,
         lastEpochPts: isFinite(lastEpochPts) ? lastEpochPts : null,
+        lastEpochVolume: isFinite(lastEpochVolume) && lastEpochVolume > 0 ? lastEpochVolume : null,
         volume: isFinite(volume) && volume > 0 ? volume : null,
         rank,
         rankApprox,
+        rankPlacesGained: isFinite(rankPlacesGained) ? rankPlacesGained : null,
         pointsLabel: varFmtPoints(isFinite(pointsTotal) ? pointsTotal : 0),
         lastEpochLabel: isFinite(lastEpochPts)
           ? ((lastEpochPts > 0 ? '+' : '') + varFmtPoints(lastEpochPts))
+          : null,
+        lastEpochVolumeLabel: isFinite(lastEpochVolume) && lastEpochVolume > 0
+          ? ('+' + varFmtCompactUsd(lastEpochVolume))
           : null,
         volumeLabel: isFinite(volume) && volume > 0 ? varFmtCompactUsd(volume) : '—',
         rankLabel: rank != null
           ? ((rankApprox ? '~#' : '#') + Number(rank).toLocaleString(varLoc()))
           : '—',
+        rankPlacesLabel,
       };
     } catch (_) {
       return { hasData: false, slots: [], filled: 0 };
