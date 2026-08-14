@@ -6300,11 +6300,6 @@
 
   function varFarmKpisHtml(g) {
     const costDisp = g.costPerPt != null ? varFarmEpochCostDisp(g.costPerPt) : '—';
-    const ppVal = isFinite(g.pricePerPt) ? String(g.pricePerPt) : '20';
-    const pricePpHtml = `<label class="var-price-pp" title="Hypothetical $/point for Estimation">
-      <span>${varEsc(varT('var.pricePerPoint'))}</span>
-      <input type="number" min="0" step="0.5" value="${varEsc(ppVal)}" data-var-price-per-point />
-    </label>`;
     const items = [
       {
         label: varT('var.epochPoints'),
@@ -6336,17 +6331,13 @@
         value: varFmtSuiviUsd(g.estNet),
         cls: g.estNet < 0 ? 'is-neg' : (g.estNet > 0 ? 'is-pos' : ''),
         tip: `${varFmtSuiviUsd(g.est)} + ${varFmtSuiviUsd(g.pnl)}`,
-        prefix: pricePpHtml,
       },
     ];
-    return `<div class="var-farm-suivi-kpis">${items.map((i) => {
-      const kpi = `<div class="var-farm-suivi-kpi${i.accent ? ' is-accent' : ''}" title="${varEsc(i.tip)}">
+    return `<div class="var-farm-suivi-kpis">${items.map((i) => `
+      <div class="var-farm-suivi-kpi${i.accent ? ' is-accent' : ''}" title="${varEsc(i.tip)}">
         <div class="lbl">${varEsc(i.label)}</div>
         <div class="val mono ${i.cls || ''}">${i.value}</div>
-      </div>`;
-      if (!i.prefix) return kpi;
-      return `<div class="var-farm-suivi-kpi-col">${i.prefix}${kpi}</div>`;
-    }).join('')}</div>`;
+      </div>`).join('')}</div>`;
   }
 
   function varFarmWalletsHtml(g) {
@@ -6377,25 +6368,12 @@
   }
 
   /** Compact recent epochs on Farm overview — Suivi "Par epoch" layout. */
-  function varRenderFarmEpochMini(opts) {
+  function varRenderFarmEpochMini() {
     const el = document.getElementById('varFarmEpochMini');
     const panel = document.getElementById('varFarmEpochsPanel');
     if (!el) return;
     varBindFarmEpochMiniUi();
-
-    const finish = () => {
-      varBindPricePerPointUi();
-      if (opts && opts.keepPriceFocus) {
-        const next = el.querySelector('[data-var-price-per-point]');
-        if (next instanceof HTMLInputElement) {
-          next.focus();
-          try {
-            const len = next.value.length;
-            next.setSelectionRange(len, len);
-          } catch (_) {}
-        }
-      }
-    };
+    varBindPricePerPointUi();
 
     const points = varPointsLoad();
     const bundle = varCsvLoadForView();
@@ -6407,7 +6385,6 @@
     if (!hasPts && !hasTrades && !wallets.length && !hlWallets.length) {
       el.innerHTML = `<div class="var-pos-empty">${varEsc(varT('var.farmEpochsEmpty'))}</div>`;
       if (panel) panel.style.display = '';
-      finish();
       return;
     }
 
@@ -6427,7 +6404,6 @@
     if (!epochRows.length) {
       el.innerHTML = summaryHtml
         || `<div class="var-pos-empty">${varEsc(varT('var.farmEpochsEmpty'))}</div>`;
-      finish();
       return;
     }
 
@@ -6763,7 +6739,6 @@
     el.innerHTML = `${summaryHtml}
       <div class="var-farm-suivi-epochs-h">${varEsc(varT('var.epochParEpoch'))}</div>
       <div class="var-farm-epoch-table-wrap"><table class="var-farm-epoch-table">${head}<tbody>${body}</tbody></table></div>`;
-    finish();
   }
 
   function varBindFarmEpochMiniUi() {
@@ -7525,28 +7500,20 @@
       if (!(el instanceof HTMLInputElement) || el.dataset.bound === '1') return;
       el.dataset.bound = '1';
       el.value = String(varPricePerPoint());
-      let debounce = null;
-      const apply = (opts = {}) => {
+      const apply = () => {
         varSetPricePerPoint(el.value);
-        try { varRenderFarmEpochMini({ keepPriceFocus: !!opts.refocus }); } catch (_) {}
+        try { varRenderFarmEpochMini(); } catch (_) {}
         try {
           if (_varSub === 'points' || _varSub === 'lab' || _varPointsView === 'points') {
             varRenderEpochTable(varPointsLoad());
           }
         } catch (_) {}
       };
-      el.addEventListener('change', () => {
-        if (debounce) { clearTimeout(debounce); debounce = null; }
-        apply();
-      });
-      el.addEventListener('input', () => {
-        if (debounce) clearTimeout(debounce);
-        debounce = setTimeout(() => apply({ refocus: true }), 120);
-      });
+      // Commit only when typing is done (blur/change) or Enter — not on every keystroke.
+      el.addEventListener('change', apply);
       el.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
           e.preventDefault();
-          if (debounce) { clearTimeout(debounce); debounce = null; }
           apply();
           el.blur();
         }

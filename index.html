@@ -1835,12 +1835,6 @@ const HS_CONFIG = {
         .var-farm-epoch-row .muted { color: var(--muted); font-size: .72rem; }
         .var-farm-epoch-row .is-pos { color: var(--success); }
         .var-farm-epoch-row .is-neg { color: var(--danger); }
-        .var-farm-suivi-kpi-col {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-          min-width: 0;
-        }
         .var-price-pp {
           display: inline-flex;
           align-items: center;
@@ -1848,14 +1842,6 @@ const HS_CONFIG = {
           font-size: .72rem;
           color: var(--muted);
           font-weight: 600;
-        }
-        .var-farm-suivi-kpi-col .var-price-pp {
-          display: flex;
-          flex-direction: column;
-          align-items: flex-start;
-          gap: 4px;
-          width: 100%;
-          margin: 0;
         }
         .var-price-pp input {
           width: 64px;
@@ -1866,11 +1852,6 @@ const HS_CONFIG = {
           color: var(--text);
           font: inherit;
           font-variant-numeric: tabular-nums;
-        }
-        .var-farm-suivi-kpi-col .var-price-pp input {
-          width: 100%;
-          max-width: 88px;
-          box-sizing: border-box;
         }
         .nav-beta-badge {
           font-size: .56rem;
@@ -11125,6 +11106,10 @@ const HS_CONFIG = {
                 <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
                   <span class="bar" style="background:var(--accent)"></span>
                   <span data-i18n="var.farmEpochsTitle">Recent epochs</span>
+                  <label class="var-price-pp" title="Hypothetical $/point for Estimation">
+                    <span data-i18n="var.pricePerPoint">$/pt</span>
+                    <input type="number" min="0" step="0.5" value="20" data-var-price-per-point />
+                  </label>
                 </div>
                 <div style="display:flex;align-items:center;gap:8px">
                   <button type="button" class="var-live-panel-toggle" onclick="varToggleLivePanel('live-epochs')" aria-label="Toggle section">▾</button>
@@ -33161,7 +33146,7 @@ document.addEventListener('DOMContentLoaded', () => {
 </div>
 
 <script src="js/variational-omni-collector.js"></script>
-<script src="js/variational-omni.js?v=20260814ppLive"></script>
+<script src="js/variational-omni.js?v=20260814ppHeader"></script>
 
 <script>
 (function hsLoadCfWebAnalytics() {
