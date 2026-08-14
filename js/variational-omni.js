@@ -6377,12 +6377,25 @@
   }
 
   /** Compact recent epochs on Farm overview — Suivi "Par epoch" layout. */
-  function varRenderFarmEpochMini() {
+  function varRenderFarmEpochMini(opts) {
     const el = document.getElementById('varFarmEpochMini');
     const panel = document.getElementById('varFarmEpochsPanel');
     if (!el) return;
-    varBindPricePerPointUi();
     varBindFarmEpochMiniUi();
+
+    const finish = () => {
+      varBindPricePerPointUi();
+      if (opts && opts.keepPriceFocus) {
+        const next = el.querySelector('[data-var-price-per-point]');
+        if (next instanceof HTMLInputElement) {
+          next.focus();
+          try {
+            const len = next.value.length;
+            next.setSelectionRange(len, len);
+          } catch (_) {}
+        }
+      }
+    };
 
     const points = varPointsLoad();
     const bundle = varCsvLoadForView();
@@ -6394,6 +6407,7 @@
     if (!hasPts && !hasTrades && !wallets.length && !hlWallets.length) {
       el.innerHTML = `<div class="var-pos-empty">${varEsc(varT('var.farmEpochsEmpty'))}</div>`;
       if (panel) panel.style.display = '';
+      finish();
       return;
     }
 
@@ -6413,6 +6427,7 @@
     if (!epochRows.length) {
       el.innerHTML = summaryHtml
         || `<div class="var-pos-empty">${varEsc(varT('var.farmEpochsEmpty'))}</div>`;
+      finish();
       return;
     }
 
@@ -6748,6 +6763,7 @@
     el.innerHTML = `${summaryHtml}
       <div class="var-farm-suivi-epochs-h">${varEsc(varT('var.epochParEpoch'))}</div>
       <div class="var-farm-epoch-table-wrap"><table class="var-farm-epoch-table">${head}<tbody>${body}</tbody></table></div>`;
+    finish();
   }
 
   function varBindFarmEpochMiniUi() {
@@ -7509,18 +7525,31 @@
       if (!(el instanceof HTMLInputElement) || el.dataset.bound === '1') return;
       el.dataset.bound = '1';
       el.value = String(varPricePerPoint());
-      const apply = () => {
+      let debounce = null;
+      const apply = (opts = {}) => {
         varSetPricePerPoint(el.value);
-        try { varRenderFarmEpochMini(); } catch (_) {}
+        try { varRenderFarmEpochMini({ keepPriceFocus: !!opts.refocus }); } catch (_) {}
         try {
           if (_varSub === 'points' || _varSub === 'lab' || _varPointsView === 'points') {
             varRenderEpochTable(varPointsLoad());
           }
         } catch (_) {}
       };
-      el.addEventListener('change', apply);
+      el.addEventListener('change', () => {
+        if (debounce) { clearTimeout(debounce); debounce = null; }
+        apply();
+      });
+      el.addEventListener('input', () => {
+        if (debounce) clearTimeout(debounce);
+        debounce = setTimeout(() => apply({ refocus: true }), 120);
+      });
       el.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') { e.preventDefault(); apply(); el.blur(); }
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          if (debounce) { clearTimeout(debounce); debounce = null; }
+          apply();
+          el.blur();
+        }
       });
     });
   }
