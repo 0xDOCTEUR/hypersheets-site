@@ -905,9 +905,8 @@ function forceOmniLiveHash(tabId) {
           target: { tabId },
           func: () => {
             try {
-              var onOmni = /\/omni\/?$/.test(location.pathname) || location.pathname.indexOf('/omni/') === 0;
-              if (!onOmni) {
-                location.replace('/omni/#var-omni-live');
+              if (location.pathname.indexOf('/omni') === 0) {
+                location.replace('/#var-omni-live');
                 return;
               }
               if (location.hash !== '#var-omni-live') {
@@ -953,7 +952,7 @@ async function syncToHypersheets() {
   if (!n) {
     const tabId = await new Promise((resolve) => {
       chrome.tabs.create(
-        { url: 'https://hypersheets.xyz/omni/#var-omni-live', active: true },
+        { url: 'https://hypersheets.xyz/#var-omni-live', active: true },
         (tab) => resolve(tab && tab.id != null ? tab.id : null)
       );
     });
@@ -966,7 +965,7 @@ async function syncToHypersheets() {
     ok: n > 0,
     hsTabs: n,
     counts: payload.counts || null,
-    error: n > 0 ? null : 'Hypersheets tab not ready — open hypersheets.xyz/omni and retry',
+    error: n > 0 ? null : 'Hypersheets tab not ready — open hypersheets.xyz and retry',
   };
 }
 
