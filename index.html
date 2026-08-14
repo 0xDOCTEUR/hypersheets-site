@@ -6402,6 +6402,11 @@ const HS_CONFIG = {
       background: linear-gradient(180deg, rgba(110,231,255,.15), rgba(110,231,255,.05));
       color: var(--accent); border-color: var(--accent);
     }
+    .share-var-scope-row {
+      display: none; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; align-items: center;
+    }
+    .share-var-scope-row.is-on { display: flex; }
+    .share-var-scope-row .wallet-chip[disabled] { opacity: .4; cursor: not-allowed; }
     .share-options {
       display: flex; gap: 14px; flex-wrap: wrap; align-items: center;
       padding: 10px 0; font-size: .78rem;
@@ -11703,6 +11708,7 @@ const HS_CONFIG = {
       <div class="share-tab active" data-page="dashboard" onclick="setShareTab(this, 'dashboard')" data-i18n="share.tabGlobal">Global</div>
       <div class="share-tab" data-page="hyperliquid" onclick="setShareTab(this, 'hyperliquid')" data-i18n="tab.hyperliquid">Hyperliquid</div>
       <div class="share-tab" data-page="tradexyz" onclick="setShareTab(this, 'tradexyz')" data-i18n="tab.tradexyz">Trade XYZ</div>
+      <div class="share-tab" data-page="variational" onclick="setShareTab(this, 'variational')" data-i18n="tab.variational">Variational</div>
     </div>
 
     <div class="share-period-row" id="sharePeriodPills" role="group" data-i18n-aria="share.periodAria" aria-label="Period">
@@ -11710,6 +11716,8 @@ const HS_CONFIG = {
       <span class="share-period-pill" data-period="month" onclick="setSharePeriod(this,'month')" data-i18n="share.periodMonth">Monthly</span>
       <span class="share-period-pill" data-period="week" onclick="setSharePeriod(this,'week')" data-i18n="share.periodWeek">Weekly</span>
     </div>
+
+    <div class="share-var-scope-row" id="shareVarScopeChips" role="group" data-i18n-aria="share.varScopeAria" aria-label="Omni JSON"></div>
 
     <!-- Card skin picker -->
     <div style="margin-bottom:12px">
@@ -12765,6 +12773,13 @@ const I18N = {
     'btn.share': 'Share',
     'tab.dashboard': 'Dashboard',
     'share.tabGlobal': 'Global',
+    'share.varPointsTotal': 'Total points',
+    'share.varVolumeTotal': 'Total volume',
+    'share.varLbRank': 'Variational leaderboard rank',
+    'share.varLastEpoch': 'Last epoch',
+    'share.varLastEpochNone': 'No last epoch yet',
+    'share.varLbRankSub': 'Omni points leaderboard',
+    'share.varScopeAria': 'Omni JSON scope',
     'share.periodAll': 'All time',
     'share.periodMonth': 'Monthly',
     'share.periodWeek': 'Weekly',
@@ -13936,6 +13951,13 @@ const I18N = {
     'allHistory': "Tout l'historique",
     'show': 'Afficher :',
     'share.tabGlobal': 'Global',
+    'share.varPointsTotal': 'Points total',
+    'share.varVolumeTotal': 'Volume total',
+    'share.varLbRank': 'Rang leaderboard Variational',
+    'share.varLastEpoch': 'Dernière epoch',
+    'share.varLastEpochNone': 'Pas encore de dernière epoch',
+    'share.varLbRankSub': 'Leaderboard points Omni',
+    'share.varScopeAria': 'Périmètre JSON Omni',
     'share.periodAll': 'All time',
     'share.periodMonth': 'Monthly',
     'share.periodWeek': 'Weekly',
@@ -20352,6 +20374,9 @@ function getSharePeriodCutoff() {
 }
 
 function getSharePeriodLabel() {
+  if (currentShareTab === 'variational') {
+    return typeof t === 'function' ? t('share.periodAll') : 'All time';
+  }
   if (_sharePeriod === 'week') return typeof t === 'function' ? t('share.periodWeek') : 'Weekly';
   if (_sharePeriod === 'month') return typeof t === 'function' ? t('share.periodMonth') : 'Monthly';
   return typeof t === 'function' ? t('share.periodAll') : 'All time';
@@ -20360,6 +20385,7 @@ function getSharePeriodLabel() {
 function getShareUniverseLabel(pageType) {
   if (pageType === 'hyperliquid') return 'Hyperliquid';
   if (pageType === 'tradexyz') return 'Trade XYZ';
+  if (pageType === 'variational') return typeof t === 'function' ? t('tab.variational') : 'Variational';
   return typeof t === 'function' ? t('share.tabGlobal') : 'Global';
 }
 
@@ -20374,6 +20400,63 @@ function syncSharePeriodPillsUI() {
   document.querySelectorAll('#sharePeriodPills .share-period-pill').forEach(p => {
     p.classList.toggle('active', p.dataset.period === _sharePeriod);
   });
+  const periodRow = document.getElementById('sharePeriodPills');
+  const rankRow = document.getElementById('shareRankModePills');
+  const hidePnl = document.getElementById('shareHidePnl')?.closest('label');
+  const isVar = currentShareTab === 'variational';
+  if (periodRow) periodRow.style.display = isVar ? 'none' : '';
+  if (rankRow) rankRow.style.display = isVar ? 'none' : '';
+  if (hidePnl) hidePnl.style.display = isVar ? 'none' : '';
+}
+
+function syncShareVarScopeUI() {
+  const host = document.getElementById('shareVarScopeChips');
+  if (!host) return;
+  const on = currentShareTab === 'variational';
+  host.classList.toggle('is-on', on);
+  syncSharePeriodPillsUI();
+  if (!on) {
+    host.innerHTML = '';
+    return;
+  }
+  const st = (typeof varGetShareFarmStats === 'function') ? varGetShareFarmStats() : null;
+  const slots = st?.slots || [];
+  const filled = st?.filled || 0;
+  const scope = st?.scope || 'active';
+  const active = st?.activeId;
+  const allLabel = (typeof t === 'function' ? t('var.csvScopeAll') : null) || 'Tous';
+  host.innerHTML = `
+    <button type="button" class="wallet-chip${scope === 'all' ? ' active' : ''}" data-share-var-scope="all"${filled < 2 ? ' disabled' : ''}>${allLabel}</button>
+    ${slots.map((s) => {
+      const onChip = scope === 'active' && s.id === active;
+      const tip = s.trades ? `${s.trades} trades` : '';
+      const label = String(s.label || s.id || '').replace(/[<>&"]/g, '');
+      return `<button type="button" class="wallet-chip${onChip ? ' active' : ''}" data-share-var-pick="${s.id}" title="${tip}">${label}${s.trades ? ` · ${s.trades}` : ''}</button>`;
+    }).join('')}`;
+  if (!host._hsBound) {
+    host._hsBound = true;
+    host.addEventListener('click', (e) => {
+      const all = e.target.closest('[data-share-var-scope]');
+      if (all) {
+        e.preventDefault();
+        if (all.disabled) return;
+        if (typeof varSetCsvScope === 'function') varSetCsvScope('all');
+        syncShareVarScopeUI();
+        redrawShareCard();
+        return;
+      }
+      const pick = e.target.closest('[data-share-var-pick]');
+      if (pick) {
+        e.preventDefault();
+        if (typeof varSetCsvScope === 'function') varSetCsvScope('active');
+        if (typeof varAccountsSetActiveImport === 'function') {
+          varAccountsSetActiveImport(pick.getAttribute('data-share-var-pick'));
+        }
+        syncShareVarScopeUI();
+        redrawShareCard();
+      }
+    });
+  }
 }
 
 function setSharePeriod(el, period) {
@@ -20427,11 +20510,14 @@ async function ensureShareLeaderboardReady() {
 }
 
 function openShareModal() {
-  if (!wallets.length) {
+  const hasVar = typeof varGetShareFarmStats === 'function' && !!varGetShareFarmStats()?.hasData;
+  const hasHlWallet = !!wallets.length;
+  const hasHlData = !!(allFills.length || xyzFills.length || bridgeOps.length);
+  if (!hasHlWallet && !hasVar) {
     showError(t('share.noWallet'));
     return;
   }
-  if (!allFills.length && !xyzFills.length && !bridgeOps.length) {
+  if (!hasHlData && !hasVar) {
     showError(t('share.noData'));
     return;
   }
@@ -20442,14 +20528,17 @@ function openShareModal() {
     'page-dashboard': 'dashboard',
     'page-hyperliquid': 'hyperliquid',
     'page-tradexyz': 'tradexyz',
+    'page-variational': 'variational',
     'page-hyperunit': 'dashboard',
     'page-leaderboard': 'dashboard',
     'page-farming': 'dashboard',
     'page-analyse': 'dashboard',
   };
-  const allowed = new Set(['dashboard', 'hyperliquid', 'tradexyz']);
+  const allowed = new Set(['dashboard', 'hyperliquid', 'tradexyz', 'variational']);
   let tab = map[activePage] || 'dashboard';
   if (!allowed.has(tab)) tab = 'dashboard';
+  if (tab === 'variational' && !hasVar) tab = hasHlData ? 'dashboard' : 'variational';
+  if (tab !== 'variational' && !hasHlData && hasVar) tab = 'variational';
   selectedCardOverride = getDefaultShareMoodKey(tab);
   document.querySelectorAll('.card-thumb').forEach(t => t.classList.remove('active'));
   const moodThumb = document.querySelector(`.card-thumb[data-card="${selectedCardOverride}"]`)
@@ -20461,6 +20550,7 @@ function openShareModal() {
   syncSharePeriodPillsUI();
   shareRankModeLoad();
   syncShareRankModePillsUI();
+  syncShareVarScopeUI();
   redrawShareCard();
   if (!_leaderboardAllRows?.length) {
     if (!_shareLeaderboardWarmupPromise) {
@@ -20476,11 +20566,12 @@ function closeShareModal() {
   document.getElementById('shareModalBg').classList.remove('active');
 }
 function setShareTab(el, page) {
-  const allowed = new Set(['dashboard', 'hyperliquid', 'tradexyz']);
+  const allowed = new Set(['dashboard', 'hyperliquid', 'tradexyz', 'variational']);
   if (!allowed.has(page)) page = 'dashboard';
   document.querySelectorAll('.share-tab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
   currentShareTab = page;
+  syncShareVarScopeUI();
   redrawShareCard();
 }
 function syncShareCanvasPreviewLayout() {
@@ -20814,6 +20905,40 @@ function shareSnapshot(pageType) {
       ],
     };
   }
+  if (pageType === 'variational') {
+    const st = (typeof varGetShareFarmStats === 'function') ? varGetShareFarmStats() : null;
+    const lastSub = st?.lastEpochLabel
+      ? ((typeof t === 'function' ? t('share.varLastEpoch') : 'Last epoch') + ' ' + st.lastEpochLabel)
+      : (typeof t === 'function' ? t('share.varLastEpochNone') : 'No last epoch');
+    const volSub = st?.multi
+      ? (typeof t === 'function' ? t('var.farmVolAllWallets') : 'All wallets volume')
+      : (typeof t === 'function' ? t('var.farmVolTotalSub') : 'Total volume');
+    const rankSub = st?.rankApprox
+      ? (typeof t === 'function' ? t('var.farmLbRankApproxSub') : 'Approx. from Classement')
+      : (typeof t === 'function' ? t('share.varLbRankSub') : 'Omni points leaderboard');
+    return {
+      title: typeof t === 'function' ? t('tab.variational') : 'Variational',
+      accent: '#4c9af8',
+      moodScore: isFinite(st?.lastEpochPts) ? st.lastEpochPts : (isFinite(st?.pointsTotal) ? st.pointsTotal : 0),
+      kpis: [
+        {
+          label: typeof t === 'function' ? t('share.varPointsTotal') : 'Total points',
+          val: st?.pointsLabel || '—',
+          sub: lastSub,
+        },
+        {
+          label: typeof t === 'function' ? t('share.varVolumeTotal') : 'Total volume',
+          val: st?.volumeLabel || '—',
+          sub: volSub,
+        },
+        {
+          label: typeof t === 'function' ? t('share.varLbRank') : 'Variational leaderboard rank',
+          val: st?.rankLabel || '—',
+          sub: rankSub,
+        },
+      ],
+    };
+  }
   // default : dashboard
   const eco = computeEcoVolTotals(hl, hlUnit, xyz, ops)
   const { volHL, volXYZ, volUnit, volTotal } = eco
@@ -20892,6 +21017,10 @@ function getShareLeaderboardRankLabel() {
 }
 
 function getShareEssentialKpis(pageType) {
+  if (pageType === 'variational') {
+    const snap = shareSnapshot('variational');
+    return (snap.kpis || []).slice(0, 3);
+  }
   const snap = shareSnapshot(pageType);
   const kpis = (snap.kpis || []).filter(Boolean);
   let volK = kpis.find(k => /vol|volume/i.test(String(k.label || '')));
@@ -20917,6 +21046,9 @@ function getShareEssentialKpis(pageType) {
 
 function getDefaultShareMoodKey(pageType) {
   const snap = shareSnapshot(pageType);
+  if (pageType === 'variational' && typeof snap.moodScore === 'number') {
+    return getWojakKey(snap.moodScore);
+  }
   const pnlKpi = (snap.kpis || []).find(k => typeof k.pnl === 'number');
   const pnl = pnlKpi?.pnl ?? getSharePeriodNetPnl();
   return getWojakKey(pnl);
@@ -21296,6 +21428,11 @@ async function generateShareCard(canvas, pageType) {
       ctx.font = `700 ${fsize}px "Inter","Segoe UI",sans-serif`;
     }
     ctx.fillText(displayVal, ix, ky + 24);
+    if (k.sub) {
+      ctx.fillStyle = 'rgba(155,170,185,0.75)';
+      ctx.font = '600 13px "Inter",sans-serif';
+      ctx.fillText(String(k.sub), ix, ky + 24 + fsize + 8);
+    }
   }
 
   const footY = H - 42;
@@ -33146,7 +33283,7 @@ document.addEventListener('DOMContentLoaded', () => {
 </div>
 
 <script src="js/variational-omni-collector.js"></script>
-<script src="js/variational-omni.js?v=20260814ppHeader"></script>
+<script src="js/variational-omni.js?v=20260814shareVar"></script>
 
 <script>
 (function hsLoadCfWebAnalytics() {

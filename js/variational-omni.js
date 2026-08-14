@@ -5280,6 +5280,112 @@
     return null;
   }
 
+  /** Last completed epoch points delta (for share / farm score sub). */
+  function varLastEpochPointsDelta(points) {
+    const hist = [...(points?.points_history || [])]
+      .map((h) => {
+        if (!h || typeof h !== 'object') return null;
+        const start = Date.parse(h.start_window || h.start || 0);
+        const end = Date.parse(h.end_window || h.end || 0);
+        const pts = parseFloat(h.total_points ?? h.points ?? h.self_points);
+        if (!isFinite(pts)) return null;
+        return { start: isFinite(start) ? start : 0, end: isFinite(end) ? end : 0, pts };
+      })
+      .filter(Boolean)
+      .sort((a, b) => (b.start - a.start) || (b.end - a.end));
+    if (!hist.length) return null;
+    const now = Date.now();
+    const completed = hist.find((h) => h.end > 0 && h.end <= now + 60 * 1000);
+    return (completed || hist[0]).pts;
+  }
+
+  /** Snapshot for PARTAGER → Variational (respects JSON / Tous scope). */
+  function varGetShareFarmStats() {
+    try {
+      varCsvScopeLoad();
+      const pts = varPointsLoad();
+      const sum = pts?.points_summary;
+      const multi = !!(pts && pts.multiAccount) || _varCsvScope === 'all';
+      const selfPts = parseFloat(sum?.self_points ?? sum?.self);
+      const refPts = parseFloat(sum?.referral_points ?? sum?.referral);
+      const totalPts = parseFloat(sum?.total_points ?? sum?.total);
+      const pointsTotal = isFinite(totalPts)
+        ? totalPts
+        : ((isFinite(selfPts) ? selfPts : 0) + (isFinite(refPts) ? refPts : 0));
+      const lastEpochPts = varLastEpochPointsDelta(pts);
+
+      let volume = NaN;
+      try {
+        const bundle = varCsvLoadForView();
+        if (bundle) {
+          const dash = varBuildDashAnalytics(bundle, 'all', { light: true });
+          if (dash && isFinite(dash.volume) && dash.volume > 0) volume = dash.volume;
+        }
+      } catch (_) {}
+
+      let rank = null;
+      let rankApprox = false;
+      if (multi) {
+        const approx = varApproxPointsLbRank(pointsTotal);
+        if (approx != null && isFinite(approx)) {
+          rank = Math.round(approx);
+          rankApprox = true;
+        }
+      } else if (sum?.rank != null && isFinite(Number(sum.rank))) {
+        rank = Number(sum.rank);
+      } else {
+        const approx = varApproxPointsLbRank(pointsTotal);
+        if (approx != null && isFinite(approx)) {
+          rank = Math.round(approx);
+          rankApprox = true;
+        }
+      }
+
+      const acc = varAccountsLoad();
+      const ids = varOmniSlotIds(acc);
+      const active = varAccountsActiveId();
+      const slots = ids.map((id, i) => {
+        const s = acc.slots[id] || {};
+        const nTrades = (s.csv?.trades || []).length;
+        const hasPts = varPointsHasData(s.points);
+        return {
+          id,
+          label: s.label || varOmniLabelForIndex(i),
+          ready: nTrades > 0 || hasPts,
+          trades: nTrades,
+        };
+      });
+      const filled = slots.filter((s) => s.ready).length;
+      const hasData = (isFinite(pointsTotal) && pointsTotal > 0)
+        || (isFinite(volume) && volume > 0)
+        || filled > 0;
+
+      return {
+        hasData,
+        multi,
+        scope: _varCsvScope === 'all' ? 'all' : 'active',
+        activeId: active,
+        slots,
+        filled,
+        pointsTotal: isFinite(pointsTotal) ? pointsTotal : null,
+        lastEpochPts: isFinite(lastEpochPts) ? lastEpochPts : null,
+        volume: isFinite(volume) && volume > 0 ? volume : null,
+        rank,
+        rankApprox,
+        pointsLabel: varFmtPoints(isFinite(pointsTotal) ? pointsTotal : 0),
+        lastEpochLabel: isFinite(lastEpochPts)
+          ? ((lastEpochPts > 0 ? '+' : '') + varFmtPoints(lastEpochPts))
+          : null,
+        volumeLabel: isFinite(volume) && volume > 0 ? varFmtCompactUsd(volume) : '—',
+        rankLabel: rank != null
+          ? ((rankApprox ? '~#' : '#') + Number(rank).toLocaleString(varLoc()))
+          : '—',
+      };
+    } catch (_) {
+      return { hasData: false, slots: [], filled: 0 };
+    }
+  }
+
   const VAR_FARM_EPOCH_WALLET_COLORS = [
     '#1d5bb8', '#9a4a12', '#0b7a6a', '#3d2c6b', '#b42318', '#0b4f8a', '#7a3e12', '#2563eb',
   ];
@@ -10361,6 +10467,7 @@
   window.varAirdropDownloadPng = varAirdropDownloadPng;
   window.varAirdropCopyImage = varAirdropCopyImage;
   window.varAirdropShareX = varAirdropShareX;
+  window.varGetShareFarmStats = varGetShareFarmStats;
   window.initVarPage = initVarPage;
 
   varInitOmniExportReceiver();
