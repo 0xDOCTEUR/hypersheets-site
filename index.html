@@ -20910,6 +20910,9 @@ function shareSnapshot(pageType) {
     const lastSub = st?.lastEpochLabel
       ? ((typeof t === 'function' ? t('share.varLastEpoch') : 'Last epoch') + ' ' + st.lastEpochLabel)
       : (typeof t === 'function' ? t('share.varLastEpochNone') : 'No last epoch');
+    const lastSubColor = isFinite(st?.lastEpochPts)
+      ? (st.lastEpochPts >= 0 ? '#4ade80' : '#f87171')
+      : undefined;
     const volSub = st?.multi
       ? (typeof t === 'function' ? t('var.farmVolAllWallets') : 'All wallets volume')
       : (typeof t === 'function' ? t('var.farmVolTotalSub') : 'Total volume');
@@ -20925,6 +20928,7 @@ function shareSnapshot(pageType) {
           label: typeof t === 'function' ? t('share.varPointsTotal') : 'Total points',
           val: st?.pointsLabel || '—',
           sub: lastSub,
+          subColor: lastSubColor,
         },
         {
           label: typeof t === 'function' ? t('share.varVolumeTotal') : 'Total volume',
@@ -21429,7 +21433,7 @@ async function generateShareCard(canvas, pageType) {
     }
     ctx.fillText(displayVal, ix, ky + 24);
     if (k.sub) {
-      ctx.fillStyle = 'rgba(155,170,185,0.75)';
+      ctx.fillStyle = k.subColor || 'rgba(155,170,185,0.75)';
       ctx.font = '600 13px "Inter",sans-serif';
       ctx.fillText(String(k.sub), ix, ky + 24 + fsize + 8);
     }
