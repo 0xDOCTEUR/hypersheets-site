@@ -807,7 +807,7 @@ async function ensureOmniTab() {
   }
   return new Promise((resolve) => {
     chrome.tabs.create(
-      { url: 'https://omni.variational.io/?ref=OMNILD9IBR89', active: true },
+      { url: 'https://omni.variational.io/?ref=OMNILGUPC6GM', active: true },
       (tab) => resolve(tab || null)
     );
   });
