@@ -5689,6 +5689,7 @@
           epochs: (h && h.epochs) || [],
           address: addr,
           syncedAt: h && h.syncedAt,
+          fillsSource: h && h.fillsSource,
           isHl: true,
           source: 'omni',
         }];
@@ -5707,6 +5708,7 @@
         epochs: w.epochs || [],
         address: w.address || '',
         syncedAt: w.syncedAt,
+        fillsSource: w.fillsSource,
         isHl: true,
         source: 'suivi',
       }));
@@ -5799,6 +5801,7 @@
         fillsCount: fills.length,
         fundingCount: funding.length,
         needsSync: false,
+        fillsSource: shell.fillsSource || VAR_HL_FILLS_SOURCE,
       };
       varAccountsSave(acc);
       // Optional mirror into Suivi store so embedded Suivi stays in sync if used.
@@ -5846,6 +5849,7 @@
       syncedAt: hedge.syncedAt || null,
       fillsCount: hedge.fillsCount || 0,
       fundingCount: hedge.fundingCount || 0,
+      fillsSource: hedge.fillsSource || VAR_HL_FILLS_SOURCE,
     };
     state.v = 4;
     localStorage.setItem('farm-varia-dashboard-v4', JSON.stringify(state));
@@ -5963,6 +5967,8 @@
     COPPER: ['xyz:COPPER'], ALUM: ['xyz:ALUMINIUM'], ALUMINIUM: ['xyz:ALUMINIUM'],
     EWY: ['xyz:EWY', 'EWY'], EWJ: ['xyz:EWJ', 'EWJ'],
   };
+  /** Bump when HL fill sources change so auto-heal re-syncs existing hedge weeks. */
+  const VAR_HL_FILLS_SOURCE = 'core+xyz+twap-v1';
 
   let _varFarmHlHealPromise = null;
   let _varFarmHlHealDoneKey = '';
@@ -5979,24 +5985,52 @@
     return c.toUpperCase();
   }
 
-  function varFarmHlIsFarmingCoin(coin, marketSet) {
-    if (!coin || varFarmHlIsSpotCoin(coin) || !marketSet || !marketSet.size) return false;
+  function varFarmOmniTradeTs(t) {
+    return varParseTs(
+      t && (t.created_at || t.timestamp || t.time || t.date || t.ts)
+    );
+  }
+
+  function varFarmOmniTradeMarket(t) {
+    const m = t && (
+      t.underlying
+      || (t.instrument && t.instrument.underlying)
+      || (t.reference_instrument && t.reference_instrument.underlying)
+      || t.market || t.symbol || t.asset || t.coin
+    );
+    return m ? String(m).toUpperCase().replace(/^XYZ:/i, '') : '';
+  }
+
+  function varFarmHlAcceptNamesFromOmniMarkets(marketSet) {
+    const accept = new Set();
+    const add = (s) => {
+      const v = String(s || '').trim().toUpperCase();
+      if (!v) return;
+      accept.add(v);
+      const base = varFarmHlCoinBase(v);
+      if (base) {
+        accept.add(base);
+        accept.add('XYZ:' + base);
+      }
+    };
+    for (const m of marketSet || []) {
+      add(m);
+      const M = String(m).toUpperCase().replace(/^XYZ:/i, '');
+      add(VAR_HL_TICKER_MAP[M]);
+      add(VAR_HL_TICKER_ALIASES[M]);
+      const alts = VAR_FARM_HL_TO_VARIA[M];
+      if (alts) alts.forEach(add);
+    }
+    return accept;
+  }
+
+  function varFarmHlIsFarmingCoin(coin, marketSet, acceptNames) {
+    if (!coin || varFarmHlIsSpotCoin(coin)) return false;
+    const accept = acceptNames || varFarmHlAcceptNamesFromOmniMarkets(marketSet);
+    if (!accept.size) return false;
     const rawUp = String(coin).trim().toUpperCase();
     const base = varFarmHlCoinBase(coin);
-    if (!base) return false;
-    for (const m of marketSet) {
-      const M = String(m).toUpperCase();
-      if (base === M || rawUp === M) return true;
-      if (rawUp.endsWith(':' + M)) return true;
-      const alts = VAR_FARM_HL_TO_VARIA[M];
-      if (alts) {
-        for (const a of alts) {
-          const A = String(a).toUpperCase();
-          if (rawUp === A || base === varFarmHlCoinBase(a)) return true;
-        }
-      }
-    }
-    return false;
+    return accept.has(rawUp) || accept.has(base) || (base ? accept.has('XYZ:' + base) : false);
   }
 
   function varFarmHlFillFeeUsd(f) {
@@ -6016,20 +6050,21 @@
     const wallets = varFarmEpochWalletSources();
     for (const w of wallets) {
       for (const t of (w.csv && w.csv.trades) || []) {
-        const ts = varParseTs(t.timestamp || t.time || t.date);
+        if (t && t.status && t.status !== 'confirmed') continue;
+        const ts = varFarmOmniTradeTs(t);
         if (!isFinite(ts) || ts < startMs || ts >= endMs) continue;
-        const m = t.market || t.symbol || t.asset || t.coin;
-        if (m) set.add(String(m).toUpperCase().replace(/^XYZ:/i, ''));
+        const m = varFarmOmniTradeMarket(t);
+        if (m) set.add(m);
       }
       const ep = (w.epochs || []).length
         ? varFarmEpochFindHlEpoch({ epochs: w.epochs }, startMs, endMs)
         : null;
-      for (const m of (ep && ep.markets) || []) set.add(String(m).toUpperCase());
+      for (const m of (ep && ep.markets) || []) set.add(String(m).toUpperCase().replace(/^XYZ:/i, ''));
     }
     const suivi = varFarmVariaStateLoad();
     for (const v of Object.values((suivi && suivi.variaWallets) || {})) {
       const e = varFarmEpochFindHlEpoch({ epochs: (v && v.epochs) || [] }, startMs, endMs);
-      for (const m of (e && e.markets) || []) set.add(String(m).toUpperCase());
+      for (const m of (e && e.markets) || []) set.add(String(m).toUpperCase().replace(/^XYZ:/i, ''));
     }
     return set;
   }
@@ -6045,39 +6080,73 @@
     return vol;
   }
 
-  async function varFarmHlFetchFills(wallet, startTime) {
+  function varFarmHlFillTime(f) {
+    const raw = Number(f && (f.time || f.fillTime || f.timestamp || f.ts) || 0);
+    if (!isFinite(raw) || !raw) return 0;
+    return raw < 1e11 ? raw * 1000 : raw;
+  }
+
+  function varFarmHlFillKey(f) {
+    const t = varFarmHlFillTime(f);
+    return (f && f.tid) || `${t}-${f && f.coin}-${f && f.px}-${f && f.sz}-${f && f.side}-${f && f.oid}`;
+  }
+
+  function varFarmHlNormalizeTwapEntry(entry) {
+    const fill = (entry && entry.fill) || entry || {};
+    const merged = { ...(entry || {}), ...fill };
+    const time = varFarmHlFillTime(merged);
+    return {
+      ...merged,
+      coin: merged.coin || merged.asset || merged.symbol || '',
+      px: merged.px ?? merged.price ?? merged.avgPx ?? 0,
+      sz: merged.sz ?? merged.size ?? merged.qty ?? merged.executedSz ?? 0,
+      side: merged.side || merged.dir || '',
+      time,
+      _twapId: entry && (entry.twapId != null ? entry.twapId : merged.twapId),
+      _isTwapSlice: true,
+    };
+  }
+
+  async function varFarmHlFetchFillsPage(wallet, startTime, extra) {
     if (typeof hlPost !== 'function') throw new Error('hlPost unavailable');
     const PAGE = 2000;
     const MAX = 40;
-    const seen = new Set();
-    const results = [];
+    const seen = extra && extra.seen ? extra.seen : new Set();
+    const results = extra && extra.results ? extra.results : [];
+    const type = (extra && extra.type) || 'userFillsByTime';
     let cursorStart = startTime;
     let cursorEnd = Date.now();
     let order = null;
     for (let p = 0; p < MAX; p++) {
-      const batch = await hlPost({
-        type: 'userFillsByTime',
+      const body = {
+        type,
         user: wallet,
         startTime: cursorStart,
         endTime: cursorEnd,
-        aggregateByTime: false,
-      });
+      };
+      if (type === 'userFillsByTime') body.aggregateByTime = false;
+      if (extra && extra.dex) body.dex = extra.dex;
+      const batch = await hlPost(body);
       if (!Array.isArray(batch) || !batch.length) break;
-      if (order === null && batch.length > 1) {
-        order = batch[0].time <= batch[batch.length - 1].time ? 'asc' : 'desc';
+      const rows = type === 'userTwapSliceFillsByTime'
+        ? batch.map(varFarmHlNormalizeTwapEntry)
+        : batch;
+      if (order === null && rows.length > 1) {
+        order = rows[0].time <= rows[rows.length - 1].time ? 'asc' : 'desc';
       }
       let minTime = Infinity;
       let maxTime = -Infinity;
       let newCount = 0;
-      for (const f of batch) {
-        const key = f.tid || `${f.time}-${f.coin}-${f.px}-${f.sz}-${f.side}-${f.oid}`;
+      for (const f of rows) {
+        const time = varFarmHlFillTime(f);
+        const key = varFarmHlFillKey(f);
         if (!seen.has(key)) {
           seen.add(key);
-          results.push(f);
+          results.push({ ...f, time });
           newCount++;
         }
-        if (f.time < minTime) minTime = f.time;
-        if (f.time > maxTime) maxTime = f.time;
+        if (time < minTime) minTime = time;
+        if (time > maxTime) maxTime = time;
       }
       if (batch.length < PAGE || newCount === 0) break;
       if (order === 'asc') {
@@ -6089,6 +6158,44 @@
         cursorEnd = minTime - 1;
         if (cursorEnd <= cursorStart) break;
       }
+    }
+    return results;
+  }
+
+  async function varFarmHlFetchTwapFills(wallet, startTime) {
+    if (typeof hlPost !== 'function') throw new Error('hlPost unavailable');
+    try {
+      const byTime = await varFarmHlFetchFillsPage(wallet, startTime, { type: 'userTwapSliceFillsByTime' });
+      if (byTime.length) return byTime;
+    } catch (_) {}
+    const batch = await hlPost({ type: 'userTwapSliceFills', user: wallet });
+    if (!Array.isArray(batch) || !batch.length) return [];
+    const out = [];
+    const seen = new Set();
+    for (const entry of batch) {
+      const f = varFarmHlNormalizeTwapEntry(entry);
+      if (!f.time || (startTime && f.time < startTime)) continue;
+      const key = varFarmHlFillKey(f);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(f);
+    }
+    return out;
+  }
+
+  async function varFarmHlFetchFills(wallet, startTime) {
+    const [core, xyz, twap] = await Promise.all([
+      varFarmHlFetchFillsPage(wallet, startTime, {}),
+      varFarmHlFetchFillsPage(wallet, startTime, { dex: 'xyz' }).catch(() => []),
+      varFarmHlFetchTwapFills(wallet, startTime).catch(() => []),
+    ]);
+    const seen = new Set();
+    const results = [];
+    for (const f of [...core, ...xyz, ...twap]) {
+      const key = varFarmHlFillKey(f);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      results.push(f);
     }
     return results;
   }
@@ -6184,6 +6291,9 @@
     hl.epochs = windows.map((w) => {
       const key = varFarmEpochThursdayKey(w.startMs);
       const marketSet = marketsByKey.get(key) || new Set();
+      const accept = varFarmHlAcceptNamesFromOmniMarkets(marketSet);
+      const omniVol = varFarmOmniVolumeInWeek(w.startMs, w.endMs);
+      const allowAllPerps = !accept.size && omniVol > 0;
       let realizedRaw = 0;
       let feesRaw = 0;
       let volumeRaw = 0;
@@ -6193,7 +6303,7 @@
       for (const f of fills || []) {
         if (f.time < w.startMs || f.time >= w.endMs) continue;
         if (varFarmHlIsSpotCoin(f.coin)) continue;
-        if (!marketSet.size || !varFarmHlIsFarmingCoin(f.coin, marketSet)) continue;
+        if (!allowAllPerps && !varFarmHlIsFarmingCoin(f.coin, marketSet, accept)) continue;
         realizedRaw += Number(f.closedPnl) || 0;
         feesRaw += -varFarmHlFillFeeUsd(f);
         volumeRaw += Math.abs((Number(f.px) || 0) * (Number(f.sz) || 0));
@@ -6203,10 +6313,9 @@
       for (const ev of funding || []) {
         if (ev.time < w.startMs || ev.time >= w.endMs) continue;
         if (varFarmHlIsSpotCoin(ev.coin)) continue;
-        if (!marketSet.size || !varFarmHlIsFarmingCoin(ev.coin, marketSet)) continue;
+        if (!allowAllPerps && !varFarmHlIsFarmingCoin(ev.coin, marketSet, accept)) continue;
         fundingRaw += Number(ev.usdc) || 0;
       }
-      const omniVol = varFarmOmniVolumeInWeek(w.startMs, w.endMs);
       const use = omniVol > 0 || tradesRaw > 0 || volumeRaw > 0
         || Math.abs(realizedRaw) > 0 || Math.abs(fundingRaw) > 0 || Math.abs(feesRaw) > 0;
       return {
@@ -6239,10 +6348,12 @@
       || ep.tradesRaw || ep.fundingRaw || ep.realizedRaw || ep.feesRaw || ep.volumeRaw
     );
     hl.syncedAt = new Date().toISOString();
+    hl.fillsSource = VAR_HL_FILLS_SOURCE;
   }
 
   function varFarmHlNeedsHeal(epochRows, hlWallets) {
     for (const hl of hlWallets || []) {
+      if ((hl.fillsSource || '') !== VAR_HL_FILLS_SOURCE) return true;
       for (const r of epochRows || []) {
         if (!varFarmEpochFindHlEpoch(hl, r.start, r.end)) return true;
       }
@@ -6260,8 +6371,16 @@
       const primary = omniHl.find((h) => h.source === 'omni' && h.address);
       if (primary) {
         if (!varFarmHlNeedsHeal(rows, [primary])) return false;
-        const res = await varSyncHlHedgeFromImport({ silent: true });
-        return !!(res && res.ok);
+        if (_varFarmHlHealPromise) return _varFarmHlHealPromise;
+        _varFarmHlHealPromise = (async () => {
+          try {
+            const res = await varSyncHlHedgeFromImport({ silent: true });
+            return !!(res && res.ok);
+          } finally {
+            _varFarmHlHealPromise = null;
+          }
+        })();
+        return _varFarmHlHealPromise;
       }
     } catch (_) {}
 
@@ -6277,7 +6396,8 @@
     })))) return false;
 
     const healKey = rows.map((r) => varFarmEpochThursdayKey(r.start)).join('|')
-      + '::' + hlList.map((h) => h.id || h.address).join(',');
+      + '::' + hlList.map((h) => h.id || h.address).join(',')
+      + '::' + VAR_HL_FILLS_SOURCE;
     if (_varFarmHlHealDoneKey === healKey) return false;
     if (_varFarmHlHealPromise) return _varFarmHlHealPromise;
 
