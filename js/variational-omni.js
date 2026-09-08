@@ -6034,11 +6034,14 @@
     let best = null;
     let bestDist = Infinity;
     for (const e of list) {
-      const es = varFarmParseEpochTs(e.start);
+      const es = isFinite(Number(e && e.startMs))
+        ? Number(e.startMs)
+        : varFarmParseEpochTs(e && (e.start || e.start_window));
       if (!isFinite(es)) continue;
       const day = varFarmEpochDayUtc(es);
+      const thu = varFarmEpochThursdayKey(es);
       // Same calendar start day, or same UTC Thursday week (date-only / missing Z safe).
-      if ((wantDay && day === wantDay) || (wantThu && varFarmEpochThursdayKey(es) === wantThu)) {
+      if ((wantDay && day === wantDay) || (wantThu && thu === wantThu)) {
         exact = e;
         break;
       }
@@ -6176,10 +6179,25 @@
     return vol;
   }
 
+  function varFarmHlNormalizeTime(raw) {
+    const n = Number(raw);
+    if (!isFinite(n) || !n) return 0;
+    return n < 1e11 ? n * 1000 : n;
+  }
+
   function varFarmHlFillTime(f) {
-    const raw = Number(f && (f.time || f.fillTime || f.timestamp || f.ts) || 0);
-    if (!isFinite(raw) || !raw) return 0;
-    return raw < 1e11 ? raw * 1000 : raw;
+    return varFarmHlNormalizeTime(f && (f.time || f.fillTime || f.timestamp || f.ts));
+  }
+
+  function varFarmHlCurrentWeekStart() {
+    return varEpochStartUtc(Date.now());
+  }
+
+  /** True when hedge address exists but the live Thursday week has no HL epoch yet. */
+  function varFarmHlMissingWeek(hl, startMs) {
+    if (!hl) return true;
+    const start = isFinite(startMs) ? startMs : varFarmHlCurrentWeekStart();
+    return !varFarmEpochFindHlEpoch(hl, start, start + 7 * 864e5);
   }
 
   function varFarmHlFillKey(f) {
@@ -6360,6 +6378,8 @@
     };
     for (const r of epochRows || []) add(r.start);
     for (const e of (hl && hl.epochs) || []) add(e.start);
+    // Always include the live Thursday week so HL can appear on "en cours".
+    add(varFarmHlCurrentWeekStart());
     // Fill Thursday gaps so HL never buckets into a neighbouring Omni week.
     const keys = [...map.keys()].sort();
     if (keys.length >= 2) {
@@ -6423,7 +6443,8 @@
         }
       }
       for (const ev of funding || []) {
-        if (!(ev.time >= w.startMs && ev.time < w.endMs)) continue;
+        const time = varFarmHlNormalizeTime(ev && ev.time);
+        if (!(time >= w.startMs && time < w.endMs)) continue;
         if (varFarmHlIsSpotCoin(ev.coin)) continue;
         const usdc = Number(ev.usdc) || 0;
         fundingRaw += usdc;
@@ -6438,11 +6459,12 @@
         || Math.abs(realizedRaw) > 0 || Math.abs(fundingRaw) > 0 || Math.abs(feesRaw) > 0;
       const useFarm = farmHit || (allowAllPerps && rawHit);
       const realized = useFarm ? realizedFarm : (rawHit ? realizedRaw : 0);
-      const funding = useFarm ? fundingFarm : (rawHit ? fundingRaw : 0);
+      const fundingAmt = useFarm ? fundingFarm : (rawHit ? fundingRaw : 0);
       const fees = useFarm ? feesFarm : (rawHit ? feesRaw : 0);
       const volume = useFarm ? volumeFarm : (rawHit ? volumeRaw : 0);
       const trades = useFarm ? tradesFarm : (rawHit ? tradesRaw : 0);
       const farming = !!(useFarm && (omniVol > 0 || farmHit));
+      const inProgress = Date.now() >= w.startMs && Date.now() < w.endMs;
       return {
         start: w.start,
         end: w.end,
@@ -6458,15 +6480,16 @@
         volumeRaw,
         tradesRaw,
         realized,
-        funding,
+        funding: fundingAmt,
         fees,
         volume,
         trades,
         farming,
         needsSync: false,
         hasHedge: rawHit,
+        inProgress,
         variaVolume: omniVol,
-        pnl: realized + funding + fees,
+        pnl: realized + fundingAmt + fees,
       };
     }).filter((ep) => ep.hasHedge || ep.farming);
     hl.syncedAt = new Date().toISOString();
@@ -6493,10 +6516,16 @@
       const primary = omniHl.find((h) => h.source === 'omni' && h.address);
       if (primary) {
         if (!varFarmHlNeedsHeal(rows, [primary])) return false;
+        const healKey = 'omni:' + rows.map((r) => varFarmEpochThursdayKey(r.start)).join('|')
+          + ':' + String(primary.address || '').toLowerCase()
+          + ':' + ((primary.epochs || []).length)
+          + ':' + VAR_HL_FILLS_SOURCE;
+        if (_varFarmHlHealDoneKey === healKey) return false;
         if (_varFarmHlHealPromise) return _varFarmHlHealPromise;
         _varFarmHlHealPromise = (async () => {
           try {
             const res = await varSyncHlHedgeFromImport({ silent: true });
+            if (res && res.ok) _varFarmHlHealDoneKey = healKey;
             return !!(res && res.ok);
           } finally {
             _varFarmHlHealPromise = null;
@@ -6792,16 +6821,17 @@
     const walletsAll = varFarmEpochWalletSources();
     const wallets = varFarmEpochWalletSourcesForView();
     let hlWallets = varFarmEpochHlSources();
-    // Address saved but never synced / previous sync filtered everything → pull HL now.
+    // Address saved but never synced / live week missing → pull HL now.
     try {
       const hedge = varGetHlHedge();
       const addr = String(hedge.address || '').trim();
+      const missingLive = varFarmHlMissingWeek(hedge);
       if (
         /^0x[a-fA-F0-9]{40}$/i.test(addr)
         && typeof hlPost === 'function'
-        && (!hlWallets.length || hedge.needsSync || !(hedge.epochs || []).length)
+        && (!hlWallets.length || hedge.needsSync || !(hedge.epochs || []).length || missingLive)
       ) {
-        if (!window.__hsVarHlAutoSyncAt || Date.now() - window.__hsVarHlAutoSyncAt > 20000) {
+        if (!window.__hsVarHlAutoSyncAt || Date.now() - window.__hsVarHlAutoSyncAt > 45000) {
           window.__hsVarHlAutoSyncAt = Date.now();
           void varSyncHlHedgeFromImport({ silent: true }).then((res) => {
             if (res && res.ok) {
