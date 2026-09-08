@@ -421,7 +421,7 @@ async function persistSyncState(next) {
 }
 
 function defaultAccountsGuard() {
-  return { deletedSlots: {}, clearedSlots: {} };
+  return { deletedSlots: {}, clearedSlots: {}, fullResetAt: 0 };
 }
 
 function normalizeAccountsGuard(raw) {
@@ -441,7 +441,8 @@ function normalizeAccountsGuard(raw) {
       if (t > 0) clearedSlots[String(id)] = t;
     });
   }
-  return { deletedSlots, clearedSlots };
+  const fullResetAt = Number(raw.fullResetAt) || 0;
+  return { deletedSlots, clearedSlots, fullResetAt };
 }
 
 function slotImportScore(slot) {
@@ -508,10 +509,13 @@ function mergeAccountsFromHypersheets(localRaw, remoteRaw, guardRaw) {
     const locAt = Number(l.importedAt) || 0;
     if (remScore > 0 && remAt > locAt && remAt > clearAt) {
       out.slots[id].csv = r.csv;
-      out.slots[id].csvIds = Array.isArray(r.csvIds) ? r.csvIds.slice() : out.slots[id].csvIds;
+      // Page file import has no csvIds — never keep old library links (they resurrect old CSVs).
+      out.slots[id].csvIds = Array.isArray(r.csvIds) ? r.csvIds.slice() : [];
       out.slots[id].importedAt = r.importedAt;
       if (r.points) out.slots[id].points = r.points;
+      else if (!r.csv) out.slots[id].points = null;
       if (r.omniAddress) out.slots[id].omniAddress = r.omniAddress;
+      if (typeof r.label === 'string') out.slots[id].label = r.label;
       if (cleared[id]) delete cleared[id];
     }
     if (!out.slots[id].hlWallet && r.hlWallet) out.slots[id].hlWallet = r.hlWallet;
@@ -537,11 +541,20 @@ function mergeAccountsFromHypersheets(localRaw, remoteRaw, guardRaw) {
 function hydrateCsvLibrary(state) {
   const library = normalizeCsvLibrary(state.csvLibrary);
   const accounts = normalizeAccounts(state.accounts);
+  const guard = normalizeAccountsGuard(state.accountsGuard);
   const known = new Set(library.map((e) => e.id));
 
   for (const id of omniSlotIds(accounts)) {
     const slot = accounts.slots[id];
     if (!slot) continue;
+    const clearedAt = Number(guard.clearedSlots && guard.clearedSlots[id]) || 0;
+    const slotAt = Number(slot.importedAt) || 0;
+    if (clearedAt && slotAt <= clearedAt) {
+      slot.csv = null;
+      slot.csvIds = [];
+      slot.points = null;
+      continue;
+    }
     let ids = Array.isArray(slot.csvIds) ? slot.csvIds.map(String) : [];
 
     // Legacy jambe with csv but no library link → promote into library
@@ -575,8 +588,16 @@ function hydrateCsvLibrary(state) {
     );
     slot.csvIds = rebuilt.csvIds.length ? rebuilt.csvIds : ids;
     if (rebuilt.csvIds.length) {
-      slot.csv = rebuilt.csv;
-      slot.marketsHint = marketsHintFromCsv(rebuilt.csv) || slot.marketsHint || '';
+      const libAt = rebuilt.csvIds.reduce((max, cid) => {
+        const e = library.find((x) => x.id === cid);
+        const t = e ? Number(e.importedAt) || 0 : 0;
+        return t > max ? t : max;
+      }, 0);
+      // Page just imported a newer CSV — do not rebuild from an older library row.
+      if (!(slot.csv && slotAt > libAt)) {
+        slot.csv = rebuilt.csv;
+        slot.marketsHint = marketsHintFromCsv(rebuilt.csv) || slot.marketsHint || '';
+      }
     }
   }
 
@@ -651,6 +672,37 @@ async function getWidgetState() {
     csvLibrary: state.csvLibrary || [],
     activeImportSlot: state.accounts.activeImportSlot,
   };
+}
+
+async function resetAllOmniLegs() {
+  const now = Date.now();
+  const accounts = {
+    slotOrder: ['a', 'b'],
+    activeImportSlot: 'a',
+    slots: {
+      a: emptySlotTemplate('a', ''),
+      b: emptySlotTemplate('b', ''),
+    },
+  };
+  const state = {
+    accounts: normalizeAccounts(accounts),
+    wallets: [],
+    csvLibrary: [],
+    legacyCsv: null,
+    pairOverrides: {},
+    accountsGuard: {
+      deletedSlots: {},
+      clearedSlots: { a: now, b: now },
+      fullResetAt: now,
+    },
+    syncedAt: now,
+    origin: 'hypersheets-reset',
+  };
+  await persistSyncState(state);
+  try {
+    void pushAccountsToHypersheetsTabs();
+  } catch (_) {}
+  return getWidgetState();
 }
 
 async function mutateAccounts(mutator) {
@@ -4076,6 +4128,13 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     return true;
   }
 
+  if (msg.type === 'HS_WIDGET_RESET_ALL') {
+    resetAllOmniLegs()
+      .then((res) => sendResponse(res))
+      .catch((e) => sendResponse({ ok: false, error: String(e && e.message || e) }));
+    return true;
+  }
+
   if (msg.type === 'HS_WIDGET_CLEAR_SLOT') {
     const id = String(msg.slotId || '');
     mutateAccounts((accounts, state) => {
@@ -4085,6 +4144,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       accounts.slots[id].points = null;
       accounts.slots[id].marketsHint = '';
       accounts.slots[id].omniAddress = '';
+      accounts.slots[id].label = '';
       accounts.slots[id].importedAt = null;
       if (accounts.activeImportSlot === id) state.legacyCsv = null;
       const guard = normalizeAccountsGuard(state.accountsGuard);
@@ -4125,9 +4185,22 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         : defaultAccountsGuard();
 
       // Prefer merge over replace: Hypersheets must not wipe extension Omni legs.
+      // Explicit Clear from the page is the exception — it must wipe A/B and the CSV library.
       let accounts;
       let accountsGuard = prevGuard;
-      if (msg.accounts && prevAcc) {
+      let nextCsvLibrary = normalizeCsvLibrary(prev && prev.csvLibrary);
+      if (msg.fullReset) {
+        accounts = normalizeAccounts(msg.accounts || defaultAccounts());
+        accountsGuard = {
+          deletedSlots: {},
+          clearedSlots: {},
+          fullResetAt: Date.now(),
+        };
+        omniSlotIds(accounts).forEach((id) => {
+          accountsGuard.clearedSlots[id] = Date.now();
+        });
+        nextCsvLibrary = [];
+      } else if (msg.accounts && prevAcc) {
         const merged = mergeAccountsFromHypersheets(prevAcc, msg.accounts, prevGuard);
         accounts = merged.accounts;
         accountsGuard = merged.accountsGuard;
@@ -4138,14 +4211,14 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       }
 
       // Preserve / map hlWallet + points when page sync has none
-      if (prevAcc && accounts.slots) {
+      if (!msg.fullReset && prevAcc && accounts.slots) {
         omniSlotIds(accounts).forEach((id) => {
           const p = prevAcc.slots[id];
           if (!p) return;
           if (!accounts.slots[id].hlWallet && p.hlWallet) {
             accounts.slots[id].hlWallet = p.hlWallet;
           }
-          if (!accounts.slots[id].points && p.points) {
+          if (!accounts.slots[id].points && p.points && slotImportScore(accounts.slots[id]) > 0) {
             accounts.slots[id].points = p.points;
           }
         });
@@ -4156,7 +4229,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
             wi += 1;
           }
         });
-      } else if (wallets.length) {
+      } else if (!msg.fullReset && wallets.length) {
         omniSlotIds(accounts).forEach((id, i) => {
           if (!accounts.slots[id].hlWallet && wallets[i]) {
             accounts.slots[id].hlWallet = wallets[i];
@@ -4165,13 +4238,14 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       }
       accounts = normalizeAccounts(accounts);
       const nextWallets = mergeWalletsList(accounts, wallets);
-      const nextLegacy = (prev && prev.legacyCsv) || msg.legacyCsv || null;
+      const nextLegacy = msg.fullReset ? null : ((prev && prev.legacyCsv) || msg.legacyCsv || null);
       const nextPair = (prev && prev.pairOverrides) || {};
       let nextOrigin = msg.origin || (prev && prev.origin) || null;
       let nextSyncedAt = msg.syncedAt || Date.now();
 
-      // Never let a poorer page snapshot clobber a richer local import clock.
-      if (prev && prev.syncedAt && prev.origin === 'extension-local') {
+      // Blank first-load page must not wipe richer extension legs.
+      // A newer page import, or an explicit Clear, must win — even if the CSV is smaller.
+      if (prev && prev.syncedAt && prev.origin === 'extension-local' && !msg.fullReset) {
         const localScore = omniSlotIds(prevAcc || defaultAccounts()).reduce(
           (s, id) => s + slotImportScore((prevAcc && prevAcc.slots[id]) || null),
           0
@@ -4180,7 +4254,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           (s, id) => s + slotImportScore(accounts.slots[id]),
           0
         );
-        if (localScore > nextScore) {
+        const remoteNewer = omniSlotIds(msg.accounts || {}).some((id) => {
+          const r = msg.accounts && msg.accounts.slots && msg.accounts.slots[id];
+          const l = prevAcc && prevAcc.slots && prevAcc.slots[id];
+          return (Number(r && r.importedAt) || 0) > (Number(l && l.importedAt) || 0);
+        });
+        if (localScore > nextScore && nextScore === 0 && !remoteNewer) {
           accounts = prevAcc;
           accountsGuard = prevGuard;
           nextOrigin = 'extension-local';
@@ -4224,7 +4303,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       synced = {
         accounts,
         wallets: nextWallets,
-        csvLibrary: normalizeCsvLibrary(prev && prev.csvLibrary),
+        csvLibrary: nextCsvLibrary,
         legacyCsv: nextLegacy,
         pairOverrides: nextPair,
         accountsGuard,

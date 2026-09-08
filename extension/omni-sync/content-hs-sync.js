@@ -15,6 +15,7 @@
 
   let dead = false;
   let applyQuietUntil = 0;
+  let fullResetUntil = 0;
   const KEYS = ['hs-var-omni-accounts', 'hf-wallets', 'hs-var-csv-bundle'];
 
   function readJson(key) {
@@ -42,6 +43,7 @@
         legacyCsv,
         syncedAt: Date.now(),
         origin: location.origin,
+        fullReset: Date.now() < fullResetUntil,
       }, () => {
         try {
           const err = chrome.runtime.lastError;
@@ -118,6 +120,48 @@
     if (ev.source !== window) return;
     const data = ev.data;
     if (!data || data.source !== 'hs-page') return;
+
+    if (data.type === 'HS_OMNI_RESET_ALL') {
+      if (dead || !extAlive()) return;
+      applyQuietUntil = Date.now() + 8000;
+      fullResetUntil = Date.now() + 20000;
+      try {
+        chrome.runtime.sendMessage({ type: 'HS_WIDGET_RESET_ALL' }, () => {
+          try {
+            const err = chrome.runtime.lastError;
+            if (err && /invalidated|Cannot access/i.test(err.message || '')) dead = true;
+          } catch (_) {
+            dead = true;
+          }
+        });
+      } catch (e) {
+        if (/invalidated|Cannot access/i.test(String(e && e.message || e))) dead = true;
+      }
+      return;
+    }
+
+    if (data.type === 'HS_OMNI_CLEAR_SLOT') {
+      if (dead || !extAlive()) return;
+      applyQuietUntil = Date.now() + 4000;
+      try {
+        chrome.runtime.sendMessage({ type: 'HS_WIDGET_CLEAR_SLOT', slotId: data.slotId || '' }, () => {
+          try { void chrome.runtime.lastError; } catch (_) {}
+        });
+      } catch (_) {}
+      return;
+    }
+
+    if (data.type === 'HS_OMNI_REMOVE_SLOT') {
+      if (dead || !extAlive()) return;
+      applyQuietUntil = Date.now() + 4000;
+      try {
+        chrome.runtime.sendMessage({ type: 'HS_WIDGET_REMOVE_SLOT', slotId: data.slotId || '' }, () => {
+          try { void chrome.runtime.lastError; } catch (_) {}
+        });
+      } catch (_) {}
+      return;
+    }
+
     if (data.type !== 'HS_OMNI_EXT_GET_POINTS') return;
     if (dead || !extAlive()) {
       try {

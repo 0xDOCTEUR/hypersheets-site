@@ -893,14 +893,14 @@
   function varOmniMakeSlot(id, label) {
     return {
       id,
-      label: String(label || id).slice(0, 24) || id,
+      label: String(label || '').trim().slice(0, 24),
       csv: null,
       points: null,
       importedAt: null,
       omniAddress: '',
       hlWallet: '',
       epochs: [],
-      csvIds: null,
+      csvIds: [],
     };
   }
 
@@ -1030,7 +1030,7 @@
         omniAddress: String(s.omniAddress || '').trim(),
         hlWallet: String(s.hlWallet || '').trim(),
         epochs: Array.isArray(s.epochs) ? s.epochs : [],
-        csvIds: s.csvIds && typeof s.csvIds === 'object' ? s.csvIds : null,
+        csvIds: Array.isArray(s.csvIds) ? s.csvIds.map(String).filter(Boolean) : [],
       };
     });
     out.activeImportSlot = order.includes(raw.activeImportSlot) ? raw.activeImportSlot : order[0];
@@ -1319,6 +1319,7 @@
         acc.activeImportSlot = acc.slotOrder[0];
       }
       varAccountsSave(acc);
+      varNotifyOmniExt('HS_OMNI_REMOVE_SLOT', { slotId: id });
       if (typeof toast === 'function') toast(varT('var.slotRemoved').replace('{label}', labelBefore));
       varAccountsScheduleActivityRefresh();
     } finally {
@@ -1458,6 +1459,7 @@
     const id = varAccountsActiveId();
     if (!acc.slots[id]) return;
     acc.slots[id].csv = varCsvNormalize(bundle);
+    acc.slots[id].csvIds = [];
     acc.slots[id].importedAt = Date.now();
     varAccountsSave(acc);
   }
@@ -2227,7 +2229,7 @@
     return epochs;
   }
 
-  function varApplyOmniExport(data, fileName) {
+  function varApplyOmniExport(data, fileName, opts) {
     const trades = (data.trades || []).map(varNormalizeOmniTrade);
     const transfersRaw = (data.transfers || []).map(varNormalizeOmniTransfer);
     const split = varSplitTransferRows(transfersRaw);
@@ -2253,7 +2255,12 @@
     const accPre = varAccountsLoad();
     const slotId = varAccountsActiveId();
     const prevSlot = accPre.slots[slotId] || null;
-    const toSave = varPreferRicherCashCsv(prevSlot?.csv || null, bundle);
+    // File drop/import must use the selected file only. Keep richer cash solely
+    // for a thin Live collect that would otherwise wipe a fuller CSV.
+    const keepRicherCash = !!(opts && opts.keepRicherCash);
+    const toSave = keepRicherCash
+      ? varPreferRicherCashCsv(prevSlot?.csv || null, bundle)
+      : bundle;
     varCsvSave(toSave);
 
     const competition = data.competition;
@@ -8924,6 +8931,10 @@
 
   async function varImportJsonFiles(input) {
     const files = [...(input?.files || [])];
+    varResetOmniFileInputs();
+    if (input && input !== document.getElementById('varJsonFileInput')) {
+      try { input.value = ''; } catch (_) {}
+    }
     if (!files.length) return;
     let ok = 0;
     let bad = 0;
@@ -8966,11 +8977,14 @@
     if (ptsEl && pts != null && !ptsEl.dataset.manual) {
       ptsEl.value = String(parseFloat(pts));
     }
-    if (input) input.value = '';
   }
 
   async function varImportMixedFiles(input) {
     const files = [...(input?.files || [])];
+    varResetOmniFileInputs();
+    if (input && input !== document.getElementById('varJsonFileInput')) {
+      try { input.value = ''; } catch (_) {}
+    }
     if (!files.length) return;
     const jsons = files.filter(f => /\.json$/i.test(f.name) || f.type.includes('json'));
     const csvs = files.filter(f => !jsons.includes(f));
@@ -8979,10 +8993,9 @@
       await varImportJsonFiles(fake);
     }
     if (csvs.length) {
-      const fake = { files: csvs, value: '' };
+      const fake = { files: csvs };
       varImportCsvFiles(fake);
     }
-    if (input) input.value = '';
   }
 
   let _varCollectorRunSrc = '';
@@ -9071,7 +9084,7 @@
 
   function varImportOmniPayload(payload, fileName) {
     if (!varIsOmniExport(payload)) return false;
-    varApplyOmniExport(payload, fileName || 'variational-export-live.json');
+    varApplyOmniExport(payload, fileName || 'variational-export-live.json', { keepRicherCash: true });
     // Always pin the Live hash immediately (even if heavy UI is deferred).
     try {
       if (typeof markDashboardLaunched === 'function') markDashboardLaunched();
@@ -9595,10 +9608,8 @@
       }
       if (data.type === 'HS_OMNI_ACCOUNTS_APPLIED') {
         varAccountsInvalidateMemo();
-        _varOmniBookMemo = null;
-        _varOmniBookMemoTs = 0;
-        _varDashAnalyticsMemo = null;
-        _varEpochSumCache = null;
+        varInvalidateViewCaches();
+        try { varRenderOmniSlotsUi(); } catch (_) {}
         try { varAccountsScheduleActivityRefresh(); } catch (_) {}
         try {
           if (varIsPointsTab(_varSub)) renderVarPoints();
@@ -9848,71 +9859,192 @@
       drop.classList.remove('is-drag');
       const files = [...(e.dataTransfer?.files || [])];
       if (!files.length) return;
-      const fake = { files };
-      const hasJson = files.some(f => /\.json$/i.test(f.name) || f.type.includes('json'));
-      if (hasJson) await varImportJsonFiles(fake);
-      else varImportCsvFiles(fake);
+      await varImportMixedFiles({ files });
     });
   }
 
+  function varResetOmniFileInputs() {
+    ['varJsonFileInput', 'varJsonFileInputLegacy'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) {
+        try { el.value = ''; } catch (_) {}
+      }
+    });
+  }
+
+  function varNotifyOmniExt(type, extra) {
+    try {
+      window.postMessage(Object.assign({ source: 'hs-page', type: type }, extra || {}), '*');
+    } catch (_) {}
+  }
+
+  function varReadFileText(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(reader.error || new Error('read'));
+      reader.readAsText(file);
+    });
+  }
+
+  function varCsvIdentity(objs) {
+    for (const r of objs || []) {
+      if (!r || typeof r !== 'object') continue;
+      const company = String(r.company || r.company_id || '').trim();
+      if (company) return 'co:' + company.toLowerCase();
+      const addr = String(r.wallet || r.address || r.omni_address || r.account || '').trim();
+      if (/^0x[a-fA-F0-9]{40}$/i.test(addr)) return 'addr:' + addr.toLowerCase();
+    }
+    return '';
+  }
+
+  function varCsvKindsFromBundle(bundle, importedKinds) {
+    const kinds = importedKinds || new Set();
+    if (!bundle) return kinds;
+    VAR_CSV_KINDS.forEach((k) => {
+      if (bundle[k] && bundle[k].length) kinds.add(k);
+    });
+    return kinds;
+  }
+
+  function varToastCsvImport(hadError, importedKinds) {
+    if (typeof toast !== 'function') return;
+    if (hadError && !importedKinds.size) toast(varT('var.csvUnknown'), true);
+    else if (importedKinds.size === 1) {
+      const k = [...importedKinds][0];
+      toast(varT('var.csvImportedKind').replace('{kind}', varT(VAR_CSV_KIND_I18N[k] || k)));
+    } else if (importedKinds.size > 1) toast(varT('var.csvImported'));
+    else if (hadError) toast(varT('var.csvUnknown'), true);
+  }
+
+  function varApplyCsvGroupToSlot(parsedRows) {
+    let bundle = varCsvEmptyBundle();
+    const importedKinds = new Set();
+    let hadError = false;
+    for (const item of parsedRows || []) {
+      if (!item || !item.kind) {
+        hadError = true;
+        continue;
+      }
+      bundle = varApplyCsvImport(bundle, item.kind, item.objs, item.name);
+      if (item.kind === 'mixed') varCsvKindsFromBundle(bundle, importedKinds);
+      else importedKinds.add(item.kind);
+    }
+    varCsvSave(bundle);
+    try {
+      const acc = varAccountsLoad();
+      const id = varAccountsActiveId();
+      if (acc.slots[id]) {
+        const addr = itemAddrFromParsed(parsedRows);
+        const prevAddr = String(acc.slots[id].omniAddress || '').toLowerCase();
+        acc.slots[id].csvIds = [];
+        acc.slots[id].epochs = [];
+        if (addr) {
+          acc.slots[id].omniAddress = addr;
+          acc.slots[id].label = varOmniAddrSuffix(addr) || acc.slots[id].label;
+          if (prevAddr && prevAddr !== addr) acc.slots[id].points = null;
+        }
+        varAccountsSave(acc);
+      }
+    } catch (_) {}
+    return { bundle, importedKinds, hadError };
+  }
+
+  function itemAddrFromParsed(parsedRows) {
+    for (const item of parsedRows || []) {
+      for (const r of item.objs || []) {
+        const addr = String(r.wallet || r.address || r.omni_address || r.account || '').trim();
+        if (/^0x[a-fA-F0-9]{40}$/i.test(addr)) return addr.toLowerCase();
+      }
+    }
+    return '';
+  }
+
   function varImportCsvFiles(input, forcedKind) {
-    const files = [...(input?.files || [])];
+    const files = Array.from(input?.files || []);
+    // Drop the native FileList immediately so a later click cannot reuse old CSVs.
+    varResetOmniFileInputs();
+    if (input && input !== document.getElementById('varJsonFileInput')) {
+      try { input.value = ''; } catch (_) {}
+    }
     if (!files.length) return;
     const jsonFiles = files.filter(f => /\.json$/i.test(f.name) || (f.type || '').includes('json'));
     const csvFiles = files.filter(f => !jsonFiles.includes(f));
 
-    const finishCsv = (bundle, hadError, importedKinds) => {
-      varCsvSave(bundle);
-      if (typeof toast === 'function') {
-        if (hadError && !importedKinds.size) toast(varT('var.csvUnknown'), true);
-        else if (importedKinds.size === 1) {
-          const k = [...importedKinds][0];
-          toast(varT('var.csvImportedKind').replace('{kind}', varT(VAR_CSV_KIND_I18N[k] || k)));
-        } else if (importedKinds.size > 1) toast(varT('var.csvImported'));
-        else if (hadError) toast(varT('var.csvUnknown'), true);
+    const runCsv = async () => {
+      if (!csvFiles.length) return;
+      const parsed = [];
+      let hadError = false;
+      for (const file of csvFiles) {
+        try {
+          const text = await varReadFileText(file);
+          const objs = csvRowsToObjects(parseCsvText(text));
+          const kind = forcedKind || varDetectCsvKind(objs, file.name);
+          if (!kind) {
+            hadError = true;
+            continue;
+          }
+          parsed.push({
+            name: file.name,
+            kind,
+            objs,
+            identity: varCsvIdentity(objs),
+          });
+        } catch (_) {
+          hadError = true;
+        }
       }
-      renderVarActivity();
-      if (input) input.value = '';
-    };
-
-    const runCsv = () => {
-      if (!csvFiles.length) {
-        if (input) input.value = '';
+      if (!parsed.length) {
+        varToastCsvImport(true, new Set());
+        renderVarActivity();
         return;
       }
-      let bundle = varCsvLoad() || varCsvEmptyBundle();
-      let pending = csvFiles.length;
-      let hadError = false;
-      const importedKinds = new Set();
-      const onDone = () => {
-        pending--;
-        if (pending > 0) return;
-        finishCsv(bundle, hadError, importedKinds);
-      };
-      for (const file of csvFiles) {
-        const reader = new FileReader();
-        reader.onload = () => {
-          try {
-            const matrix = parseCsvText(reader.result);
-            const objs = csvRowsToObjects(matrix);
-            let kind = forcedKind || varDetectCsvKind(objs, file.name);
-            if (!kind) {
-              hadError = true;
-            } else {
-              bundle = varApplyCsvImport(bundle, kind, objs, file.name);
-              if (kind === 'mixed') {
-                ['funding', 'realizedPnl', 'transfers'].forEach(k => { if (bundle[k]?.length) importedKinds.add(k); });
-              } else {
-                importedKinds.add(kind);
-              }
-            }
-          } catch (_) {
-            hadError = true;
-          }
-          onDone();
-        };
-        reader.readAsText(file);
+
+      const groups = new Map();
+      for (const item of parsed) {
+        const key = item.identity || '_active';
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(item);
       }
+      const keyed = [...groups.keys()].filter((k) => k !== '_active');
+      if (keyed.length === 1 && groups.has('_active')) {
+        groups.get(keyed[0]).push.apply(groups.get(keyed[0]), groups.get('_active'));
+        groups.delete('_active');
+      }
+
+      const keys = [...groups.keys()];
+      const importedKinds = new Set();
+      const multiWallet = keyed.length > 1;
+
+      for (let i = 0; i < keys.length; i++) {
+        const key = keys[i];
+        const rows = groups.get(key);
+        if (multiWallet) {
+          let slotId = '';
+          if (key.indexOf('addr:') === 0) {
+            const want = key.slice(5);
+            const acc = varAccountsLoad();
+            slotId = varOmniSlotIds(acc).find((id) =>
+              String(acc.slots[id]?.omniAddress || '').toLowerCase() === want
+            ) || '';
+          }
+          if (!slotId) {
+            slotId = i === 0 ? varAccountsActiveId() : varAccountsPickSlotForNewImport();
+          }
+          if (slotId) {
+            varCsvScopeSave('active');
+            varAccountsSetActiveImport(slotId);
+          }
+        }
+        const res = varApplyCsvGroupToSlot(rows);
+        if (res.hadError) hadError = true;
+        res.importedKinds.forEach((k) => importedKinds.add(k));
+      }
+      if (multiWallet) {
+        try { varSetCsvScope('all'); } catch (_) {}
+      }
+      varToastCsvImport(hadError, importedKinds);
+      renderVarActivity();
     };
 
     if (jsonFiles.length) {
@@ -9928,11 +10060,11 @@
           const pts = varPointsLoad()?.points_summary?.total_points;
           if (ptsEl && pts != null && !ptsEl.dataset.manual) ptsEl.value = String(parseFloat(pts));
           renderVarActivity();
-          runCsv();
+          return runCsv();
         });
       return;
     }
-    runCsv();
+    void runCsv();
   }
 
   function varClearCsvKind(kind) {
@@ -9960,25 +10092,37 @@
   function varClearOmniSlot(id) {
     const acc = varAccountsLoad();
     if (!varOmniSlotIds(acc).includes(id)) return;
-    const idx = varOmniSlotIds(acc).indexOf(id);
-    acc.slots[id] = {
-      id,
-      label: acc.slots[id]?.label || varOmniLabelForIndex(idx),
-      csv: null,
-      points: null,
-      epochs: null,
-      importedAt: null,
-    };
+    acc.slots[id] = varOmniMakeSlot(id, '');
     varAccountsSave(acc);
-    if (typeof toast === 'function') toast(varT('var.slotCleared').replace('{label}', acc.slots[id].label));
+    varInvalidateViewCaches();
+    varNotifyOmniExt('HS_OMNI_CLEAR_SLOT', { slotId: id });
+    if (typeof toast === 'function') toast(varT('var.slotCleared').replace('{label}', id));
     varAccountsScheduleActivityRefresh();
+    try { varRenderOmniSlotsUi(); } catch (_) {}
   }
 
   function varClearCsv() {
-    // Full reset: back to 2 empty default legs (Omni 1 / Omni 2), wipe data + custom names.
+    varNotifyOmniExt('HS_OMNI_RESET_ALL');
+    varResetOmniFileInputs();
+    varInvalidateViewCaches();
     const empty = varAccountsEmpty();
     varAccountsSave(empty);
     varPositionsClear();
+    try {
+      localStorage.removeItem(HS_VAR_CSV_KEY);
+      localStorage.removeItem(HS_VAR_POINTS_KEY);
+    } catch (_) {}
+    try {
+      const raw = localStorage.getItem('farm-varia-dashboard-v4')
+        || localStorage.getItem('farm-varia-dashboard-v3');
+      if (raw) {
+        const s = JSON.parse(raw);
+        if (s && typeof s === 'object') {
+          s.variaWallets = {};
+          localStorage.setItem('farm-varia-dashboard-v4', JSON.stringify(s));
+        }
+      }
+    } catch (_) {}
     try { varCsvScopeSave('all'); } catch (_) {}
     try { varRenderOmniSlotsUi(); } catch (_) {}
     try { varRenderTopScopeChips(); } catch (_) {}
