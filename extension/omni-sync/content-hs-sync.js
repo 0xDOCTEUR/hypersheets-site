@@ -15,7 +15,6 @@
 
   let dead = false;
   let applyQuietUntil = 0;
-  let fullResetUntil = 0;
   const KEYS = ['hs-var-omni-accounts', 'hf-wallets', 'hs-var-csv-bundle'];
 
   function readJson(key) {
@@ -36,6 +35,8 @@
     const wallets = readJson('hf-wallets');
     const legacyCsv = readJson('hs-var-csv-bundle');
     try {
+      // Never mark periodic sync as fullReset — that re-stamped clearedSlots and
+      // wiped CSVs re-imported right after Clear. Wipe is HS_WIDGET_RESET_ALL only.
       chrome.runtime.sendMessage({
         type: 'HS_WIDGET_SYNC',
         accounts,
@@ -43,7 +44,6 @@
         legacyCsv,
         syncedAt: Date.now(),
         origin: location.origin,
-        fullReset: Date.now() < fullResetUntil,
       }, () => {
         try {
           const err = chrome.runtime.lastError;
@@ -123,8 +123,8 @@
 
     if (data.type === 'HS_OMNI_RESET_ALL') {
       if (dead || !extAlive()) return;
+      // Quiet long enough for empty localStorage not to echo before RESET_ALL finishes.
       applyQuietUntil = Date.now() + 8000;
-      fullResetUntil = Date.now() + 20000;
       try {
         chrome.runtime.sendMessage({ type: 'HS_WIDGET_RESET_ALL' }, () => {
           try {

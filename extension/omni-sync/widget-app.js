@@ -1322,6 +1322,7 @@
           esc(fmtUsd(net, true)) + "</div>" +
           (hasHl ? hedgeMatchBadge(p) : "") +
         "</div>" +
+        '<div class="pair-link">' + pairHlSelect(p, hlOpen) + "</div>" +
         (conflict
           ? '<div class="warn" style="grid-column:1/-1">⚠ ' + esc(t("conflict")) + "</div>"
           : "") +
@@ -1403,18 +1404,18 @@
     }
 
     var pairs = sortPairs(snap.pairs || []);
-    var hlByWallet = snap.hlByWallet || {};
     var hlOpen = Array.isArray(snap.hlOpen) ? snap.hlOpen : [];
 
     var hedgedPairs = pairs.filter(function (p) { return !!p.paired && !!p.hlSide; });
-    var hedgedUpnl = hedgedPairs.reduce(function (sum, p) {
+    var openPairs = pairs.filter(function (p) { return !!p.market; });
+    var openUpnl = openPairs.reduce(function (sum, p) {
       return sum + (Number(p.omniUpnl) || 0) + (Number(p.hlUpnl) || 0);
     }, 0);
 
     safeSetInnerHTML(
       summary,
-      '<div class="kpi kpi-main"><div class="l">' + esc(t("pnlTotal")) + '</div><div class="v ' + pnlClass(hedgedUpnl) + '">' +
-      esc(fmtUsd(hedgedUpnl, true)) + "</div></div>"
+      '<div class="kpi kpi-main"><div class="l">' + esc(t("pnlTotal")) + '</div><div class="v ' + pnlClass(openUpnl) + '">' +
+      esc(fmtUsd(openUpnl, true)) + "</div></div>"
     );
 
     var known = {};
@@ -1441,10 +1442,8 @@
       order.forEach(function (id) {
         var slot = (acc && acc.slots && acc.slots[id]) || {};
         var label = slot.label || (byAcc[id] && byAcc[id][0] && byAcc[id][0].accountLabel) || "";
-        var items = (byAcc[id] || []).filter(function (p) {
-          return !!p.paired && !!p.hlSide;
-        });
-        // Hide legs / Omni rows with no HL link — only hedged pairs belong in Positions.
+        // Show open Omni legs even before a HL hedge is linked.
+        var items = byAcc[id] || [];
         if (!items.length) return;
         var groupNet = items.reduce(function (sum, p) {
           return sum + (Number(p.omniUpnl) || 0) + (Number(p.hlUpnl) || 0);
@@ -1478,10 +1477,13 @@
       });
     }
 
-    // Positions = hedged Omni↔HL pairs only (wallet/CSV/HL book live under Collecte).
-
+    var bookHtml = renderHlBook(snap);
     if (!html) {
-      html = '<div class="empty">' + t("noPosition") + "</div>";
+      html = (!openPairs.length && !(hlOpen && hlOpen.length))
+        ? '<div class="empty">' + t("noPosition") + "</div>" + bookHtml
+        : bookHtml;
+    } else {
+      html += bookHtml;
     }
 
     // Avoid full DOM wipe while editing a field or closing a native <select>.
@@ -1501,7 +1503,8 @@
       var freeN = (snap.unpairedHl || []).length;
       foot.textContent =
         t("footUpdated") + " " + when +
-        (hedgedPairs.length ? " · " + hedgedPairs.length + " " + t("footPairs") : "") +
+        (openPairs.length ? " · " + openPairs.length + " " + t("footPairs") : "") +
+        (hedgedPairs.length ? " · " + hedgedPairs.length + " hedge" : "") +
         (hlOpen.length ? " · " + hlOpen.length + " HL/XYZ" : "") +
         (freeN ? " · " + freeN + " " + t("hlFree") : "");
     }

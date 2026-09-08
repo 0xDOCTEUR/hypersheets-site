@@ -507,7 +507,12 @@ function mergeAccountsFromHypersheets(localRaw, remoteRaw, guardRaw) {
 
     const clearAt = cleared[id] || 0;
     const locAt = Number(l.importedAt) || 0;
-    if (remScore > 0 && remAt > locAt && remAt > clearAt) {
+    const locScore = slotImportScore(l);
+    // Empty local jambe + remote CSV: always accept (recovers Clear→reimport races
+    // where clearedSlots was stamped a few ms after importedAt).
+    const newerThanLocal = remAt > locAt || (locScore === 0 && remScore > 0);
+    const allowedAfterClear = !clearAt || remAt > clearAt || (locScore === 0 && remScore > 0);
+    if (remScore > 0 && newerThanLocal && allowedAfterClear) {
       out.slots[id].csv = r.csv;
       // Page file import has no csvIds — never keep old library links (they resurrect old CSVs).
       out.slots[id].csvIds = Array.isArray(r.csvIds) ? r.csvIds.slice() : [];
@@ -531,7 +536,11 @@ function mergeAccountsFromHypersheets(localRaw, remoteRaw, guardRaw) {
   }
   return {
     accounts: normalizeAccounts(out),
-    accountsGuard: { deletedSlots: deleted, clearedSlots: cleared },
+    accountsGuard: {
+      deletedSlots: deleted,
+      clearedSlots: cleared,
+      fullResetAt: guard.fullResetAt || 0,
+    },
   };
 }
 
@@ -550,10 +559,16 @@ function hydrateCsvLibrary(state) {
     const clearedAt = Number(guard.clearedSlots && guard.clearedSlots[id]) || 0;
     const slotAt = Number(slot.importedAt) || 0;
     if (clearedAt && slotAt <= clearedAt) {
-      slot.csv = null;
-      slot.csvIds = [];
-      slot.points = null;
-      continue;
+      // Live CSV already present (re-import race) → keep it and drop the clear flag.
+      if (slotImportScore(slot) > 0) {
+        delete guard.clearedSlots[id];
+        state.accountsGuard = guard;
+      } else {
+        slot.csv = null;
+        slot.csvIds = [];
+        slot.points = null;
+        continue;
+      }
     }
     let ids = Array.isArray(slot.csvIds) ? slot.csvIds.map(String) : [];
 
@@ -4196,8 +4211,11 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           clearedSlots: {},
           fullResetAt: Date.now(),
         };
+        // Only mark empty slots as cleared — never stamp a jambe that already has CSV.
         omniSlotIds(accounts).forEach((id) => {
-          accountsGuard.clearedSlots[id] = Date.now();
+          if (slotImportScore(accounts.slots[id]) === 0) {
+            accountsGuard.clearedSlots[id] = Date.now();
+          }
         });
         nextCsvLibrary = [];
       } else if (msg.accounts && prevAcc) {
