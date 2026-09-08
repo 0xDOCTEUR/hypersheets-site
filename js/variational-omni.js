@@ -4272,16 +4272,22 @@
   function varParseTs(raw) {
     if (raw == null || raw === '') return NaN;
     if (typeof raw === 'number') return isFinite(raw) ? raw : NaN;
+    if (raw instanceof Date) return +raw;
     if (typeof raw === 'string') {
-      const n = Number(raw);
+      const s = raw.trim();
+      const n = Number(s);
       // Numeric epoch ms/sec stored as string
-      if (isFinite(n) && /^\d+(\.\d+)?$/.test(raw.trim())) {
+      if (isFinite(n) && /^\d+(\.\d+)?$/.test(s)) {
         return n < 1e12 ? n * 1000 : n;
       }
-      const parsed = Date.parse(raw);
+      // Date-only / missing Z → UTC (same as Suivi epoch windows).
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return Date.parse(s + 'T00:00:00.000Z');
+      if (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(s)) {
+        return Date.parse(s.replace(' ', 'T') + 'Z');
+      }
+      const parsed = Date.parse(s);
       return isFinite(parsed) ? parsed : NaN;
     }
-    if (raw instanceof Date) return +raw;
     return NaN;
   }
 
@@ -5527,17 +5533,38 @@
   }
 
   function varSlotPointsInEpoch(points, start, end) {
+    void end;
     const hist = points?.points_history || [];
+    const wantMs = varFarmParseEpochTs(start);
+    const wantThu = isFinite(wantMs) ? varFarmEpochThursdayKey(wantMs) : '';
+    let best = null;
+    let bestDist = Infinity;
     for (const h of hist) {
-      const s = Date.parse(h.start_window || 0);
+      const s = varFarmParseEpochTs(h.start_window || h.start || 0);
       if (!isFinite(s)) continue;
-      if (Math.abs(s - start) > 12 * 3600 * 1000) continue;
-      const total = parseFloat(h.total_points);
-      const self = parseFloat(h.self_points);
-      if (isFinite(total)) return total;
-      if (isFinite(self)) return self;
+      // Same UTC Thursday week — never match via local Date.parse (timezone drift).
+      if (wantThu && varFarmEpochThursdayKey(s) === wantThu) {
+        best = h;
+        break;
+      }
+      if (!isFinite(wantMs)) continue;
+      const dist = Math.abs(s - wantMs);
+      if (dist < bestDist && dist < 36 * 3600 * 1000) {
+        bestDist = dist;
+        best = h;
+      }
     }
-    return 0;
+    if (!best) return 0;
+    const total = parseFloat(best.total_points);
+    const self = parseFloat(best.self_points);
+    const ref = parseFloat(best.referral_points);
+    // Prefer official total; if only self/referral exist, recompose.
+    if (isFinite(total)) return total;
+    if (isFinite(self) || isFinite(ref)) {
+      return (isFinite(self) ? self : 0) + (isFinite(ref) ? ref : 0);
+    }
+    const legacy = parseFloat(best.points);
+    return isFinite(legacy) ? legacy : 0;
   }
 
   /** Omni jambes for Recent epochs — one row per wallet (never drop a distinct slot). */
@@ -5683,17 +5710,27 @@
   }
 
   function varFarmEpochHlSources(suiviState) {
-    // Prefer Omni Import HL hedge (no Suivi required). Fall back to Suivi store.
+    // Prefer Omni Import HL hedge when a real address is set.
     try {
       const acc = varAccountsLoad();
       const h = acc && acc.hlHedge;
       const addr = String((h && h.address) || '').trim();
       if (addr && /^0x[a-fA-F0-9]{40}$/i.test(addr)) {
+        // Only expose HL in the epoch table after a successful sync with fills.
+        const epochs = Array.isArray(h && h.epochs) ? h.epochs : [];
+        const hasData = epochs.some((e) => e && (
+          Number(e.volume || e.volumeRaw || 0)
+          || Number(e.trades || e.tradesRaw || 0)
+          || Math.abs(Number(e.pnl || 0)) > 0
+          || Math.abs(Number(e.realized || e.realizedRaw || 0)) > 0
+          || Math.abs(Number(e.funding || e.fundingRaw || 0)) > 0
+        ));
+        if (!hasData) return [];
         return [{
           id: 'omni-hl-hedge',
           label: (h && h.label) || 'HL',
           color: varFarmEpochWalletColor(100),
-          epochs: (h && h.epochs) || [],
+          epochs,
           address: addr,
           syncedAt: h && h.syncedAt,
           fillsSource: h && h.fillsSource,
@@ -5701,24 +5738,49 @@
           source: 'omni',
         }];
       }
+      // Address field exists but empty → user chose no HL hedge. Never resurrect
+      // leftover Suivi "HL" shells (duplicate empty rows in Par-epoch).
+      if (h && typeof h === 'object') return [];
     } catch (_) {}
 
     const s = suiviState || varFarmVariaStateLoad();
     if (!s?.hlWallets) return [];
-    return Object.values(s.hlWallets)
-      .filter((w) => w && ((w.epochs || []).length || String(w.address || '').trim()))
+    const seen = new Set();
+    const out = [];
+    Object.values(s.hlWallets)
+      .filter((w) => {
+        if (!w) return false;
+        const a = String(w.address || '').trim();
+        if (!/^0x[a-fA-F0-9]{40}$/i.test(a)) return false;
+        const epochs = Array.isArray(w.epochs) ? w.epochs : [];
+        // Drop empty shells (no fills / no cash / no volume ever).
+        return epochs.some((e) => e && (
+          Number(e.volume || e.volumeRaw || 0)
+          || Number(e.trades || e.tradesRaw || 0)
+          || Number(e.pnl || 0)
+          || Number(e.realized || e.realizedRaw || 0)
+          || Number(e.funding || e.fundingRaw || 0)
+          || Number(e.fees || e.feesRaw || 0)
+        ));
+      })
       .sort((a, b) => String(a.label || '').localeCompare(String(b.label || ''), 'fr'))
-      .map((w, i) => ({
-        id: w.id,
-        label: w.label || 'HL',
-        color: varFarmEpochWalletColor(100 + i),
-        epochs: w.epochs || [],
-        address: w.address || '',
-        syncedAt: w.syncedAt,
-        fillsSource: w.fillsSource,
-        isHl: true,
-        source: 'suivi',
-      }));
+      .forEach((w, i) => {
+        const key = String(w.address || '').toLowerCase();
+        if (seen.has(key)) return;
+        seen.add(key);
+        out.push({
+          id: w.id || ('hl-' + key.slice(-4)),
+          label: w.label || 'HL',
+          color: varFarmEpochWalletColor(100 + i),
+          epochs: w.epochs || [],
+          address: w.address || '',
+          syncedAt: w.syncedAt,
+          fillsSource: w.fillsSource,
+          isHl: true,
+          source: 'suivi',
+        });
+      });
+    return out;
   }
 
   function varGetHlHedge() {
@@ -5746,8 +5808,35 @@
       needsSync: !!addr && (!same || !(prev.epochs || []).length),
     };
     varAccountsSave(acc);
+    // Keep Suivi mirror aligned — wipe ghost HL rows when the hedge address is cleared.
+    try {
+      if (!addr) {
+        const raw = localStorage.getItem('farm-varia-dashboard-v4')
+          || localStorage.getItem('farm-varia-dashboard-v3');
+        if (raw) {
+          const state = JSON.parse(raw);
+          if (state && typeof state === 'object' && state.hlWallets && typeof state.hlWallets === 'object') {
+            delete state.hlWallets['omni-import-hl'];
+            // Drop address-less shells left behind by older builds.
+            Object.keys(state.hlWallets).forEach((id) => {
+              const w = state.hlWallets[id];
+              const a = String((w && w.address) || '').trim();
+              if (!/^0x[a-fA-F0-9]{40}$/i.test(a)) delete state.hlWallets[id];
+            });
+            state.v = 4;
+            localStorage.setItem('farm-varia-dashboard-v4', JSON.stringify(state));
+          }
+        }
+      } else {
+        varMirrorHlHedgeToSuivi(acc.hlHedge);
+      }
+    } catch (_) {}
     try { varRenderHlHedgeImportUi(); } catch (_) {}
     try { varRenderFarmEpochMini(); } catch (_) {}
+    // Saving a new/changed address → pull HL fills immediately.
+    if (addr && (!same || !(prev.epochs || []).length || prev.needsSync)) {
+      try { void varSyncHlHedgeFromImport({ silent: false }); } catch (_) {}
+    }
     return { ok: true, hedge: acc.hlHedge };
   }
 
@@ -6300,31 +6389,60 @@
       const marketSet = marketsByKey.get(key) || new Set();
       const accept = varFarmHlAcceptNamesFromOmniMarkets(marketSet);
       const omniVol = varFarmOmniVolumeInWeek(w.startMs, w.endMs);
-      const allowAllPerps = !accept.size && omniVol > 0;
+      // If Omni markets don't map to any HL coin names, still count all perps
+      // so the hedge wallet never renders as a blank "—" row.
+      const allowAllPerps = !accept.size || !(omniVol > 0);
       let realizedRaw = 0;
       let feesRaw = 0;
       let volumeRaw = 0;
       let tradesRaw = 0;
       let fundingRaw = 0;
+      let realizedFarm = 0;
+      let feesFarm = 0;
+      let volumeFarm = 0;
+      let tradesFarm = 0;
+      let fundingFarm = 0;
       const matchedCoins = new Set();
       for (const f of fills || []) {
-        if (f.time < w.startMs || f.time >= w.endMs) continue;
+        const time = varFarmHlFillTime(f);
+        if (!(time >= w.startMs && time < w.endMs)) continue;
         if (varFarmHlIsSpotCoin(f.coin)) continue;
-        if (!allowAllPerps && !varFarmHlIsFarmingCoin(f.coin, marketSet, accept)) continue;
-        realizedRaw += Number(f.closedPnl) || 0;
-        feesRaw += -varFarmHlFillFeeUsd(f);
-        volumeRaw += Math.abs((Number(f.px) || 0) * (Number(f.sz) || 0));
+        const r = Number(f.closedPnl) || 0;
+        const fee = -varFarmHlFillFeeUsd(f);
+        const vol = Math.abs((Number(f.px) || 0) * (Number(f.sz) || 0));
+        realizedRaw += r;
+        feesRaw += fee;
+        volumeRaw += vol;
         tradesRaw++;
-        matchedCoins.add(String(f.coin));
+        matchedCoins.add(String(f.coin || ''));
+        if (allowAllPerps || varFarmHlIsFarmingCoin(f.coin, marketSet, accept)) {
+          realizedFarm += r;
+          feesFarm += fee;
+          volumeFarm += vol;
+          tradesFarm++;
+        }
       }
       for (const ev of funding || []) {
-        if (ev.time < w.startMs || ev.time >= w.endMs) continue;
+        if (!(ev.time >= w.startMs && ev.time < w.endMs)) continue;
         if (varFarmHlIsSpotCoin(ev.coin)) continue;
-        if (!allowAllPerps && !varFarmHlIsFarmingCoin(ev.coin, marketSet, accept)) continue;
-        fundingRaw += Number(ev.usdc) || 0;
+        const usdc = Number(ev.usdc) || 0;
+        fundingRaw += usdc;
+        if (allowAllPerps || varFarmHlIsFarmingCoin(ev.coin, marketSet, accept)) {
+          fundingFarm += usdc;
+        }
       }
-      const use = omniVol > 0 || tradesRaw > 0 || volumeRaw > 0
+      // Prefer Omni-matched hedge; if filter matched nothing but HL had fills, use all perps.
+      const farmHit = tradesFarm > 0 || volumeFarm > 0
+        || Math.abs(realizedFarm) > 0 || Math.abs(fundingFarm) > 0 || Math.abs(feesFarm) > 0;
+      const rawHit = tradesRaw > 0 || volumeRaw > 0
         || Math.abs(realizedRaw) > 0 || Math.abs(fundingRaw) > 0 || Math.abs(feesRaw) > 0;
+      const useFarm = farmHit || (allowAllPerps && rawHit);
+      const realized = useFarm ? realizedFarm : (rawHit ? realizedRaw : 0);
+      const funding = useFarm ? fundingFarm : (rawHit ? fundingRaw : 0);
+      const fees = useFarm ? feesFarm : (rawHit ? feesRaw : 0);
+      const volume = useFarm ? volumeFarm : (rawHit ? volumeRaw : 0);
+      const trades = useFarm ? tradesFarm : (rawHit ? tradesRaw : 0);
+      const farming = !!(useFarm && (omniVol > 0 || farmHit));
       return {
         start: w.start,
         end: w.end,
@@ -6333,27 +6451,24 @@
         points: 0,
         competition: 0,
         markets: [...marketSet].sort(),
-        matchedCoins: [...matchedCoins].sort(),
+        matchedCoins: [...matchedCoins].filter(Boolean).sort(),
         realizedRaw,
         fundingRaw,
         feesRaw,
         volumeRaw,
         tradesRaw,
-        realized: use ? realizedRaw : 0,
-        funding: use ? fundingRaw : 0,
-        fees: use ? feesRaw : 0,
-        volume: use ? volumeRaw : 0,
-        trades: use ? tradesRaw : 0,
-        farming: !!use,
+        realized,
+        funding,
+        fees,
+        volume,
+        trades,
+        farming,
         needsSync: false,
-        hasHedge: tradesRaw > 0 || realizedRaw !== 0 || fundingRaw !== 0 || feesRaw !== 0,
+        hasHedge: rawHit,
         variaVolume: omniVol,
-        pnl: use ? (realizedRaw + fundingRaw + feesRaw) : 0,
+        pnl: realized + funding + fees,
       };
-    }).filter((ep) =>
-      ep.farming
-      || ep.tradesRaw || ep.fundingRaw || ep.realizedRaw || ep.feesRaw || ep.volumeRaw
-    );
+    }).filter((ep) => ep.hasHedge || ep.farming);
     hl.syncedAt = new Date().toISOString();
     hl.fillsSource = VAR_HL_FILLS_SOURCE;
   }
@@ -6453,18 +6568,38 @@
       ? varEpochWindowSummary(csv, 0, Date.now() + 14 * 864e5)
       : { volume: 0, trades: 0, realizedPnl: 0, funding: 0, fees: 0, pnl: 0, hasPnlData: false };
     const sum = w.points?.points_summary || {};
-    let points = parseFloat(sum.total_points);
-    if (!isFinite(points)) points = parseFloat(sum.self_points);
-    if (!isFinite(points)) {
-      points = 0;
-      for (const h of w.points?.points_history || []) {
-        const s = Date.parse(h.start_window || 0);
-        const e = Date.parse(h.end_window || 0);
-        if (!isFinite(s) || !isFinite(e)) continue;
-        const days = (e - s) / 864e5;
-        if (days < 6.5 || days > 7.5) continue;
-        points += parseFloat(h.total_points || h.self_points || 0) || 0;
-      }
+    const summaryTotal = parseFloat(sum.total_points ?? sum.total);
+    const summarySelf = parseFloat(sum.self_points ?? sum.self);
+    const summaryRef = parseFloat(sum.referral_points ?? sum.referral);
+    let histSum = 0;
+    let histWeeks = 0;
+    for (const h of w.points?.points_history || []) {
+      const s = varFarmParseEpochTs(h.start_window || h.start || 0);
+      const e = varFarmParseEpochTs(h.end_window || h.end || 0);
+      if (!isFinite(s) || !isFinite(e)) continue;
+      const days = (e - s) / 864e5;
+      if (days < 6.5 || days > 7.5) continue;
+      const total = parseFloat(h.total_points);
+      const self = parseFloat(h.self_points);
+      const ref = parseFloat(h.referral_points);
+      const row = isFinite(total)
+        ? total
+        : ((isFinite(self) ? self : 0) + (isFinite(ref) ? ref : 0));
+      if (!(row > 0) && !(isFinite(total) || isFinite(self))) continue;
+      histSum += row || 0;
+      histWeeks += 1;
+    }
+    // Prefer Omni points_summary; if missing/zero but history has weeks, use the sum.
+    // If both exist and summary is far below history (stale shell), prefer history.
+    let points = 0;
+    if (isFinite(summaryTotal) && summaryTotal > 0) {
+      points = summaryTotal;
+      if (histWeeks >= 2 && histSum > summaryTotal * 1.35 + 2) points = histSum;
+    } else if (isFinite(summarySelf) || isFinite(summaryRef)) {
+      points = (isFinite(summarySelf) ? summarySelf : 0) + (isFinite(summaryRef) ? summaryRef : 0);
+      if (histWeeks >= 2 && histSum > points * 1.35 + 2) points = histSum;
+    } else {
+      points = histSum;
     }
     const hasPnl = !!stats.hasPnlData;
     const pnl = hasPnl
@@ -6629,12 +6764,16 @@
           `PnL ${varFmtSignedUsdExact(c.pnl)}`,
         ].join('\n');
         const pnlCls = c.pnl < 0 ? 'is-neg' : (c.pnl > 0 ? 'is-pos' : '');
+        const volLine = (c.volume > 0)
+          ? `<div class="vol mono">${varEsc(varFmtCompactUsd(c.volume))}</div>`
+          : '';
         const sub = c.isHl
           ? `${c.trades || 0} fills`
           : `${varFmtPoints(c.points)} pts`;
-        return `<div class="var-farm-suivi-wallet" style="border-top-color:${varEsc(c.color)}" title="${varEsc(tip)}">
-          <div class="tag" style="color:${varEsc(c.color)}">${varEsc(c.label)}</div>
+        return `<div class="var-farm-suivi-wallet" style="--wallet-accent:${varEsc(c.color)}" title="${varEsc(tip)}">
+          <div class="tag">${varEsc(c.label)}</div>
           <div class="pnl mono ${pnlCls}">${varFmtSuiviUsd(c.pnl)}</div>
+          ${volLine}
           <div class="pts">${varEsc(sub)}</div>
         </div>`;
       }).join('')}</div>`;
@@ -6652,7 +6791,27 @@
     const bundle = varCsvLoadForView();
     const walletsAll = varFarmEpochWalletSources();
     const wallets = varFarmEpochWalletSourcesForView();
-    const hlWallets = varFarmEpochHlSources();
+    let hlWallets = varFarmEpochHlSources();
+    // Address saved but never synced / previous sync filtered everything → pull HL now.
+    try {
+      const hedge = varGetHlHedge();
+      const addr = String(hedge.address || '').trim();
+      if (
+        /^0x[a-fA-F0-9]{40}$/i.test(addr)
+        && typeof hlPost === 'function'
+        && (!hlWallets.length || hedge.needsSync || !(hedge.epochs || []).length)
+      ) {
+        if (!window.__hsVarHlAutoSyncAt || Date.now() - window.__hsVarHlAutoSyncAt > 20000) {
+          window.__hsVarHlAutoSyncAt = Date.now();
+          void varSyncHlHedgeFromImport({ silent: true }).then((res) => {
+            if (res && res.ok) {
+              try { varRenderFarmEpochMini(); } catch (_) {}
+            }
+          });
+        }
+      }
+    } catch (_) {}
+    hlWallets = varFarmEpochHlSources();
     const hasPts = !!(points?.points_summary || (points?.points_history && points.points_history.length));
     const hasTrades = !!(bundle?.trades && bundle.trades.length);
     if (!hasPts && !hasTrades && !wallets.length && !hlWallets.length) {
@@ -6730,16 +6889,10 @@
         let stats = w.csv
           ? varEpochWindowSummary(w.csv, r.start, r.end)
           : { volume: 0, realizedPnl: 0, funding: 0, fees: 0, pnl: 0, trades: 0, hasPnlData: false, cashRows: 0 };
-        const csvCashStrong = (stats.cashRows > 0) && (
-          Math.abs(Number(stats.pnl) || 0) > 1e-9
-          || Math.abs(Number(stats.realizedPnl) || 0) > 1e-9
-          || Math.abs(Number(stats.funding) || 0) > 1e-9
-          || Math.abs(Number(stats.fees) || 0) > 1e-9
-          || stats.cashRows >= 3
-        );
-        // Prefer live CSV cash. Stored epochs / Suivi only when CSV cash is empty/weak
-        // (extension sync can refresh trades without rebuilding slot.epochs).
-        if (!csvCashStrong) {
+        // Trust live CSV whenever it has any cash rows for this week — even if PnL ≈ 0.
+        // Old stored epochs / Suivi only fill gaps when the CSV has no cash at all.
+        const csvHasCash = !!(stats.cashRows > 0 || stats.hasPnlData);
+        if (!csvHasCash) {
           try {
             const stored = (w.epochs && w.epochs.length)
               ? varFarmEpochFindHlEpoch({ epochs: w.epochs }, r.start, r.end)
@@ -6762,26 +6915,28 @@
               };
             }
           } catch (_) {}
-          try {
-            const variaE = varFarmFindVariaEpoch(w, r.start, r.end);
-            const stillWeak = !(stats.cashRows > 0) || !(Math.abs(Number(stats.pnl) || 0) > 1e-9);
-            if (variaE && stillWeak) {
-              const vr = Number(variaE.realized != null ? variaE.realized : variaE.realizedRaw) || 0;
-              const vf = Number(variaE.funding != null ? variaE.funding : variaE.fundingRaw) || 0;
-              const vfee = Number(variaE.fees != null ? variaE.fees : variaE.feesRaw) || 0;
-              const vp = Number(variaE.pnl != null ? variaE.pnl : (vr + vf + vfee)) || 0;
-              stats = {
-                ...stats,
-                realizedPnl: vr,
-                funding: vf,
-                fees: vfee,
-                pnl: vp,
-                hasPnlData: true,
-                cashRows: Math.max(stats.cashRows || 0, 1),
-                volume: (stats.volume > 0) ? stats.volume : (Number(variaE.volume) || 0),
-              };
-            }
-          } catch (_) {}
+          // Last resort: Suivi local store — only if this jambe has no CSV at all.
+          if (!(stats.cashRows > 0) && !w.csv) {
+            try {
+              const variaE = varFarmFindVariaEpoch(w, r.start, r.end);
+              if (variaE) {
+                const vr = Number(variaE.realized != null ? variaE.realized : variaE.realizedRaw) || 0;
+                const vf = Number(variaE.funding != null ? variaE.funding : variaE.fundingRaw) || 0;
+                const vfee = Number(variaE.fees != null ? variaE.fees : variaE.feesRaw) || 0;
+                const vp = Number(variaE.pnl != null ? variaE.pnl : (vr + vf + vfee)) || 0;
+                stats = {
+                  ...stats,
+                  realizedPnl: vr,
+                  funding: vf,
+                  fees: vfee,
+                  pnl: vp,
+                  hasPnlData: true,
+                  cashRows: Math.max(stats.cashRows || 0, 1),
+                  volume: (stats.volume > 0) ? stats.volume : (Number(variaE.volume) || 0),
+                };
+              }
+            } catch (_) {}
+          }
         }
         let pts = varSlotPointsInEpoch(w.points, r.start, r.end);
         let estPts = 0;
@@ -6795,13 +6950,20 @@
           // Finalising / estimated rows: show the volume-based estimate in Points.
           if (!r.inProgress) pts = estPts;
         }
-        // Live week without published points: Points column stays 0 (Suivi), estimate feeds EST only.
-        if (r.inProgress && !(varSlotPointsInEpoch(w.points, r.start, r.end) > 0)) pts = 0;
+        // Live week: official points often still 0 — show volume estimate with ~ so it matches activity.
+        if (r.inProgress && !(varSlotPointsInEpoch(w.points, r.start, r.end) > 0)) {
+          pts = 0;
+        }
         const ptsForEst = (pts > 0) ? pts : estPts;
+        const ptsDisp = (pts > 0)
+          ? varFmtPoints(pts)
+          : ((r.inProgress || r.finalising || r.estimated) && estPts > 0
+            ? ('~' + varFmtPoints(estPts))
+            : varFmtPoints(pts));
         const pnl = stats.hasPnlData
           ? (stats.pnl != null ? stats.pnl : (Number(stats.realizedPnl || 0) + Number(stats.funding || 0) + Number(stats.fees || 0)))
           : null;
-        const s = varEpochSuiviMetrics(pts, { ...stats, pnl: pnl != null ? pnl : 0 }, pp);
+        const s = varEpochSuiviMetrics(ptsForEst > 0 && !(pts > 0) && (r.inProgress || r.estimated) ? 0 : pts, { ...stats, pnl: pnl != null ? pnl : 0 }, pp);
         tVolOmni += stats.volume || 0;
         tPts += pts || 0;
         tEstPts += ptsForEst || 0;
@@ -6816,11 +6978,14 @@
           ? `R ${varFmtSignedUsdExact(s.realized)} · F ${varFmtSignedUsdExact(s.funding)} · Fees ${varFmtSignedUsdExact(s.fees)}`
           : '';
         const pnlCls = pnl != null ? (s.pnl > 0 ? 'is-pos' : (s.pnl < 0 ? 'is-neg' : '')) : 'muted';
+        const ptsTip = (pts > 0)
+          ? ''
+          : (estPts > 0 ? `Est. ${varFmtPoints(estPts)} pts` : '');
         lines.push(`<tr class="var-farm-epoch-wrow">
           <td></td>
           <td class="left"><span class="var-farm-epoch-pill" style="color:${varEsc(w.color)};background:color-mix(in srgb, ${varEsc(w.color)} 16%, transparent)">${varEsc(w.label)}</span></td>
           <td class="text-right mono">${stats.volume > 0 ? varFmtCompactUsd(stats.volume) : '—'}</td>
-          <td class="text-right mono">${varFmtPoints(pts)}</td>
+          <td class="text-right mono"${ptsTip ? ` title="${varEsc(ptsTip)}"` : ''}>${ptsDisp}</td>
           <td class="text-right mono ${pnlCls}" title="${varEsc(tip)}">${pnlDisp}</td>
           <td class="text-right mono ${s.costPerPt != null ? 'is-neg' : 'muted'}">${varFarmEpochCostDisp(s.costPerPt)}</td>
           <td class="muted"></td>
@@ -6876,35 +7041,20 @@
       });
 
       hlWallets.forEach((hl) => {
+        const hlAddr = String(hl.address || '').trim();
+        if (!/^0x[a-fA-F0-9]{40}$/i.test(hlAddr)) return;
+        // Never paint blank HL shells — only show weeks with real hedge fills.
+        if (!(hl.syncedAt || (hl.epochs && hl.epochs.length))) return;
         const e = varFarmEpochFindHlEpoch(hl, r.start, r.end);
-        if (!e) {
-          // Week absent from Suivi HL store — keep row quiet; tooltip points to Sync.
-          const tip = varT('var.epochHlNoDataTip') || varT('var.epochHlNoData');
-          lines.push(`<tr class="var-farm-epoch-wrow" title="${varEsc(tip)}">
-            <td></td>
-            <td class="left"><span class="var-farm-epoch-pill is-hl">${varEsc(hl.label)}</span></td>
-            <td class="muted text-right">—</td><td class="muted text-right">—</td>
-            <td class="muted text-right">—</td><td class="muted text-right">—</td>
-            <td></td><td></td>
-          </tr>`);
-          return;
-        }
+        if (!e) return;
         // Prefer farming totals; fall back to raw hedge stats (incl. weeks flagged hors farm).
         const realized = Number(e.realized || e.realizedRaw || 0) || 0;
         const funding = Number(e.funding || e.fundingRaw || 0) || 0;
         const fees = Number(e.fees || e.feesRaw || 0) || 0;
         const vol = Number(e.volume || e.volumeRaw || 0) || 0;
-        const hasRaw = !!(vol || realized || funding || fees || Number(e.tradesRaw || 0));
-        if (e.farming === false && !hasRaw) {
-          lines.push(`<tr class="var-farm-epoch-wrow">
-            <td></td>
-            <td class="left"><span class="var-farm-epoch-pill is-hl">${varEsc(hl.label)}</span> <span class="muted">${varEsc(varT('var.epochHlOff'))}</span></td>
-            <td class="muted text-right">—</td><td class="muted text-right">—</td>
-            <td class="muted text-right">—</td><td class="muted text-right">—</td>
-            <td></td><td></td>
-          </tr>`);
-          return;
-        }
+        const hasRaw = !!(vol || realized || funding || fees || Number(e.tradesRaw || e.trades || 0));
+        if (!hasRaw) return;
+        if (e.farming === false && !hasRaw) return;
         const pnl = (e.pnl != null && isFinite(Number(e.pnl)) && (Number(e.pnl) !== 0 || realized || funding || fees))
           ? Number(e.pnl)
           : (realized + funding + fees);
@@ -6972,6 +7122,11 @@
         : '';
       const totPnlCls = pnlRounded > 0 ? 'is-pos' : (pnlRounded < 0 ? 'is-neg' : '');
       const totEstCls = estNetRounded > 0 ? 'is-pos' : (estNetRounded < 0 ? 'is-neg' : '');
+      const totPtsDisp = (tPts > 0)
+        ? varFmtPoints(tPts)
+        : ((r.inProgress || r.finalising || r.estimated) && tEstPts > 0
+          ? ('~' + varFmtPoints(tEstPts))
+          : varFmtPoints(tPts));
       // Fallback aggregate detail only when there are no per-wallet JSON rows.
       let detailTr = '';
       if (open && !wallets.length) {
@@ -7001,7 +7156,7 @@
         <td class="left"><span class="var-farm-epoch-pill is-epoch">${varEsc(badge)}</span><span class="var-epoch-chev" aria-hidden="true"></span></td>
         <td class="left"><strong>${varEsc(varT('var.epochTotal'))}</strong></td>
         <td class="text-right mono"${totVolTip ? ` title="${varEsc(totVolTip)}"` : ''}>${tVolOmni > 0 ? varFmtCompactUsd(tVolOmni) : '—'}</td>
-        <td class="text-right mono">${varFmtPoints(tPts)}</td>
+        <td class="text-right mono">${varEsc(totPtsDisp)}</td>
         <td class="text-right mono ${totPnlCls}" title="${varEsc(totTip)}">${varFmtSignedUsdExact(tot.pnl)}</td>
         <td class="text-right mono ${tot.costPerPt != null ? 'is-neg' : 'muted'}">${varFarmEpochCostDisp(tot.costPerPt)}</td>
         <td class="text-right mono"${totEstTip ? ` title="${varEsc(totEstTip)}"` : ''}>${varFmtSignedUsdExact(estRounded)}</td>
@@ -7659,7 +7814,7 @@
     let tradeCount = 0;
     for (const t of bundle?.trades || []) {
       if (t.status !== 'confirmed') continue;
-      const ts = Date.parse(t.created_at || 0);
+      const ts = varParseTs(t.created_at || t.timestamp || t.time || 0);
       if (!(ts >= start && ts < exclusiveEnd)) continue;
       const px = varSuiviNum(t.price);
       const qty = varSuiviNum(t.qty);
@@ -7677,7 +7832,7 @@
       if (!t || typeof t !== 'object') return;
       // Suivi aggregateEpochActivity: status must be exactly 'confirmed' (missing → skip).
       if (t.status !== 'confirmed') return;
-      const ts = Date.parse(t.created_at || 0);
+      const ts = varParseTs(t.created_at || t.timestamp || t.time || 0);
       if (!(ts >= start && ts < exclusiveEnd)) return;
       const tt = String(forcedType || t.transfer_type || '').toLowerCase();
       if (tt !== 'realized_pnl' && tt !== 'funding' && tt !== 'fee') return;
