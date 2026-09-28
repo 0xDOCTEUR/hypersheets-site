@@ -1928,6 +1928,10 @@ const HS_CONFIG = {
           color: #9b8cff;
           background: color-mix(in srgb, #9b8cff 16%, transparent);
         }
+        .var-farm-epoch-pill.is-xyz {
+          color: #fbbf24;
+          background: color-mix(in srgb, #fbbf24 16%, transparent);
+        }
         .var-farm-epoch-row {
           display: grid;
           grid-template-columns: minmax(120px, 1.3fr) repeat(5, minmax(64px, 0.7fr));
@@ -11357,7 +11361,7 @@ const HS_CONFIG = {
           <div class="var-points-view" data-ptsview-panel="airdrop" id="varPointsAirdropView">
             <div class="mb-4">
               <h2 class="text-lg font-bold tracking-tight font-display" data-i18n="var.airdropTitle">Airdrop simulator</h2>
-              <p class="text-hs-sm mt-1" style="color:var(--muted);max-width:62ch" data-i18n="var.airdropDesc">Nothing about a Variational airdrop has been announced. These are community estimates you can move to see what your points would be worth under each scenario.</p>
+              <p class="text-hs-sm mt-1" style="color:var(--muted);max-width:62ch" data-i18n="var.airdropDesc">Variational keeps issuing points until token launch (TGE), aimed at Q4 2026 — +150,000 points each week. Genesis airdrop is announced at 32% of supply. Move the sliders to test other scenarios.</p>
             </div>
             <p class="var-guide-inline" data-i18n-html="var.airdropGuideHint">Points auto-fill after Omni collect, or type them manually below.</p>
             <div class="var-airdrop-grid">
@@ -11377,14 +11381,14 @@ const HS_CONFIG = {
                   <div class="var-airdrop-consensus" data-i18n="var.airdropFdvConsensus">Consensus band ~$500M–$2B</div>
                 </label>
                 <label>
-                  <div class="lab"><span data-i18n="var.airdropShare">Share of supply (round 1)</span><strong id="varAirShareLabel">27.5%</strong></div>
-                  <input id="varAirShare" type="range" min="1" max="60" step="0.5" value="27.5" oninput="renderVarAirdrop()"/>
-                  <div class="var-airdrop-consensus" data-i18n="var.airdropShareConsensus">Consensus band ~25–30%</div>
+                  <div class="lab"><span data-i18n="var.airdropShare">Share of supply (Genesis)</span><strong id="varAirShareLabel">32%</strong></div>
+                  <input id="varAirShare" type="range" min="1" max="60" step="0.5" value="32" oninput="renderVarAirdrop()"/>
+                  <div class="var-airdrop-consensus" data-i18n="var.airdropShareConsensus">Announced 32%</div>
                 </label>
                 <label>
-                  <div class="lab"><span data-i18n="var.airdropTotalPts">Total points at TGE</span><strong id="varAirTotalPtsLabel">9.3M</strong></div>
-                  <input id="varAirTotalPts" type="range" min="1" max="30" step="0.1" value="9.3" oninput="renderVarAirdrop()"/>
-                  <div class="var-airdrop-consensus" data-i18n="var.airdropTotalPtsConsensus">Consensus band ~9.0–9.4M</div>
+                  <div class="lab"><span data-i18n="var.airdropTotalPts">Total points at TGE</span><strong id="varAirTotalPtsLabel">10.5M</strong></div>
+                  <input id="varAirTotalPts" type="range" min="1" max="30" step="0.1" value="10.5" oninput="renderVarAirdrop()"/>
+                  <div class="var-airdrop-consensus" data-i18n="var.airdropTotalPtsConsensus">Band ~9.5–11.2M depending on TGE date</div>
                 </label>
               </div>
               <div>
@@ -11411,7 +11415,7 @@ const HS_CONFIG = {
                     <button type="button" class="btn btn-ghost" onclick="varAirdropShareX()" data-i18n="var.airdropShareX">Post on X</button>
                   </div>
                 </div>
-                <p class="var-airdrop-disclaimer" data-i18n="var.airdropDisclaimer">Variational has not announced a token, an airdrop, a supply or a date. Every figure here is a community assumption you can change — not advice.</p>
+                <p class="var-airdrop-disclaimer" data-i18n="var.airdropDisclaimer">Exact TGE date is not set. Total points keep rising by 150,000 each week until TGE. FDV is still an assumption you can change — not advice.</p>
               </div>
             </div>
           </div>
@@ -12108,7 +12112,7 @@ const I18N = {
     'var.epochHlNoData': 'no week data — Sync HL',
     'var.epochHlNoDataTip': 'This HL week is missing — set the HL wallet in Import → Sync HL',
     'var.hlHedgeTitle': 'HL hedge wallet',
-    'var.hlHedgeHint': 'Hyperliquid address for Par-epoch HL rows. Save then Sync.',
+    'var.hlHedgeHint': 'Hyperliquid address for Par-epoch HL and Trade XYZ rows. Save then Sync.',
     'var.hlHedgeSave': 'Save',
     'var.hlHedgeSync': 'Sync HL',
     'var.hlHedgeEmpty': 'No HL wallet yet — paste a 0x address to show hedge volume / PnL.',
@@ -12506,17 +12510,17 @@ const I18N = {
     'var.csvImported': 'CSV imported',
     'var.csvCleared': 'Activity & points data cleared',
     'var.airdropTitle': 'Airdrop simulator',
-    'var.airdropDesc': 'Nothing about a Variational airdrop has been announced. These are community estimates you can move to see what your points would be worth under each scenario.',
+    'var.airdropDesc': 'Variational keeps issuing points until token launch (TGE), aimed at Q4 2026 — +150,000 points each week. Genesis airdrop is announced at 32% of supply. Move the sliders to test other scenarios.',
     'var.airdropAssumptions': 'Assumptions',
     'var.airdropReset': 'Reset',
     'var.airdropYourPoints': 'Your points',
     'var.airdropPointsHint': 'Filled from your Activity JSON/CSV import, or type manually.',
     'var.airdropFdv': 'FDV at TGE',
     'var.airdropFdvConsensus': 'Consensus band ~$500M–$2B',
-    'var.airdropShare': 'Share of supply (round 1)',
-    'var.airdropShareConsensus': 'Consensus band ~25–30%',
+    'var.airdropShare': 'Share of supply (Genesis)',
+    'var.airdropShareConsensus': 'Announced 32%',
     'var.airdropTotalPts': 'Total points at TGE',
-    'var.airdropTotalPtsConsensus': 'Consensus band ~9.0–9.4M',
+    'var.airdropTotalPtsConsensus': 'Band ~9.5–11.2M depending on TGE date (+150k pts / week)',
     'var.airdropValuePerPoint': 'Value / point',
     'var.airdropPayout': 'Your payout',
     'var.airdropYourShare': 'Your share',
@@ -12535,7 +12539,7 @@ const I18N = {
     'var.airdropCopied': 'Image copied',
     'var.airdropCopyFail': 'Could not copy image',
     'var.airdropTweet': 'My Variational points scenario on Hypersheets: {points} pts → ~{payout} at {fdv} FDV / {share}% supply / {total} pts at TGE. Community estimates only — not official.',
-    'var.airdropDisclaimer': 'Variational has not announced a token, an airdrop, a supply or a date. Every figure here is a community assumption you can change — not advice.',
+    'var.airdropDisclaimer': 'Exact TGE date is not set. Total points keep rising by 150,000 each week until TGE. FDV is still an assumption you can change — not advice.',
     'var.airdropValPerSub': '{pool} split across {total} points.',
     'var.airdropEnterPoints': 'Enter your points to see this.',
     'var.perDay': '%/day',
@@ -13284,7 +13288,7 @@ const I18N = {
     'var.epochHlNoData': 'pas de semaine — Sync HL',
     'var.epochHlNoDataTip': 'Semaine HL absente — renseigne le wallet HL dans Import → Sync HL',
     'var.hlHedgeTitle': 'Wallet HL (hedge)',
-    'var.hlHedgeHint': 'Adresse Hyperliquid pour la ligne HL Par-epoch. Enregistrer puis Sync.',
+    'var.hlHedgeHint': 'Adresse Hyperliquid pour les lignes HL et Trade XYZ (semaine jeudi–jeudi). Enregistrer puis Sync.',
     'var.hlHedgeSave': 'Enregistrer',
     'var.hlHedgeSync': 'Sync HL',
     'var.hlHedgeEmpty': 'Pas encore de wallet HL — colle une adresse 0x pour le volume / PnL hedge.',
@@ -13688,17 +13692,17 @@ const I18N = {
     'var.csvImported': 'CSV importé',
     'var.csvCleared': 'Données activité & points effacées',
     'var.airdropTitle': 'Simulateur d’airdrop',
-    'var.airdropDesc': 'Rien n’a été annoncé sur un airdrop Variational. Ce sont des estimations communautaires que tu peux faire bouger pour voir ce que vaudraient tes points.',
+    'var.airdropDesc': 'Variational continue les points jusqu’au lancement du token (TGE), visé T4 2026 : +150 000 points chaque semaine. L’airdrop de départ (Genesis) est annoncé à 32 % de la supply. Tu peux bouger les curseurs pour tester.',
     'var.airdropAssumptions': 'Hypothèses',
     'var.airdropReset': 'Reset',
     'var.airdropYourPoints': 'Tes points',
     'var.airdropPointsHint': 'Rempli depuis ton import JSON/CSV Activity, ou saisis à la main.',
     'var.airdropFdv': 'FDV au TGE',
     'var.airdropFdvConsensus': 'Bande consensus ~500 M$–2 Md$',
-    'var.airdropShare': 'Part de supply (round 1)',
-    'var.airdropShareConsensus': 'Bande consensus ~25–30 %',
+    'var.airdropShare': 'Part de supply (Genesis)',
+    'var.airdropShareConsensus': 'Annoncé 32 %',
     'var.airdropTotalPts': 'Points totaux au TGE',
-    'var.airdropTotalPtsConsensus': 'Bande consensus ~9,0–9,4 M',
+    'var.airdropTotalPtsConsensus': 'Bande ~9,5–11,2 M selon la date du TGE (+150 k pts / semaine)',
     'var.airdropValuePerPoint': 'Valeur / point',
     'var.airdropPayout': 'Ton payout',
     'var.airdropYourShare': 'Ta part',
@@ -13717,7 +13721,7 @@ const I18N = {
     'var.airdropCopied': 'Image copiée',
     'var.airdropCopyFail': 'Impossible de copier l’image',
     'var.airdropTweet': 'Mon scénario points Variational sur Hypersheets : {points} pts → ~{payout} à {fdv} FDV / {share}% supply / {total} pts au TGE. Estimations communautaires uniquement — pas officiel.',
-    'var.airdropDisclaimer': 'Variational n’a annoncé ni token, ni airdrop, ni supply, ni date. Chaque chiffre ici est une hypothèse communautaire modifiable — pas un conseil.',
+    'var.airdropDisclaimer': 'La date exacte du TGE n’est pas fixée. Les points totaux montent de 150 000 par semaine jusqu’au TGE. Le FDV reste une hypothèse que tu peux changer — pas un conseil.',
     'var.airdropValPerSub': '{pool} répartis sur {total} points.',
     'var.airdropEnterPoints': 'Saisis tes points pour voir ça.',
     'var.perDay': '%/j',
@@ -33465,7 +33469,7 @@ document.addEventListener('DOMContentLoaded', () => {
 </div>
 
 <script src="js/variational-omni-collector.js"></script>
-<script src="js/variational-omni.js?v=20260908hl3"></script>
+<script src="js/variational-omni.js?v=20260928farm1"></script>
 
 <script>
 (function hsLoadCfWebAnalytics() {

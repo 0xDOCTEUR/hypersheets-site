@@ -20,7 +20,7 @@
   const HS_VAR_RADAR_SIZE_KEY = 'hs-var-radar-size';
   const HS_VAR_RADAR_HOLD_KEY = 'hs-var-radar-hold';
   const HS_VAR_RADAR_TAKER_KEY = 'hs-var-radar-hl-taker';
-  const VAR_AIRDROP_DEFAULTS = { fdvM: 1000, sharePct: 27.5, totalPtsM: 9.3 };
+  const VAR_AIRDROP_DEFAULTS = { fdvM: 1000, sharePct: 32, totalPtsM: 10.5 };
   const VAR_AIRDROP_FDV_SCENARIOS_M = [100, 250, 500, 750, 1000, 1500, 2000];
   const VAR_AIRDROP_COST_TARGETS = [1000, 10000, 100000];
   const VAR_OMNI_EXPORT_FORMATS = ['variational-dashboard-export', 'variational-points-export'];
@@ -52,6 +52,8 @@
   const VAR_HL_TICKER_ALIASES = {
     US500: 'xyz:SP500', SPX: 'xyz:SP500', SP500: 'xyz:SP500',
     NDX: 'xyz:XYZ100', QQQ: 'xyz:XYZ100',
+    US100: 'xyz:XYZ100', NAS100: 'xyz:XYZ100', NASDAQ: 'xyz:XYZ100', NQ: 'xyz:XYZ100',
+    JP225: 'xyz:EWJ', NIKKEI: 'xyz:EWJ', UK100: 'xyz:UK100', GER40: 'xyz:GER40',
     AAPL: 'xyz:AAPL', NVDA: 'xyz:NVDA', TSLA: 'xyz:TSLA', MSFT: 'xyz:MSFT',
     META: 'xyz:META', GOOGL: 'xyz:GOOGL', AMZN: 'xyz:AMZN', COIN: 'xyz:COIN',
     PLTR: 'xyz:PLTR', MSTR: 'xyz:MSTR', MU: 'xyz:MU', NFLX: 'xyz:NFLX',
@@ -1938,6 +1940,16 @@
     try {
       const raw = JSON.parse(localStorage.getItem(HS_VAR_AIRDROP_KEY) || 'null');
       if (!raw) return { ...VAR_AIRDROP_DEFAULTS };
+      const share = Number(raw.sharePct);
+      const total = Number(raw.totalPtsM);
+      // Q3-end community defaults — Variational extended weekly points through TGE (Q4).
+      const staleQ3 = share === 27.5 && total === 9.3;
+      if (staleQ3) {
+        return {
+          ...VAR_AIRDROP_DEFAULTS,
+          fdvM: isFinite(raw.fdvM) ? raw.fdvM : VAR_AIRDROP_DEFAULTS.fdvM,
+        };
+      }
       return {
         fdvM: isFinite(raw.fdvM) ? raw.fdvM : VAR_AIRDROP_DEFAULTS.fdvM,
         sharePct: isFinite(raw.sharePct) ? raw.sharePct : VAR_AIRDROP_DEFAULTS.sharePct,
@@ -5863,16 +5875,16 @@
         const wallets = varFarmEpochWalletSources();
         const unionPts = varPointsUnionFromWallets(wallets) || varPointsLoad();
         const allBundle = varCsvLoadAll() || varCsvLoadForView() || { trades: [] };
-        epochRows = varBuildEpochRows(unionPts, allBundle).slice(0, 16);
+        epochRows = varBuildEpochRows(unionPts, allBundle).slice(0, 24);
       } catch (_) {
         epochRows = [];
       }
       const windows = varFarmHlWindowsFromOmni(epochRows, h);
       if (!windows.length) {
-        // Fallback: last 8 Thursday weeks.
+        // Fallback: last 16 Thursday weeks.
         const now = Date.now();
         const cur = varEpochStartUtc(now);
-        for (let i = 0; i < 8; i++) {
+        for (let i = 0; i < 16; i++) {
           const startMs = cur - i * 7 * 864e5;
           windows.push({
             start: new Date(startMs).toISOString(),
@@ -6067,7 +6079,7 @@
     EWY: ['xyz:EWY', 'EWY'], EWJ: ['xyz:EWJ', 'EWJ'],
   };
   /** Bump when HL fill sources change so auto-heal re-syncs existing hedge weeks. */
-  const VAR_HL_FILLS_SOURCE = 'core+xyz+twap-v1';
+  const VAR_HL_FILLS_SOURCE = 'core+xyz+twap-v2';
 
   let _varFarmHlHealPromise = null;
   let _varFarmHlHealDoneKey = '';
@@ -6097,7 +6109,22 @@
       || (t.reference_instrument && t.reference_instrument.underlying)
       || t.market || t.symbol || t.asset || t.coin
     );
-    return m ? String(m).toUpperCase().replace(/^XYZ:/i, '') : '';
+    if (!m) return '';
+    return String(m).toUpperCase()
+      .replace(/^XYZ:/i, '')
+      .replace(/[-_/]?(USDT|USDC|PERP)$/i, '')
+      .replace(/USD$/i, '')
+      .trim();
+  }
+
+  function varFarmHlFillIsXyz(f) {
+    if (typeof isXyzHip3Fill === 'function') return !!isXyzHip3Fill(f);
+    const c = String((f && f.coin) || '');
+    return /^xyz:/i.test(c) || (c.includes(':') && !c.startsWith('@') && !c.includes('/'));
+  }
+
+  function varFarmHlNormWallet(addr) {
+    return String(addr || '').trim().toLowerCase();
   }
 
   function varFarmHlAcceptNamesFromOmniMarkets(marketSet) {
@@ -6117,6 +6144,7 @@
       const M = String(m).toUpperCase().replace(/^XYZ:/i, '');
       add(VAR_HL_TICKER_MAP[M]);
       add(VAR_HL_TICKER_ALIASES[M]);
+      add('xyz:' + M);
       const alts = VAR_FARM_HL_TO_VARIA[M];
       if (alts) alts.forEach(add);
     }
@@ -6276,13 +6304,73 @@
     return results;
   }
 
-  async function varFarmHlFetchTwapFills(wallet, startTime) {
+  function varFarmHlDashboardFills(wallet) {
+    const lower = varFarmHlNormWallet(wallet);
+    if (!lower) return [];
+    const out = [];
+    const seen = new Set();
+    const push = (arr, requireWallet) => {
+      for (const f of arr || []) {
+        const w = varFarmHlNormWallet(f && f._wallet);
+        if (requireWallet && w !== lower) continue;
+        if (!requireWallet && w && w !== lower) continue;
+        const key = varFarmHlFillKey(f);
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        out.push(f);
+      }
+    };
+    try {
+      let matchedPack = false;
+      if (typeof fillsByWallet !== 'undefined' && fillsByWallet) {
+        for (const k of Object.keys(fillsByWallet)) {
+          if (varFarmHlNormWallet(k) !== lower) continue;
+          matchedPack = true;
+          const pack = fillsByWallet[k] || {};
+          push(pack.hl, false);
+          push(pack.xyz, false);
+        }
+      }
+      const onlyOne = typeof wallets !== 'undefined' && wallets.length === 1
+        && varFarmHlNormWallet(wallets[0]) === lower;
+      if (typeof allFills !== 'undefined') push(allFills, !onlyOne && !matchedPack);
+      if (typeof xyzFills !== 'undefined') push(xyzFills, !onlyOne && !matchedPack);
+    } catch (_) {}
+    return out;
+  }
+
+  function varFarmHlDashboardFunding(wallet) {
+    const lower = varFarmHlNormWallet(wallet);
+    if (!lower || typeof fundingEvents === 'undefined') return [];
+    const onlyOne = typeof wallets !== 'undefined' && wallets.length === 1
+      && varFarmHlNormWallet(wallets[0]) === lower;
+    const out = [];
+    try {
+      for (const ev of fundingEvents || []) {
+        const w = varFarmHlNormWallet(ev && ev._wallet);
+        if (w && w !== lower) continue;
+        if (!w && !onlyOne) continue;
+        out.push({
+          time: varFarmHlNormalizeTime(ev.time),
+          coin: ev.coin || '',
+          usdc: Number(ev.usdc != null ? ev.usdc : ev.funding) || 0,
+        });
+      }
+    } catch (_) {}
+    return out;
+  }
+
+  async function varFarmHlFetchTwapFills(wallet, startTime, dex) {
     if (typeof hlPost !== 'function') throw new Error('hlPost unavailable');
     try {
-      const byTime = await varFarmHlFetchFillsPage(wallet, startTime, { type: 'userTwapSliceFillsByTime' });
+      const extra = { type: 'userTwapSliceFillsByTime' };
+      if (dex) extra.dex = dex;
+      const byTime = await varFarmHlFetchFillsPage(wallet, startTime, extra);
       if (byTime.length) return byTime;
     } catch (_) {}
-    const batch = await hlPost({ type: 'userTwapSliceFills', user: wallet });
+    const body = { type: 'userTwapSliceFills', user: wallet };
+    if (dex) body.dex = dex;
+    const batch = await hlPost(body);
     if (!Array.isArray(batch) || !batch.length) return [];
     const out = [];
     const seen = new Set();
@@ -6297,25 +6385,49 @@
     return out;
   }
 
+  async function varFarmHlFetchFillsFromApi(wallet, startTime, dex) {
+    if (typeof fetchAllFills === 'function') {
+      const r = await fetchAllFills(wallet, startTime, dex || null, 40, dex ? 'var-xyz' : 'var-hl');
+      return (r && r.fills) || [];
+    }
+    return varFarmHlFetchFillsPage(wallet, startTime, dex ? { dex } : {});
+  }
+
   async function varFarmHlFetchFills(wallet, startTime) {
-    const [core, xyz, twap] = await Promise.all([
-      varFarmHlFetchFillsPage(wallet, startTime, {}),
-      varFarmHlFetchFillsPage(wallet, startTime, { dex: 'xyz' }).catch(() => []),
+    const [core, xyz, twap, twapXyz] = await Promise.all([
+      varFarmHlFetchFillsFromApi(wallet, startTime, null).catch((err) => {
+        console.warn('[HS] HL fills', err);
+        return [];
+      }),
+      varFarmHlFetchFillsFromApi(wallet, startTime, 'xyz').catch((err) => {
+        console.warn('[HS] XYZ fills', err);
+        return [];
+      }),
       varFarmHlFetchTwapFills(wallet, startTime).catch(() => []),
+      varFarmHlFetchTwapFills(wallet, startTime, 'xyz').catch(() => []),
     ]);
+    const dash = varFarmHlDashboardFills(wallet);
     const seen = new Set();
     const results = [];
-    for (const f of [...core, ...xyz, ...twap]) {
+    for (const f of [...dash, ...core, ...xyz, ...twap, ...twapXyz]) {
       const key = varFarmHlFillKey(f);
-      if (seen.has(key)) continue;
+      if (!key || seen.has(key)) continue;
       seen.add(key);
       results.push(f);
     }
     return results;
   }
 
-  async function varFarmHlFetchFunding(wallet, startTime) {
+  async function varFarmHlFetchFundingDex(wallet, startTime, dex) {
     if (typeof hlPost !== 'function') throw new Error('hlPost unavailable');
+    if (!dex && typeof fetchAllFunding === 'function') {
+      const rows = await fetchAllFunding(wallet, startTime, 40, dex ? 'var-xyz-fund' : 'var-hl-fund');
+      return (rows || []).map((ev) => ({
+        time: varFarmHlNormalizeTime(ev.time),
+        coin: ev.coin || '',
+        usdc: Number(ev.usdc != null ? ev.usdc : ev.funding) || 0,
+      }));
+    }
     const PAGE = 500;
     const MAX = 40;
     const seen = new Set();
@@ -6324,12 +6436,14 @@
     let cursorEnd = Date.now();
     let order = null;
     for (let p = 0; p < MAX; p++) {
-      const batch = await hlPost({
+      const body = {
         type: 'userFunding',
         user: wallet,
         startTime: cursorStart,
         endTime: cursorEnd,
-      });
+      };
+      if (dex) body.dex = dex;
+      const batch = await hlPost(body);
       if (!Array.isArray(batch) || !batch.length) break;
       if (order === null && batch.length > 1) {
         order = batch[0].time <= batch[batch.length - 1].time ? 'asc' : 'desc';
@@ -6358,6 +6472,26 @@
         cursorEnd = minTime - 1;
         if (cursorEnd <= cursorStart) break;
       }
+    }
+    return results;
+  }
+
+  async function varFarmHlFetchFunding(wallet, startTime) {
+    const [core, xyz] = await Promise.all([
+      varFarmHlFetchFundingDex(wallet, startTime, null).catch((err) => {
+        console.warn('[HS] HL funding', err);
+        return [];
+      }),
+      varFarmHlFetchFundingDex(wallet, startTime, 'xyz').catch(() => []),
+    ]);
+    const dash = varFarmHlDashboardFunding(wallet);
+    const seen = new Set();
+    const results = [];
+    for (const ev of [...dash, ...core, ...xyz]) {
+      const key = `${varFarmHlNormalizeTime(ev && ev.time)}-${ev && ev.coin}-${ev && ev.usdc}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      results.push(ev);
     }
     return results;
   }
@@ -6412,17 +6546,21 @@
       // If Omni markets don't map to any HL coin names, still count all perps
       // so the hedge wallet never renders as a blank "—" row.
       const allowAllPerps = !accept.size || !(omniVol > 0);
-      let realizedRaw = 0;
-      let feesRaw = 0;
-      let volumeRaw = 0;
-      let tradesRaw = 0;
-      let fundingRaw = 0;
-      let realizedFarm = 0;
-      let feesFarm = 0;
-      let volumeFarm = 0;
-      let tradesFarm = 0;
-      let fundingFarm = 0;
+      const zeroSide = () => ({ realized: 0, fees: 0, volume: 0, trades: 0, funding: 0 });
+      const raw = { hl: zeroSide(), xyz: zeroSide() };
+      const farm = { hl: zeroSide(), xyz: zeroSide() };
       const matchedCoins = new Set();
+      const addFill = (side, farmOk, r, fee, vol) => {
+        raw[side].realized += r;
+        raw[side].fees += fee;
+        raw[side].volume += vol;
+        raw[side].trades += 1;
+        if (!farmOk) return;
+        farm[side].realized += r;
+        farm[side].fees += fee;
+        farm[side].volume += vol;
+        farm[side].trades += 1;
+      };
       for (const f of fills || []) {
         const time = varFarmHlFillTime(f);
         if (!(time >= w.startMs && time < w.endMs)) continue;
@@ -6430,39 +6568,49 @@
         const r = Number(f.closedPnl) || 0;
         const fee = -varFarmHlFillFeeUsd(f);
         const vol = Math.abs((Number(f.px) || 0) * (Number(f.sz) || 0));
-        realizedRaw += r;
-        feesRaw += fee;
-        volumeRaw += vol;
-        tradesRaw++;
+        const isXyz = varFarmHlFillIsXyz(f);
+        const side = isXyz ? 'xyz' : 'hl';
+        // Trade XYZ in an Omni week is the hedge book — always count it.
+        const farmOk = allowAllPerps
+          || varFarmHlIsFarmingCoin(f.coin, marketSet, accept)
+          || (isXyz && omniVol > 0);
         matchedCoins.add(String(f.coin || ''));
-        if (allowAllPerps || varFarmHlIsFarmingCoin(f.coin, marketSet, accept)) {
-          realizedFarm += r;
-          feesFarm += fee;
-          volumeFarm += vol;
-          tradesFarm++;
-        }
+        addFill(side, farmOk, r, fee, vol);
       }
       for (const ev of funding || []) {
         const time = varFarmHlNormalizeTime(ev && ev.time);
         if (!(time >= w.startMs && time < w.endMs)) continue;
         if (varFarmHlIsSpotCoin(ev.coin)) continue;
         const usdc = Number(ev.usdc) || 0;
-        fundingRaw += usdc;
-        if (allowAllPerps || varFarmHlIsFarmingCoin(ev.coin, marketSet, accept)) {
-          fundingFarm += usdc;
-        }
+        const isXyz = varFarmHlFillIsXyz(ev);
+        const side = isXyz ? 'xyz' : 'hl';
+        const farmOk = allowAllPerps
+          || varFarmHlIsFarmingCoin(ev.coin, marketSet, accept)
+          || (isXyz && omniVol > 0);
+        raw[side].funding += usdc;
+        if (farmOk) farm[side].funding += usdc;
       }
-      // Prefer Omni-matched hedge; if filter matched nothing but HL had fills, use all perps.
-      const farmHit = tradesFarm > 0 || volumeFarm > 0
-        || Math.abs(realizedFarm) > 0 || Math.abs(fundingFarm) > 0 || Math.abs(feesFarm) > 0;
-      const rawHit = tradesRaw > 0 || volumeRaw > 0
-        || Math.abs(realizedRaw) > 0 || Math.abs(fundingRaw) > 0 || Math.abs(feesRaw) > 0;
+      const sumSides = (a, b) => ({
+        realized: a.realized + b.realized,
+        fees: a.fees + b.fees,
+        volume: a.volume + b.volume,
+        trades: a.trades + b.trades,
+        funding: a.funding + b.funding,
+      });
+      const rawTot = sumSides(raw.hl, raw.xyz);
+      const farmTot = sumSides(farm.hl, farm.xyz);
+      const farmHit = farmTot.trades > 0 || farmTot.volume > 0
+        || Math.abs(farmTot.realized) > 0 || Math.abs(farmTot.funding) > 0 || Math.abs(farmTot.fees) > 0;
+      const rawHit = rawTot.trades > 0 || rawTot.volume > 0
+        || Math.abs(rawTot.realized) > 0 || Math.abs(rawTot.funding) > 0 || Math.abs(rawTot.fees) > 0;
       const useFarm = farmHit || (allowAllPerps && rawHit);
-      const realized = useFarm ? realizedFarm : (rawHit ? realizedRaw : 0);
-      const fundingAmt = useFarm ? fundingFarm : (rawHit ? fundingRaw : 0);
-      const fees = useFarm ? feesFarm : (rawHit ? feesRaw : 0);
-      const volume = useFarm ? volumeFarm : (rawHit ? volumeRaw : 0);
-      const trades = useFarm ? tradesFarm : (rawHit ? tradesRaw : 0);
+      const pick = useFarm ? farm : (rawHit ? raw : { hl: zeroSide(), xyz: zeroSide() });
+      const tot = sumSides(pick.hl, pick.xyz);
+      const realized = tot.realized;
+      const fundingAmt = tot.funding;
+      const fees = tot.fees;
+      const volume = tot.volume;
+      const trades = tot.trades;
       const farming = !!(useFarm && (omniVol > 0 || farmHit));
       const inProgress = Date.now() >= w.startMs && Date.now() < w.endMs;
       return {
@@ -6474,22 +6622,32 @@
         competition: 0,
         markets: [...marketSet].sort(),
         matchedCoins: [...matchedCoins].filter(Boolean).sort(),
-        realizedRaw,
-        fundingRaw,
-        feesRaw,
-        volumeRaw,
-        tradesRaw,
+        realizedRaw: rawTot.realized,
+        fundingRaw: rawTot.funding,
+        feesRaw: rawTot.fees,
+        volumeRaw: rawTot.volume,
+        tradesRaw: rawTot.trades,
         realized,
         funding: fundingAmt,
         fees,
         volume,
         trades,
+        volumeHl: pick.hl.volume,
+        volumeXyz: pick.xyz.volume,
+        realizedHl: pick.hl.realized,
+        realizedXyz: pick.xyz.realized,
+        fundingHl: pick.hl.funding,
+        fundingXyz: pick.xyz.funding,
+        feesHl: pick.hl.fees,
+        feesXyz: pick.xyz.fees,
         farming,
         needsSync: false,
         hasHedge: rawHit,
         inProgress,
         variaVolume: omniVol,
         pnl: realized + fundingAmt + fees,
+        pnlHl: pick.hl.realized + pick.hl.funding + pick.hl.fees,
+        pnlXyz: pick.xyz.realized + pick.xyz.funding + pick.xyz.fees,
       };
     }).filter((ep) => ep.hasHedge || ep.farming);
     hl.syncedAt = new Date().toISOString();
@@ -6859,7 +7017,7 @@
       // Always build the week calendar from ALL jambes (not only the selected chip).
       const unionPts = varPointsUnionFromWallets(walletsAll) || points;
       const allBundle = varCsvLoadAll() || bundle || { trades: [] };
-      epochRows = varBuildEpochRows(unionPts, allBundle).slice(0, 4);
+      epochRows = varBuildEpochRows(unionPts, allBundle).slice(0, 8);
     } catch (_) {
       epochRows = [];
     }
@@ -7073,18 +7231,15 @@
       hlWallets.forEach((hl) => {
         const hlAddr = String(hl.address || '').trim();
         if (!/^0x[a-fA-F0-9]{40}$/i.test(hlAddr)) return;
-        // Never paint blank HL shells — only show weeks with real hedge fills.
         if (!(hl.syncedAt || (hl.epochs && hl.epochs.length))) return;
         const e = varFarmEpochFindHlEpoch(hl, r.start, r.end);
         if (!e) return;
-        // Prefer farming totals; fall back to raw hedge stats (incl. weeks flagged hors farm).
         const realized = Number(e.realized || e.realizedRaw || 0) || 0;
         const funding = Number(e.funding || e.fundingRaw || 0) || 0;
         const fees = Number(e.fees || e.feesRaw || 0) || 0;
         const vol = Number(e.volume || e.volumeRaw || 0) || 0;
         const hasRaw = !!(vol || realized || funding || fees || Number(e.tradesRaw || e.trades || 0));
         if (!hasRaw) return;
-        if (e.farming === false && !hasRaw) return;
         const pnl = (e.pnl != null && isFinite(Number(e.pnl)) && (Number(e.pnl) !== 0 || realized || funding || fees))
           ? Number(e.pnl)
           : (realized + funding + fees);
@@ -7096,22 +7251,38 @@
         tHlFund += funding;
         tHlFees += fees;
         tHlPnl += pnl;
-        // Total PnL = Varia (Omni) + HL ; volume Total stays Omni-only.
         tReal += realized;
         tFund += funding;
         tFees += fees;
         tPnl += pnl;
-        const tip = `R ${varFmtSignedUsdExact(realized)} · F ${varFmtSignedUsdExact(funding)} · Fees ${varFmtSignedUsdExact(fees)}`;
-        const pnlCls = pnl > 0 ? 'is-pos' : (pnl < 0 ? 'is-neg' : '');
-        lines.push(`<tr class="var-farm-epoch-wrow">
+        const volXyz = Number(e.volumeXyz) || 0;
+        const volHl = (e.volumeHl != null) ? Number(e.volumeHl) || 0 : (volXyz > 0 ? Math.max(0, vol - volXyz) : vol);
+        const pnlXyz = (e.pnlXyz != null)
+          ? Number(e.pnlXyz) || 0
+          : ((Number(e.realizedXyz) || 0) + (Number(e.fundingXyz) || 0) + (Number(e.feesXyz) || 0));
+        const pnlHlPart = (e.pnlHl != null)
+          ? Number(e.pnlHl) || 0
+          : (volXyz > 0 ? (pnl - pnlXyz) : pnl);
+        const pushVenue = (label, pillClass, vVol, vReal, vFund, vFee, vPnl) => {
+          if (!(vVol || vReal || vFund || vFee || vPnl)) return;
+          const tip = `R ${varFmtSignedUsdExact(vReal)} · F ${varFmtSignedUsdExact(vFund)} · Fees ${varFmtSignedUsdExact(vFee)}`;
+          const pnlCls = vPnl > 0 ? 'is-pos' : (vPnl < 0 ? 'is-neg' : '');
+          lines.push(`<tr class="var-farm-epoch-wrow">
           <td></td>
-          <td class="left"><span class="var-farm-epoch-pill is-hl">${varEsc(hl.label)}</span>${offFarmNote}</td>
-          <td class="text-right mono">${vol > 0 ? varFmtCompactUsd(vol) : '—'}</td>
+          <td class="left"><span class="var-farm-epoch-pill ${pillClass}">${varEsc(label)}</span>${offFarmNote}</td>
+          <td class="text-right mono">${vVol > 0 ? varFmtCompactUsd(vVol) : '—'}</td>
           <td class="muted text-right">—</td>
-          <td class="text-right mono ${pnlCls}" title="${varEsc(tip)}">${varFmtSignedUsdExact(pnl)}</td>
+          <td class="text-right mono ${pnlCls}" title="${varEsc(tip)}">${varFmtSignedUsdExact(vPnl)}</td>
           <td class="muted text-right">—</td>
           <td></td><td></td>
         </tr>`);
+        };
+        if (volXyz > 0 || pnlXyz) {
+          pushVenue(hl.label || 'HL', 'is-hl', volHl, Number(e.realizedHl) || 0, Number(e.fundingHl) || 0, Number(e.feesHl) || 0, pnlHlPart);
+          pushVenue(varT('var.venueXyz'), 'is-xyz', volXyz, Number(e.realizedXyz) || 0, Number(e.fundingXyz) || 0, Number(e.feesXyz) || 0, pnlXyz);
+        } else {
+          pushVenue(hl.label || 'HL', 'is-hl', vol, realized, funding, fees, pnl);
+        }
       });
 
       // Fallback: single aggregated line when no per-wallet sources.
@@ -7143,9 +7314,9 @@
       const estRounded = Math.round(totEst.est);
       const pnlRounded = Math.round(tot.pnl);
       const estNetRounded = estRounded + pnlRounded;
-      const totVolTip = tHlVol > 0 ? `HL ${varFmtCompactUsd(tHlVol)}` : '';
+      const totVolTip = tHlVol > 0 ? `${varT('var.venueHl')}+${varT('var.venueXyz')} ${varFmtCompactUsd(tHlVol)}` : '';
       const omniPnl = tPnl - tHlPnl;
-      let totTip = `Varia ${varFmtSignedUsdExact(omniPnl)} + HL ${varFmtSignedUsdExact(tHlPnl)} = ${varFmtSignedUsdExact(tPnl)}`;
+      let totTip = `Varia ${varFmtSignedUsdExact(omniPnl)} + ${varT('var.venueHl')}/${varT('var.venueXyz')} ${varFmtSignedUsdExact(tHlPnl)} = ${varFmtSignedUsdExact(tPnl)}`;
       totTip += ` · R ${varFmtSignedUsdExact(tReal)} · F ${varFmtSignedUsdExact(tFund)} · Fees ${varFmtSignedUsdExact(tFees)}`;
       const totEstTip = tEstPts > 0 && !(tPts > 0)
         ? `Est. ${varFmtPoints(tEstPts)} pts · ${VAR_EPOCH_EST_PTS_PER_100K} pts / $100k`
@@ -7536,7 +7707,7 @@
 
     const epochStart = varEpochStartUtc(now);
     const weekMs = 7 * 864e5;
-    // One recent-rate lookup reused across the 16-week fill loop (same published history).
+    // One recent-rate lookup reused across the fill loop (same published history).
     const rateByBefore = new Map();
     const rateFor = (beforeStart) => {
       if (rateByBefore.has(beforeStart)) return rateByBefore.get(beforeStart);
@@ -7546,7 +7717,7 @@
     };
 
     // Ensure every recent Thursday week with volume appears (current + finalising + gaps).
-    for (let i = 0; i < 16; i++) {
+    for (let i = 0; i < 24; i++) {
       const start = epochStart - i * weekMs;
       const end = start + weekMs;
       const inProgress = now >= start && now < end;
@@ -8877,7 +9048,7 @@
       if (!history.length) {
         table.innerHTML = `<div style="color:var(--muted);font-size:.82rem">${varT('var.labPoolEmpty')}</div>`;
       } else {
-        const body = history.slice().reverse().slice(0, 16).map(r => {
+        const body = history.slice().reverse().slice(0, 24).map(r => {
           const ratio = medianPool > 0 ? r.pool / medianPool : 1;
           const cls = varLabPoolRatioClass(ratio);
           return `<tr>
@@ -10668,7 +10839,7 @@
       ['Points', varFmtPoints(inputs.points)],
       ['Value / pt', inputs.points > 0 ? varFmtCompactUsd(metrics.valuePerPoint) : '—'],
       ['FDV', varFmtCompactUsd(metrics.fdv)],
-      ['Supply R1', inputs.sharePct.toFixed(1) + '%'],
+      ['Genesis', inputs.sharePct.toFixed(1) + '%'],
       ['Pts at TGE', varFmtPtsMillions(inputs.totalPtsM)],
       ['Pool', varFmtCompactUsd(metrics.pool)],
     ];
