@@ -124,6 +124,9 @@
   let _varFarmEpochOiInit = false;
   let _varLabModel = 'rwa-9';
   let _varDashStacked = false;
+  let _varHlTxCache = { addr: '', fills: [], funding: [], at: 0 };
+  let _varTxDetailTab = 'asset';
+  let _varTxDetailLimit = 250;
 
   function varT(key) {
     return typeof t === 'function' ? t(key) : key;
@@ -5901,6 +5904,12 @@
       ]);
       const shell = { epochs: h.epochs || [] };
       varFarmRebuildHlEpochs(shell, fills, funding, windows);
+      _varHlTxCache = {
+        addr: String(addr).toLowerCase(),
+        fills: fills || [],
+        funding: funding || [],
+        at: Date.now(),
+      };
       acc.hlHedge = {
         address: addr,
         label: h.label || 'HL',
@@ -7353,6 +7362,17 @@
         }</td></tr>`;
       }
 
+      let txTr = '';
+      if (open) {
+        try {
+          const txBundle = varCsvLoadAll() || viewBundle || { trades: [] };
+          const txRows = varCollectTxsForRange(r.start, r.end, { bundle: txBundle });
+          txTr = `<tr class="var-farm-epoch-detail-tr"><td colspan="8">${varTxDetailInnerHtml(txRows, 'epoch:' + r.id)}</td></tr>`;
+        } catch (_) {
+          txTr = '';
+        }
+      }
+
       return `<tr class="var-farm-epoch-total${open ? ' is-open' : ''}" data-farm-epoch-toggle="${varEsc(r.id)}" aria-expanded="${open ? 'true' : 'false'}">
         <td class="left"><span class="var-farm-epoch-pill is-epoch">${varEsc(badge)}</span><span class="var-epoch-chev" aria-hidden="true"></span></td>
         <td class="left"><strong>${varEsc(varT('var.epochTotal'))}</strong></td>
@@ -7362,12 +7382,13 @@
         <td class="text-right mono ${tot.costPerPt != null ? 'is-neg' : 'muted'}">${varFarmEpochCostDisp(tot.costPerPt)}</td>
         <td class="text-right mono"${totEstTip ? ` title="${varEsc(totEstTip)}"` : ''}>${varFmtSignedUsdExact(estRounded)}</td>
         <td class="text-right mono ${totEstCls}">${varFmtSignedUsdExact(estNetRounded)}</td>
-      </tr>${lines.join('')}${detailTr}`;
+      </tr>${lines.join('')}${detailTr}${txTr}`;
     }).join('');
 
     el.innerHTML = `${summaryHtml}
       <div class="var-farm-suivi-epochs-h">${varEsc(varT('var.epochParEpoch'))}</div>
       <div class="var-farm-epoch-table-wrap"><table class="var-farm-epoch-table">${head}<tbody>${body}</tbody></table></div>`;
+    varBindTxDetailUi(el);
   }
 
   function varBindFarmEpochMiniUi() {
@@ -7376,6 +7397,8 @@
     if (!el) return;
     _varFarmEpochUiBound = true;
     el.addEventListener('click', (e) => {
+      const txTab = e.target.closest('[data-tx-tab], [data-tx-more]');
+      if (txTab) return;
       const mktBtn = e.target.closest('[data-epoch-markets]');
       if (mktBtn) {
         e.preventDefault();
@@ -9631,11 +9654,385 @@
     return map;
   }
 
+  function varTxAssetLabel(raw) {
+    let s = String(raw || '').toUpperCase().trim();
+    if (!s) return '';
+    if (s.startsWith('XYZ:')) s = s.slice(4);
+    return s.replace(/[-_/]?(USDT|USDC|PERP)$/i, '').replace(/USD$/i, '').trim() || String(raw || '').toUpperCase();
+  }
+
+  function varTxVenueLabel(venue) {
+    if (venue === 'xyz') return varT('var.venueXyz') || 'XYZ';
+    if (venue === 'hl') return varT('var.venueHl') || 'HL';
+    return 'Omni';
+  }
+
+  function varTxSideKind(side) {
+    const s = String(side || '').toLowerCase();
+    if (s === 'b' || s === 'buy' || s === 'bid' || s === 'long') return 'buy';
+    if (s === 'a' || s === 'sell' || s === 'ask' || s === 'short') return 'sell';
+    return '';
+  }
+
+  function varTxHourStart(ts) {
+    const d = new Date(ts);
+    d.setMinutes(0, 0, 0);
+    return d.getTime();
+  }
+
+  function varTxHourLabel(ts) {
+    try {
+      return new Date(ts).toLocaleString(varLoc(), {
+        weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit',
+      });
+    } catch (_) {
+      return new Date(ts).toISOString().slice(0, 13) + 'h';
+    }
+  }
+
+  function varTxTimeLabel(ts) {
+    try {
+      return new Date(ts).toLocaleString(varLoc(), {
+        day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit',
+      });
+    } catch (_) {
+      return new Date(ts).toISOString().replace('T', ' ').slice(0, 19);
+    }
+  }
+
+  function varTxHlFills(addr) {
+    const lower = varFarmHlNormWallet(addr);
+    if (!lower) return [];
+    const map = new Map();
+    const push = (arr) => {
+      for (const f of arr || []) {
+        const k = varFarmHlFillKey(f);
+        if (!k || map.has(k)) continue;
+        map.set(k, f);
+      }
+    };
+    if (_varHlTxCache.addr === lower) push(_varHlTxCache.fills);
+    try { push(varFarmHlDashboardFills(addr)); } catch (_) {}
+    return [...map.values()];
+  }
+
+  function varTxHlFunding(addr) {
+    const lower = varFarmHlNormWallet(addr);
+    if (!lower) return [];
+    const map = new Map();
+    const push = (arr) => {
+      for (const ev of arr || []) {
+        const k = `${varFarmHlNormalizeTime(ev && ev.time)}-${ev && ev.coin}-${ev && ev.usdc}`;
+        if (map.has(k)) continue;
+        map.set(k, ev);
+      }
+    };
+    if (_varHlTxCache.addr === lower) push(_varHlTxCache.funding);
+    try { push(varFarmHlDashboardFunding(addr)); } catch (_) {}
+    return [...map.values()];
+  }
+
+  function varCollectTxsForRange(start, exclusiveEnd, opts) {
+    const rows = [];
+    const all = !!(opts && opts.allPeriod);
+    const inWin = (ts) => all || (ts >= start && ts < exclusiveEnd);
+    const bundle = (opts && opts.bundle) || varCsvLoadForView() || { trades: [], funding: [], realizedPnl: [], transfers: [] };
+
+    for (const t of bundle.trades || []) {
+      if (t.status && t.status !== 'confirmed') continue;
+      const ts = varParseTs(t.created_at || t.timestamp || t.time || t.ts || 0);
+      if (!inWin(ts)) continue;
+      const px = Number(varTradePx(t)) || 0;
+      const qty = Number(varTradeQty(t)) || 0;
+      const notional = Math.abs(px * qty);
+      if (!(notional > 0)) continue;
+      rows.push({
+        ts, asset: varTxAssetLabel(t.underlying || (t.instrument && t.instrument.underlying) || t.market || t.asset),
+        venue: 'omni', type: 'trade', side: varTxSideKind(t.side),
+        px, qty, volume: notional, realized: 0, funding: 0, fees: 0, pnl: 0,
+      });
+    }
+
+    const cash = (list, forced) => {
+      for (const t of list || []) {
+        if (t.status !== 'confirmed') continue;
+        const ts = varParseTs(t.created_at || t.timestamp || t.time || t.ts || 0);
+        if (!inWin(ts)) continue;
+        const kind = String(forced || t.transfer_type || '').toLowerCase();
+        const qty = Number(varTransferQty(t)) || 0;
+        if (!qty) continue;
+        const asset = varTxAssetLabel(t.underlying || (t.reference_instrument && t.reference_instrument.underlying) || t.asset || '');
+        if (kind === 'realized_pnl') {
+          rows.push({ ts, asset, venue: 'omni', type: 'realized', side: '', px: 0, qty: 0, volume: 0, realized: qty, funding: 0, fees: 0, pnl: qty });
+        } else if (kind === 'funding') {
+          rows.push({ ts, asset, venue: 'omni', type: 'funding', side: '', px: 0, qty: 0, volume: 0, realized: 0, funding: qty, fees: 0, pnl: qty });
+        } else if (kind === 'fee') {
+          rows.push({ ts, asset, venue: 'omni', type: 'fee', side: '', px: 0, qty: 0, volume: 0, realized: 0, funding: 0, fees: qty, pnl: qty });
+        }
+      }
+    };
+    cash(bundle.realizedPnl, 'realized_pnl');
+    cash(bundle.funding, 'funding');
+    cash(bundle.transfers, null);
+
+    const hedge = varGetHlHedge();
+    const addr = String((hedge && hedge.address) || '').trim();
+    if (/^0x[a-fA-F0-9]{40}$/i.test(addr)) {
+      for (const f of varTxHlFills(addr)) {
+        const ts = varFarmHlFillTime(f);
+        if (!inWin(ts)) continue;
+        if (varFarmHlIsSpotCoin(f.coin)) continue;
+        const px = Number(f.px) || 0;
+        const qty = Number(f.sz) || 0;
+        const volume = Math.abs(px * qty);
+        const realized = Number(f.closedPnl) || 0;
+        const fees = -varFarmHlFillFeeUsd(f);
+        const venue = varFarmHlFillIsXyz(f) ? 'xyz' : 'hl';
+        if (!(volume > 0) && !realized && !fees) continue;
+        rows.push({
+          ts, asset: varTxAssetLabel(f.coin), venue, type: 'trade',
+          side: varTxSideKind(f.side), px, qty, volume, realized, funding: 0, fees, pnl: realized + fees,
+        });
+      }
+      for (const ev of varTxHlFunding(addr)) {
+        const ts = varFarmHlNormalizeTime(ev && ev.time);
+        if (!inWin(ts)) continue;
+        if (varFarmHlIsSpotCoin(ev.coin)) continue;
+        const usdc = Number(ev.usdc) || 0;
+        if (!usdc) continue;
+        const venue = varFarmHlFillIsXyz(ev) ? 'xyz' : 'hl';
+        rows.push({
+          ts, asset: varTxAssetLabel(ev.coin), venue, type: 'funding',
+          side: '', px: 0, qty: 0, volume: 0, realized: 0, funding: usdc, fees: 0, pnl: usdc,
+        });
+      }
+    }
+
+    rows.sort((a, b) => b.ts - a.ts);
+    return rows;
+  }
+
+  function varGroupTxsByAsset(rows) {
+    const map = new Map();
+    for (const r of rows) {
+      const key = r.asset || '—';
+      let g = map.get(key);
+      if (!g) {
+        g = { asset: key, venues: new Set(), count: 0, volume: 0, realized: 0, funding: 0, fees: 0, pnl: 0 };
+        map.set(key, g);
+      }
+      g.venues.add(r.venue);
+      g.count += 1;
+      g.volume += r.volume || 0;
+      g.realized += r.realized || 0;
+      g.funding += r.funding || 0;
+      g.fees += r.fees || 0;
+      g.pnl += r.pnl || 0;
+    }
+    return [...map.values()].sort((a, b) => Math.abs(b.pnl) - Math.abs(a.pnl) || b.volume - a.volume);
+  }
+
+  function varGroupTxsByHour(rows) {
+    const map = new Map();
+    for (const r of rows) {
+      const h = varTxHourStart(r.ts);
+      let g = map.get(h);
+      if (!g) {
+        g = { hour: h, count: 0, volume: 0, realized: 0, funding: 0, fees: 0, pnl: 0 };
+        map.set(h, g);
+      }
+      g.count += 1;
+      g.volume += r.volume || 0;
+      g.realized += r.realized || 0;
+      g.funding += r.funding || 0;
+      g.fees += r.fees || 0;
+      g.pnl += r.pnl || 0;
+    }
+    return [...map.values()].sort((a, b) => b.hour - a.hour);
+  }
+
+  function varTxSigned(n) {
+    const v = Number(n) || 0;
+    const cls = v > 0 ? 'is-pos' : (v < 0 ? 'is-neg' : '');
+    return `<span class="mono ${cls}">${varFmtSignedUsdExact(v)}</span>`;
+  }
+
+  function varTxDetailInnerHtml(rows, scope) {
+    const tab = _varTxDetailTab === 'hour' || _varTxDetailTab === 'list' ? _varTxDetailTab : 'asset';
+    const tabBtn = (id, label) => `<button type="button" class="var-points-inner-tab${tab === id ? ' is-on' : ''}" data-tx-tab="${id}" data-tx-scope="${varEsc(scope)}">${varEsc(label)}</button>`;
+    const tabs = `<div class="var-tx-tabs" role="tablist">
+      ${tabBtn('asset', varT('var.txTabAsset'))}
+      ${tabBtn('hour', varT('var.txTabHour'))}
+      ${tabBtn('list', varT('var.txTabList'))}
+    </div>`;
+    if (!rows.length) {
+      return `${tabs}<div class="var-tx-empty">${varEsc(varT('var.txEmpty'))}</div>`;
+    }
+
+    if (tab === 'hour') {
+      const hours = varGroupTxsByHour(rows);
+      const body = hours.map((g) => `<tr>
+        <td class="mono">${varEsc(varTxHourLabel(g.hour))}</td>
+        <td class="text-right mono">${g.count}</td>
+        <td class="text-right mono">${g.volume > 0 ? varFmtCompactUsd(g.volume) : '—'}</td>
+        <td class="text-right">${varTxSigned(g.realized)}</td>
+        <td class="text-right">${varTxSigned(g.funding)}</td>
+        <td class="text-right">${varTxSigned(g.fees)}</td>
+        <td class="text-right">${varTxSigned(g.pnl)}</td>
+      </tr>`).join('');
+      return `${tabs}<div class="var-tx-table-wrap"><table class="var-tx-table"><thead><tr>
+        <th>${varEsc(varT('var.txColHour'))}</th>
+        <th class="text-right">${varEsc(varT('var.txColCount'))}</th>
+        <th class="text-right">${varEsc(varT('var.txColVol'))}</th>
+        <th class="text-right">${varEsc(varT('var.txColRealized'))}</th>
+        <th class="text-right">${varEsc(varT('var.txColFunding'))}</th>
+        <th class="text-right">${varEsc(varT('var.txColFees'))}</th>
+        <th class="text-right">${varEsc(varT('var.txColPnl'))}</th>
+      </tr></thead><tbody>${body}</tbody></table></div>`;
+    }
+
+    if (tab === 'list') {
+      const limit = _varTxDetailLimit;
+      const shown = rows.slice(0, limit);
+      const typeLbl = (tp) => {
+        if (tp === 'funding') return varT('var.txTypeFunding');
+        if (tp === 'fee') return varT('var.txTypeFee');
+        if (tp === 'realized') return varT('var.txTypeRealized');
+        return varT('var.txTypeTrade');
+      };
+      const sideLbl = (side) => {
+        if (side === 'buy') return varT('var.txBuy');
+        if (side === 'sell') return varT('var.txSell');
+        return '—';
+      };
+      const body = shown.map((r) => `<tr>
+        <td class="mono">${varEsc(varTxTimeLabel(r.ts))}</td>
+        <td>
+          <span class="var-epoch-mkt-asset" style="gap:6px">
+            ${varAssetLogoHtml(r.asset)}
+            <span class="mono">${varEsc(r.asset || '—')}</span>
+          </span>
+        </td>
+        <td><span class="var-farm-epoch-pill ${r.venue === 'xyz' ? 'is-xyz' : (r.venue === 'hl' ? 'is-hl' : 'is-omni')}">${varEsc(varTxVenueLabel(r.venue))}</span></td>
+        <td>${varEsc(typeLbl(r.type))}</td>
+        <td>${varEsc(sideLbl(r.side))}</td>
+        <td class="text-right mono">${r.px > 0 ? varFmtPosPx(r.px) : '—'}</td>
+        <td class="text-right mono">${r.volume > 0 ? varFmtCompactUsd(r.volume) : '—'}</td>
+        <td class="text-right">${varTxSigned(r.pnl)}</td>
+      </tr>`).join('');
+      const more = rows.length > shown.length
+        ? `<button type="button" class="btn btn-ghost text-xs var-tx-more" data-tx-more="${varEsc(scope)}">${varEsc(varT('var.txMore').replace('{n}', String(rows.length - shown.length)))}</button>`
+        : '';
+      return `${tabs}<div class="var-tx-table-wrap"><table class="var-tx-table"><thead><tr>
+        <th>${varEsc(varT('var.txColTime'))}</th>
+        <th>${varEsc(varT('var.txColAsset'))}</th>
+        <th>${varEsc(varT('var.txColSource'))}</th>
+        <th>${varEsc(varT('var.txColType'))}</th>
+        <th>${varEsc(varT('var.txColSide'))}</th>
+        <th class="text-right">${varEsc(varT('var.txColPx'))}</th>
+        <th class="text-right">${varEsc(varT('var.txColSize'))}</th>
+        <th class="text-right">${varEsc(varT('var.txColPnl'))}</th>
+      </tr></thead><tbody>${body}</tbody></table></div>${more}`;
+    }
+
+    const assets = varGroupTxsByAsset(rows);
+    const body = assets.map((g) => {
+      const src = [...g.venues].map(varTxVenueLabel).join(' · ');
+      return `<tr>
+        <td>
+          <span class="var-epoch-mkt-asset" style="gap:6px">
+            ${varAssetLogoHtml(g.asset)}
+            <span class="mono">${varEsc(g.asset || '—')}</span>
+          </span>
+          <div class="var-tx-src">${varEsc(src)}</div>
+        </td>
+        <td class="text-right mono">${g.count}</td>
+        <td class="text-right mono">${g.volume > 0 ? varFmtCompactUsd(g.volume) : '—'}</td>
+        <td class="text-right">${varTxSigned(g.realized)}</td>
+        <td class="text-right">${varTxSigned(g.funding)}</td>
+        <td class="text-right">${varTxSigned(g.fees)}</td>
+        <td class="text-right">${varTxSigned(g.pnl)}</td>
+      </tr>`;
+    }).join('');
+    return `${tabs}<div class="var-tx-table-wrap"><table class="var-tx-table"><thead><tr>
+      <th>${varEsc(varT('var.txColAsset'))}</th>
+      <th class="text-right">${varEsc(varT('var.txColCount'))}</th>
+      <th class="text-right">${varEsc(varT('var.txColVol'))}</th>
+      <th class="text-right">${varEsc(varT('var.txColRealized'))}</th>
+      <th class="text-right">${varEsc(varT('var.txColFunding'))}</th>
+      <th class="text-right">${varEsc(varT('var.txColFees'))}</th>
+      <th class="text-right">${varEsc(varT('var.txColPnl'))}</th>
+    </tr></thead><tbody>${body}</tbody></table></div>`;
+  }
+
+  function varBindTxDetailUi(root) {
+    if (!root || root.dataset.txUi === '1') return;
+    root.dataset.txUi = '1';
+    root.addEventListener('click', (e) => {
+      const tab = e.target.closest('[data-tx-tab]');
+      if (tab) {
+        e.preventDefault();
+        e.stopPropagation();
+        _varTxDetailTab = tab.getAttribute('data-tx-tab') || 'asset';
+        const scope = tab.getAttribute('data-tx-scope') || '';
+        if (String(scope).startsWith('epoch:')) {
+          try { varRenderFarmEpochMini(); } catch (_) {}
+        } else {
+          try { varRenderLiveTxDetail(); } catch (_) {}
+        }
+        return;
+      }
+      const more = e.target.closest('[data-tx-more]');
+      if (!more) return;
+      e.preventDefault();
+      e.stopPropagation();
+      _varTxDetailLimit = Math.min(4000, _varTxDetailLimit + 250);
+      const scope = more.getAttribute('data-tx-more') || '';
+      if (String(scope).startsWith('epoch:')) {
+        try { varRenderFarmEpochMini(); } catch (_) {}
+      } else {
+        try { varRenderLiveTxDetail(); } catch (_) {}
+      }
+    });
+  }
+
+  function varLiveTxRange(period, dash) {
+    if (dash && dash.start > 0) {
+      const exclusiveEnd = dash.exclusiveEnd != null ? dash.exclusiveEnd : ((Number(dash.end) || Date.now()) + 1);
+      return { start: dash.start, exclusiveEnd, allPeriod: period === 'all' };
+    }
+    const range = varDashRange(period, [], Date.now());
+    return {
+      start: range.start,
+      exclusiveEnd: range.exclusiveEnd != null ? range.exclusiveEnd : (range.end + 1),
+      allPeriod: period === 'all',
+    };
+  }
+
+  function varRenderLiveTxDetail() {
+    const host = document.getElementById('varLiveTxBody');
+    const panel = document.getElementById('varLiveTxPanel');
+    if (!host) return;
+    varBindTxDetailUi(panel);
+    const period = _varLiveVolPeriod || varLiveVolPeriodLoad();
+    const bundle = varCsvLoadForView();
+    const dash = (bundle && bundle.trades && bundle.trades.length)
+      ? varBuildDashAnalyticsCached(bundle, period, { light: true })
+      : null;
+    const range = varLiveTxRange(period, dash);
+    const rows = varCollectTxsForRange(range.start, range.exclusiveEnd, {
+      bundle: bundle || { trades: [] },
+      allPeriod: range.allPeriod,
+    });
+    host.innerHTML = varTxDetailInnerHtml(rows, 'live');
+  }
+
   function varRenderLiveDashboard() {
     const volEl = document.getElementById('varLiveVolValue');
     const posEl = document.getElementById('varLivePositions');
     const mktsEl = document.getElementById('varLiveMarkets');
-    if (!volEl && !posEl && !mktsEl) return;
+    const txEl = document.getElementById('varLiveTxBody');
+    if (!volEl && !posEl && !mktsEl && !txEl) return;
 
     const period = _varLiveVolPeriod || varLiveVolPeriodLoad();
     _varLiveVolPeriod = period;
@@ -9937,6 +10334,7 @@
     }
 
     try { varRenderFarmOverview(); } catch (_) {}
+    try { varRenderLiveTxDetail(); } catch (_) {}
   }
 
   function varInitOmniExtBridge() {

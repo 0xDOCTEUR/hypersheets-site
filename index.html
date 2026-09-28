@@ -954,6 +954,24 @@ const HS_CONFIG = {
         #varLivePositions .is-neg,
         #varLiveMarkets .is-neg { color: var(--danger); }
         #varLiveMarkets table { width: 100%; min-width: 560px; }
+        .var-tx-hint { font-size: .78rem; color: var(--muted); margin: 0 0 10px; max-width: 72ch; line-height: 1.45; }
+        .var-tx-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
+        .var-tx-table-wrap { overflow-x: auto; max-height: min(52vh, 560px); overflow-y: auto; }
+        .var-tx-table { width: 100%; min-width: 760px; border-collapse: collapse; font-size: .78rem; }
+        #varLiveTxPanel, #varFarmEpochsPanel { margin-top: 14px; }
+        .var-tx-table th {
+          text-align: left; font-size: .68rem; letter-spacing: .04em; text-transform: uppercase;
+          color: var(--muted); font-weight: 700; padding: 6px 8px; border-bottom: 1px solid var(--border);
+          position: sticky; top: 0; background: var(--surface); z-index: 1;
+        }
+        .var-tx-table th.text-right, .var-tx-table td.text-right { text-align: right; }
+        .var-tx-table td { padding: 7px 8px; border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent); vertical-align: middle; }
+        .var-tx-table tbody tr:hover td { background: color-mix(in srgb, var(--muted) 6%, transparent); }
+        .var-tx-table .is-pos { color: var(--success); }
+        .var-tx-table .is-neg { color: var(--danger); }
+        .var-tx-src { font-size: .68rem; color: var(--muted); }
+        .var-tx-more { margin-top: 8px; }
+        .var-tx-empty { font-size: .82rem; color: var(--muted); padding: 8px 0; }
         .var-live-hedge { display: flex; flex-direction: column; gap: 12px; }
         .var-live-hedge-hint {
           font-size: .78rem; color: var(--muted); line-height: 1.45;
@@ -1927,6 +1945,10 @@ const HS_CONFIG = {
         .var-farm-epoch-pill.is-hl {
           color: #9b8cff;
           background: color-mix(in srgb, #9b8cff 16%, transparent);
+        }
+        .var-farm-epoch-pill.is-omni {
+          color: #4c9af8;
+          background: color-mix(in srgb, #4c9af8 16%, transparent);
         }
         .var-farm-epoch-pill.is-xyz {
           color: #fbbf24;
@@ -11217,6 +11239,19 @@ const HS_CONFIG = {
                 <div class="kpi-sub" id="varLiveTradesMeta"></div>
               </div>
             </div>
+            <div class="var-live-panel var-tx-detail" id="varLiveTxPanel" data-collapsible-key="live-tx">
+              <div class="section-h mb-1" style="margin:0 0 2px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                  <span class="bar" style="background:var(--accent)"></span>
+                  <span data-i18n="var.txTitle">Vérifier les transactions</span>
+                </div>
+                <button type="button" class="var-live-panel-toggle" onclick="varToggleLivePanel('live-tx')" aria-label="Toggle section">▾</button>
+              </div>
+              <div class="var-live-panel-body">
+                <p class="var-tx-hint" data-i18n="var.txHint">PnL regroupé par actif et par heure (heure de ton ordinateur). La liste sert à recouper avec Omni, Hyperliquid et Trade XYZ.</p>
+                <div id="varLiveTxBody"></div>
+              </div>
+            </div>
             <div class="var-live-panel var-farm-epochs" id="varFarmEpochsPanel" data-collapsible-key="live-epochs">
               <div class="section-h mb-1" style="margin:0 0 2px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
                 <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -12369,6 +12404,34 @@ const I18N = {
     'var.livePnlMeta': 'Win rate {pct}%',
     'var.livePosEmpty': 'No open positions yet. Collect Omni in the extension, then Sync.',
     'var.liveMarketsEmpty': 'No trades in this period yet.',
+    'var.txTitle': 'Check transactions',
+    'var.txHint': 'PnL grouped by asset and by hour (your computer clock). Use the list to match Omni, Hyperliquid and Trade XYZ.',
+    'var.txTabAsset': 'By asset',
+    'var.txTabHour': 'By hour',
+    'var.txTabList': 'Transactions',
+    'var.txColAsset': 'Asset',
+    'var.txColSource': 'Source',
+    'var.txColCount': 'Count',
+    'var.txColVol': 'Volume',
+    'var.txColRealized': 'Realized',
+    'var.txColFunding': 'Funding',
+    'var.txColFees': 'Fees',
+    'var.txColPnl': 'PnL',
+    'var.txColHour': 'Hour',
+    'var.txColTime': 'Time',
+    'var.txColSide': 'Side',
+    'var.txColPx': 'Price',
+    'var.txColSize': 'Size',
+    'var.txColType': 'Type',
+    'var.txBuy': 'Buy',
+    'var.txSell': 'Sell',
+    'var.txTypeTrade': 'Trade',
+    'var.txTypeFunding': 'Funding',
+    'var.txTypeFee': 'Fee',
+    'var.txTypeRealized': 'Realized',
+    'var.txEmpty': 'No transaction in this period. Import Omni (Import) and click Sync HL.',
+    'var.txMore': 'Show more ({n})',
+    'var.txSources': 'Omni + HL + Trade XYZ',
     'var.dashColQty': 'Qty',
     'var.dashColEntry': 'Entry',
     'var.dashColMark': 'Mark',
@@ -13551,6 +13614,34 @@ const I18N = {
     'var.livePnlMeta': 'Win rate {pct}%',
     'var.livePosEmpty': 'Pas encore de positions ouvertes. Collecter Omni dans l’extension, puis Synchroniser.',
     'var.liveMarketsEmpty': 'Pas encore de trades sur cette période.',
+    'var.txTitle': 'Vérifier les transactions',
+    'var.txHint': 'PnL regroupé par actif et par heure (heure de ton ordinateur). La liste sert à recouper avec Omni, Hyperliquid et Trade XYZ. Funding = paiement horaire du marché.',
+    'var.txTabAsset': 'Par actif',
+    'var.txTabHour': 'Par heure',
+    'var.txTabList': 'Transactions',
+    'var.txColAsset': 'Actif',
+    'var.txColSource': 'Source',
+    'var.txColCount': 'Nb',
+    'var.txColVol': 'Volume',
+    'var.txColRealized': 'Réalisé',
+    'var.txColFunding': 'Funding',
+    'var.txColFees': 'Frais',
+    'var.txColPnl': 'PnL',
+    'var.txColHour': 'Heure',
+    'var.txColTime': 'Heure',
+    'var.txColSide': 'Sens',
+    'var.txColPx': 'Prix',
+    'var.txColSize': 'Taille',
+    'var.txColType': 'Type',
+    'var.txBuy': 'Achat',
+    'var.txSell': 'Vente',
+    'var.txTypeTrade': 'Trade',
+    'var.txTypeFunding': 'Funding',
+    'var.txTypeFee': 'Frais',
+    'var.txTypeRealized': 'Réalisé',
+    'var.txEmpty': 'Pas de transaction sur cette période. Importe Omni (Import) et clique Sync HL.',
+    'var.txMore': 'Voir plus ({n})',
+    'var.txSources': 'Omni + HL + Trade XYZ',
     'var.dashColQty': 'Qté',
     'var.dashColEntry': 'Entrée',
     'var.dashColMark': 'Mark',
@@ -33469,7 +33560,7 @@ document.addEventListener('DOMContentLoaded', () => {
 </div>
 
 <script src="js/variational-omni-collector.js"></script>
-<script src="js/variational-omni.js?v=20260928farm1"></script>
+<script src="js/variational-omni.js?v=20260928tx1"></script>
 
 <script>
 (function hsLoadCfWebAnalytics() {
