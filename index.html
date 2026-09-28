@@ -957,7 +957,15 @@ const HS_CONFIG = {
         .var-tx-hint { font-size: .78rem; color: var(--muted); margin: 0 0 10px; max-width: 72ch; line-height: 1.45; }
         .var-tx-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
         .var-tx-table-wrap { overflow-x: auto; max-height: min(52vh, 560px); overflow-y: auto; }
-        .var-tx-table { width: 100%; min-width: 760px; border-collapse: collapse; font-size: .78rem; }
+        .var-tx-table { width: 100%; min-width: 640px; border-collapse: collapse; font-size: .78rem; }
+        .var-tx-table-pair { min-width: 0; width: 100%; table-layout: fixed; }
+        .var-tx-table-pair th:nth-child(1),
+        .var-tx-table-pair td:nth-child(1) { width: 18%; }
+        .var-tx-table-pair th:nth-child(3),
+        .var-tx-table-pair td:nth-child(3),
+        .var-tx-table-pair th:nth-child(4),
+        .var-tx-table-pair td:nth-child(4) { width: 28%; }
+        .var-tx-table-mini { min-width: 560px; table-layout: auto; }
         #varLiveTxPanel, #varFarmEpochsPanel { margin-top: 14px; }
         .var-tx-table th {
           text-align: left; font-size: .68rem; letter-spacing: .04em; text-transform: uppercase;
@@ -972,6 +980,22 @@ const HS_CONFIG = {
         .var-tx-src { font-size: .68rem; color: var(--muted); }
         .var-tx-more { margin-top: 8px; }
         .var-tx-empty { font-size: .82rem; color: var(--muted); padding: 8px 0; }
+        .var-tx-summary { font-size: .78rem; color: var(--muted); margin: 0 0 8px; }
+        .var-tx-leg { display: flex; flex-direction: column; gap: 2px; line-height: 1.35; }
+        .var-tx-st {
+          display: inline-block; font-size: .68rem; font-weight: 700; letter-spacing: .03em;
+          padding: 2px 7px; border-radius: 999px; white-space: nowrap;
+        }
+        .var-tx-st.is-ok { color: var(--success); background: color-mix(in srgb, var(--success) 16%, transparent); }
+        .var-tx-st.is-gap { color: #e6a817; background: color-mix(in srgb, #e6a817 16%, transparent); }
+        .var-tx-st.is-bad { color: var(--danger); background: color-mix(in srgb, var(--danger) 16%, transparent); }
+        .var-tx-pair-row { cursor: pointer; }
+        .var-tx-pair-toggle {
+          display: flex; align-items: flex-start; gap: 6px; width: 100%;
+          background: none; border: 0; padding: 0; color: inherit; font: inherit; text-align: left; cursor: pointer;
+        }
+        .var-tx-chev { display: inline-block; width: 1em; color: var(--muted); flex-shrink: 0; margin-top: 1px; }
+        .var-tx-pair-kids td { background: color-mix(in srgb, var(--muted) 5%, transparent); }
         .var-live-hedge { display: flex; flex-direction: column; gap: 12px; }
         .var-live-hedge-hint {
           font-size: .78rem; color: var(--muted); line-height: 1.45;
@@ -11248,7 +11272,7 @@ const HS_CONFIG = {
                 <button type="button" class="var-live-panel-toggle" onclick="varToggleLivePanel('live-tx')" aria-label="Toggle section">▾</button>
               </div>
               <div class="var-live-panel-body">
-                <p class="var-tx-hint" data-i18n="var.txHint">PnL regroupé par actif et par heure (heure de ton ordinateur). La liste sert à recouper avec Omni, Hyperliquid et Trade XYZ.</p>
+                <p class="var-tx-hint" data-i18n="var.txHint">Chaque ligne relie un ordre Variational à l’ordre Hyperliquid / Trade XYZ du même actif, proche dans le temps. OK = achat d’un côté et vente de l’autre, montants proches. Clique une ligne pour voir le détail.</p>
                 <div id="varLiveTxBody"></div>
               </div>
             </div>
@@ -12405,7 +12429,8 @@ const I18N = {
     'var.livePosEmpty': 'No open positions yet. Collect Omni in the extension, then Sync.',
     'var.liveMarketsEmpty': 'No trades in this period yet.',
     'var.txTitle': 'Check transactions',
-    'var.txHint': 'PnL grouped by asset and by hour (your computer clock). Use the list to match Omni, Hyperliquid and Trade XYZ.',
+    'var.txHint': 'Each row links a Variational order to the Hyperliquid / Trade XYZ order on the same asset, close in time. OK = buy on one side and sell on the other, similar size. Click a row for the fills.',
+    'var.txTabPair': 'Varia + HL pairs',
     'var.txTabAsset': 'By asset',
     'var.txTabHour': 'By hour',
     'var.txTabList': 'Transactions',
@@ -12423,6 +12448,21 @@ const I18N = {
     'var.txColPx': 'Price',
     'var.txColSize': 'Size',
     'var.txColType': 'Type',
+    'var.txColVaria': 'Variational',
+    'var.txColHl': 'Hyperliquid',
+    'var.txColGap': 'Gap',
+    'var.txColPnlVaria': 'Varia PnL',
+    'var.txColPnlHl': 'HL PnL',
+    'var.txColPnlNet': 'Net PnL',
+    'var.txColStatus': 'Status',
+    'var.txStOk': 'OK',
+    'var.txStGap': 'Gap',
+    'var.txStSame': 'Same side',
+    'var.txStOmni': 'Varia only',
+    'var.txStHl': 'HL only',
+    'var.txMix': 'Mixed',
+    'var.txPairEmpty': 'No orders to pair in this period.',
+    'var.txPairSummary': '{ok} OK · {gap} to check · {solo} unpaired',
     'var.txBuy': 'Buy',
     'var.txSell': 'Sell',
     'var.txTypeTrade': 'Trade',
@@ -13615,7 +13655,8 @@ const I18N = {
     'var.livePosEmpty': 'Pas encore de positions ouvertes. Collecter Omni dans l’extension, puis Synchroniser.',
     'var.liveMarketsEmpty': 'Pas encore de trades sur cette période.',
     'var.txTitle': 'Vérifier les transactions',
-    'var.txHint': 'PnL regroupé par actif et par heure (heure de ton ordinateur). La liste sert à recouper avec Omni, Hyperliquid et Trade XYZ. Funding = paiement horaire du marché.',
+    'var.txHint': 'Chaque ligne relie un ordre Variational à l’ordre Hyperliquid / Trade XYZ du même actif, proche dans le temps. OK = achat d’un côté et vente de l’autre, montants proches. Clique une ligne pour voir le détail. Funding (paiement horaire du marché) : onglets Par actif et Par heure.',
+    'var.txTabPair': 'Paires Varia + HL',
     'var.txTabAsset': 'Par actif',
     'var.txTabHour': 'Par heure',
     'var.txTabList': 'Transactions',
@@ -13633,6 +13674,21 @@ const I18N = {
     'var.txColPx': 'Prix',
     'var.txColSize': 'Taille',
     'var.txColType': 'Type',
+    'var.txColVaria': 'Variational',
+    'var.txColHl': 'Hyperliquid',
+    'var.txColGap': 'Écart',
+    'var.txColPnlVaria': 'PnL Varia',
+    'var.txColPnlHl': 'PnL HL',
+    'var.txColPnlNet': 'PnL net',
+    'var.txColStatus': 'État',
+    'var.txStOk': 'OK',
+    'var.txStGap': 'Écart',
+    'var.txStSame': 'Même sens',
+    'var.txStOmni': 'Varia seul',
+    'var.txStHl': 'HL seul',
+    'var.txMix': 'Mixte',
+    'var.txPairEmpty': 'Pas d’ordre à apparier sur cette période.',
+    'var.txPairSummary': '{ok} OK · {gap} à vérifier · {solo} sans paire',
     'var.txBuy': 'Achat',
     'var.txSell': 'Vente',
     'var.txTypeTrade': 'Trade',
@@ -33560,7 +33616,7 @@ document.addEventListener('DOMContentLoaded', () => {
 </div>
 
 <script src="js/variational-omni-collector.js"></script>
-<script src="js/variational-omni.js?v=20260928tx1"></script>
+<script src="js/variational-omni.js?v=20260928tx4"></script>
 
 <script>
 (function hsLoadCfWebAnalytics() {

@@ -125,8 +125,9 @@
   let _varLabModel = 'rwa-9';
   let _varDashStacked = false;
   let _varHlTxCache = { addr: '', fills: [], funding: [], at: 0 };
-  let _varTxDetailTab = 'asset';
+  let _varTxDetailTab = 'pair';
   let _varTxDetailLimit = 250;
+  let _varTxPairOpen = new Set();
 
   function varT(key) {
     return typeof t === 'function' ? t(key) : key;
@@ -7397,7 +7398,7 @@
     if (!el) return;
     _varFarmEpochUiBound = true;
     el.addEventListener('click', (e) => {
-      const txTab = e.target.closest('[data-tx-tab], [data-tx-more]');
+      const txTab = e.target.closest('[data-tx-tab], [data-tx-more], [data-tx-pair]');
       if (txTab) return;
       const mktBtn = e.target.closest('[data-epoch-markets]');
       if (mktBtn) {
@@ -9661,6 +9662,19 @@
     return s.replace(/[-_/]?(USDT|USDC|PERP)$/i, '').replace(/USD$/i, '').trim() || String(raw || '').toUpperCase();
   }
 
+  function varTxCanonAsset(raw) {
+    const label = varTxAssetLabel(raw);
+    if (!label) return '';
+    const up = label.toUpperCase();
+    const mapped = VAR_HL_TICKER_MAP[up] || VAR_HL_TICKER_ALIASES[up];
+    if (mapped) return varTxAssetLabel(mapped);
+    return up;
+  }
+
+  function varTxIsHedgeVenue(venue) {
+    return venue === 'hl' || venue === 'xyz';
+  }
+
   function varTxVenueLabel(venue) {
     if (venue === 'xyz') return varT('var.venueXyz') || 'XYZ';
     if (venue === 'hl') return varT('var.venueHl') || 'HL';
@@ -9687,6 +9701,16 @@
       });
     } catch (_) {
       return new Date(ts).toISOString().slice(0, 13) + 'h';
+    }
+  }
+
+  function varTxTimeLabelShort(ts) {
+    try {
+      return new Date(ts).toLocaleString(varLoc(), {
+        day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+      });
+    } catch (_) {
+      return new Date(ts).toISOString().replace('T', ' ').slice(0, 16);
     }
   }
 
@@ -9746,8 +9770,9 @@
       const qty = Number(varTradeQty(t)) || 0;
       const notional = Math.abs(px * qty);
       if (!(notional > 0)) continue;
+      const asset = varTxAssetLabel(t.underlying || (t.instrument && t.instrument.underlying) || t.market || t.asset);
       rows.push({
-        ts, asset: varTxAssetLabel(t.underlying || (t.instrument && t.instrument.underlying) || t.market || t.asset),
+        ts, asset, canon: varTxCanonAsset(asset),
         venue: 'omni', type: 'trade', side: varTxSideKind(t.side),
         px, qty, volume: notional, realized: 0, funding: 0, fees: 0, pnl: 0,
       });
@@ -9762,12 +9787,16 @@
         const qty = Number(varTransferQty(t)) || 0;
         if (!qty) continue;
         const asset = varTxAssetLabel(t.underlying || (t.reference_instrument && t.reference_instrument.underlying) || t.asset || '');
+        const cashRow = (type, realized, funding, fees) => ({
+          ts, asset, canon: varTxCanonAsset(asset), venue: 'omni', type, side: '',
+          px: 0, qty: 0, volume: 0, realized, funding, fees, pnl: realized + funding + fees,
+        });
         if (kind === 'realized_pnl') {
-          rows.push({ ts, asset, venue: 'omni', type: 'realized', side: '', px: 0, qty: 0, volume: 0, realized: qty, funding: 0, fees: 0, pnl: qty });
+          rows.push(cashRow('realized', qty, 0, 0));
         } else if (kind === 'funding') {
-          rows.push({ ts, asset, venue: 'omni', type: 'funding', side: '', px: 0, qty: 0, volume: 0, realized: 0, funding: qty, fees: 0, pnl: qty });
+          rows.push(cashRow('funding', 0, qty, 0));
         } else if (kind === 'fee') {
-          rows.push({ ts, asset, venue: 'omni', type: 'fee', side: '', px: 0, qty: 0, volume: 0, realized: 0, funding: 0, fees: qty, pnl: qty });
+          rows.push(cashRow('fee', 0, 0, qty));
         }
       }
     };
@@ -9789,8 +9818,9 @@
         const fees = -varFarmHlFillFeeUsd(f);
         const venue = varFarmHlFillIsXyz(f) ? 'xyz' : 'hl';
         if (!(volume > 0) && !realized && !fees) continue;
+        const asset = varTxAssetLabel(f.coin);
         rows.push({
-          ts, asset: varTxAssetLabel(f.coin), venue, type: 'trade',
+          ts, asset, canon: varTxCanonAsset(asset), venue, type: 'trade',
           side: varTxSideKind(f.side), px, qty, volume, realized, funding: 0, fees, pnl: realized + fees,
         });
       }
@@ -9801,8 +9831,9 @@
         const usdc = Number(ev.usdc) || 0;
         if (!usdc) continue;
         const venue = varFarmHlFillIsXyz(ev) ? 'xyz' : 'hl';
+        const asset = varTxAssetLabel(ev.coin);
         rows.push({
-          ts, asset: varTxAssetLabel(ev.coin), venue, type: 'funding',
+          ts, asset, canon: varTxCanonAsset(asset), venue, type: 'funding',
           side: '', px: 0, qty: 0, volume: 0, realized: 0, funding: usdc, fees: 0, pnl: usdc,
         });
       }
@@ -9812,15 +9843,71 @@
     return rows;
   }
 
-  function varGroupTxsByAsset(rows) {
+  const VAR_TX_PAIR_GAP_MS = 45 * 60 * 1000;
+  const VAR_TX_PAIR_LINK_MS = 2 * 60 * 60 * 1000;
+  const VAR_TX_PAIR_OK_PCT = 0.08;
+
+  function varTxEmptyBucket() {
+    return { count: 0, volume: 0, realized: 0, funding: 0, fees: 0, pnl: 0, buy: 0, sell: 0, pxN: 0, pxD: 0 };
+  }
+
+  function varTxAddToBucket(b, r) {
+    b.count += 1;
+    b.volume += r.volume || 0;
+    b.realized += r.realized || 0;
+    b.funding += r.funding || 0;
+    b.fees += r.fees || 0;
+    b.pnl += r.pnl || 0;
+    if (r.side === 'buy') b.buy += r.volume || 0;
+    if (r.side === 'sell') b.sell += r.volume || 0;
+    if (r.px > 0 && r.volume > 0) {
+      b.pxN += r.px * r.volume;
+      b.pxD += r.volume;
+    }
+  }
+
+  function varTxSideFromBucket(b) {
+    const buy = (b && b.buy) || 0;
+    const sell = (b && b.sell) || 0;
+    if (buy > sell * 1.05) return 'buy';
+    if (sell > buy * 1.05) return 'sell';
+    if (buy || sell) return 'mix';
+    return '';
+  }
+
+  function varTxPairStatusFromVol(omni, hedge) {
+    const o = (omni && omni.volume) || 0;
+    const h = (hedge && hedge.volume) || 0;
+    if (!(o > 0) && !(h > 0)) return 'cash';
+    if (o > 0 && !(h > 0)) return 'omni';
+    if (h > 0 && !(o > 0)) return 'hl';
+    const oSide = varTxSideFromBucket(omni);
+    const hSide = varTxSideFromBucket(hedge);
+    const opp = (oSide === 'buy' && hSide === 'sell') || (oSide === 'sell' && hSide === 'buy');
+    if (oSide && hSide && oSide !== 'mix' && hSide !== 'mix' && !opp) return 'same';
+    const gap = Math.abs(o - h) / Math.max(o, h, 1);
+    if (opp && gap <= VAR_TX_PAIR_OK_PCT) return 'ok';
+    return 'gap';
+  }
+
+  function varTxGroupSplit(rows, keyFn) {
     const map = new Map();
     for (const r of rows) {
-      const key = r.asset || '—';
+      const key = keyFn(r);
       let g = map.get(key);
       if (!g) {
-        g = { asset: key, venues: new Set(), count: 0, volume: 0, realized: 0, funding: 0, fees: 0, pnl: 0 };
+        g = {
+          key,
+          asset: r.asset || String(key),
+          labels: new Set(),
+          venues: new Set(),
+          omni: varTxEmptyBucket(),
+          hedge: varTxEmptyBucket(),
+          count: 0, volume: 0, realized: 0, funding: 0, fees: 0, pnl: 0,
+        };
         map.set(key, g);
       }
+      if (r.asset) g.labels.add(r.asset);
       g.venues.add(r.venue);
       g.count += 1;
       g.volume += r.volume || 0;
@@ -9828,27 +9915,145 @@
       g.funding += r.funding || 0;
       g.fees += r.fees || 0;
       g.pnl += r.pnl || 0;
+      if (r.venue === 'omni') varTxAddToBucket(g.omni, r);
+      else {
+        varTxAddToBucket(g.hedge, r);
+        if (!g.hedge.venues) g.hedge.venues = new Set();
+        g.hedge.venues.add(r.venue);
+      }
     }
-    return [...map.values()].sort((a, b) => Math.abs(b.pnl) - Math.abs(a.pnl) || b.volume - a.volume);
+    for (const g of map.values()) {
+      const labels = [...g.labels];
+      g.asset = labels.find((x) => x && x !== 'USDC') || labels[0] || g.asset;
+      g.status = varTxPairStatusFromVol(g.omni, g.hedge);
+    }
+    return [...map.values()];
+  }
+
+  function varGroupTxsByAsset(rows) {
+    return varTxGroupSplit(rows, (r) => r.canon || r.asset || '—')
+      .sort((a, b) => Math.abs(b.pnl) - Math.abs(a.pnl) || b.volume - a.volume);
   }
 
   function varGroupTxsByHour(rows) {
-    const map = new Map();
+    return varTxGroupSplit(rows, (r) => String(varTxHourStart(r.ts)))
+      .map((g) => ({ ...g, hour: Number(g.key) || 0 }))
+      .sort((a, b) => b.hour - a.hour);
+  }
+
+  function varTxLegsFromRows(rows, pred) {
+    const b = varTxEmptyBucket();
+    const venues = new Set();
+    const picked = [];
     for (const r of rows) {
-      const h = varTxHourStart(r.ts);
-      let g = map.get(h);
-      if (!g) {
-        g = { hour: h, count: 0, volume: 0, realized: 0, funding: 0, fees: 0, pnl: 0 };
-        map.set(h, g);
-      }
-      g.count += 1;
-      g.volume += r.volume || 0;
-      g.realized += r.realized || 0;
-      g.funding += r.funding || 0;
-      g.fees += r.fees || 0;
-      g.pnl += r.pnl || 0;
+      if (!pred(r)) continue;
+      picked.push(r);
+      varTxAddToBucket(b, r);
+      venues.add(r.venue);
     }
-    return [...map.values()].sort((a, b) => b.hour - a.hour);
+    b.avgPx = b.pxD ? b.pxN / b.pxD : 0;
+    b.venues = venues;
+    b.rows = picked;
+    return b;
+  }
+
+  function varTxLinkClusters(clusters) {
+    const two = [];
+    const one = [];
+    for (const c of clusters) {
+      const omniVol = c.rows.reduce((s, r) => s + (r.venue === 'omni' ? (r.volume || 0) : 0), 0);
+      const hedgeVol = c.rows.reduce((s, r) => s + (varTxIsHedgeVenue(r.venue) ? (r.volume || 0) : 0), 0);
+      const hasO = omniVol > 0;
+      const hasH = hedgeVol > 0;
+      if (hasO && hasH) two.push(c);
+      else if (hasO || hasH) one.push({ c, hasO, hasH, vol: omniVol + hedgeVol });
+      else two.push(c);
+    }
+    const pairs = [];
+    for (let a = 0; a < one.length; a++) {
+      for (let b = a + 1; b < one.length; b++) {
+        const A = one[a];
+        const B = one[b];
+        if (A.hasO === B.hasO) continue;
+        const t0 = Math.min(A.c.t0, B.c.t0);
+        const t1 = Math.max(A.c.t1, B.c.t1);
+        if (t1 - t0 > VAR_TX_PAIR_LINK_MS) continue;
+        const gap = Math.abs(A.vol - B.vol) / Math.max(A.vol, B.vol, 1);
+        const midA = (A.c.t0 + A.c.t1) / 2;
+        const midB = (B.c.t0 + B.c.t1) / 2;
+        const dt = Math.abs(midA - midB);
+        const score = (1 - Math.min(1, gap)) * 3 + Math.max(0, 1 - dt / VAR_TX_PAIR_LINK_MS);
+        pairs.push({ a, b, score });
+      }
+    }
+    pairs.sort((x, y) => y.score - x.score);
+    const used = new Set();
+    const merged = [];
+    for (const p of pairs) {
+      if (used.has(p.a) || used.has(p.b)) continue;
+      used.add(p.a);
+      used.add(p.b);
+      const A = one[p.a].c;
+      const B = one[p.b].c;
+      merged.push({
+        asset: A.asset,
+        rows: A.rows.concat(B.rows).sort((x, y) => x.ts - y.ts),
+        t0: Math.min(A.t0, B.t0),
+        t1: Math.max(A.t1, B.t1),
+      });
+    }
+    for (let i = 0; i < one.length; i++) {
+      if (!used.has(i)) merged.push(one[i].c);
+    }
+    return two.concat(merged);
+  }
+
+  function varTxPairTrades(rows) {
+    const trades = (rows || []).filter((r) => r.type === 'trade' && (r.volume || 0) > 0);
+    const byAsset = new Map();
+    for (const r of trades) {
+      const k = r.canon || r.asset || '—';
+      if (!byAsset.has(k)) byAsset.set(k, []);
+      byAsset.get(k).push(r);
+    }
+    const groups = [];
+    let idx = 0;
+    for (const [asset, list] of byAsset) {
+      list.sort((a, b) => a.ts - b.ts);
+      const tight = [];
+      for (const r of list) {
+        const last = tight[tight.length - 1];
+        if (!last || r.ts - last.t1 > VAR_TX_PAIR_GAP_MS) {
+          tight.push({ asset, rows: [r], t0: r.ts, t1: r.ts });
+        } else {
+          last.rows.push(r);
+          last.t1 = r.ts;
+        }
+      }
+      const linked = varTxLinkClusters(tight);
+      for (const c of linked) {
+        const omni = varTxLegsFromRows(c.rows, (r) => r.venue === 'omni');
+        const hedge = varTxLegsFromRows(c.rows, (r) => varTxIsHedgeVenue(r.venue));
+        const labels = [...new Set(c.rows.map((r) => r.asset).filter(Boolean))];
+        const display = labels.find((x) => c.rows.some((r) => r.venue === 'omni' && r.asset === x))
+          || labels[0]
+          || asset;
+        idx += 1;
+        groups.push({
+          id: `p-${asset}-${c.t0}-${idx}`,
+          asset: display,
+          t0: c.t0,
+          t1: c.t1,
+          rows: c.rows.slice().sort((a, b) => a.ts - b.ts),
+          omni,
+          hedge,
+          status: varTxPairStatusFromVol(omni, hedge),
+          netPnl: (omni.pnl || 0) + (hedge.pnl || 0),
+        });
+      }
+    }
+    groups.sort((a, b) => b.t1 - a.t1);
+    return groups;
   }
 
   function varTxSigned(n) {
@@ -9857,10 +10062,124 @@
     return `<span class="mono ${cls}">${varFmtSignedUsdExact(v)}</span>`;
   }
 
+  function varTxTypeLabel(tp) {
+    if (tp === 'funding') return varT('var.txTypeFunding');
+    if (tp === 'fee') return varT('var.txTypeFee');
+    if (tp === 'realized') return varT('var.txTypeRealized');
+    return varT('var.txTypeTrade');
+  }
+
+  function varTxSideLabel(side) {
+    if (side === 'buy') return varT('var.txBuy');
+    if (side === 'sell') return varT('var.txSell');
+    if (side === 'mix') return varT('var.txMix');
+    return '—';
+  }
+
+  function varTxStatusPill(st) {
+    if (!st || st === 'cash') return '—';
+    const map = {
+      ok: ['is-ok', 'var.txStOk'],
+      gap: ['is-gap', 'var.txStGap'],
+      same: ['is-bad', 'var.txStSame'],
+      omni: ['is-bad', 'var.txStOmni'],
+      hl: ['is-bad', 'var.txStHl'],
+    };
+    const m = map[st];
+    if (!m) return '—';
+    return `<span class="var-tx-st ${m[0]}">${varEsc(varT(m[1]))}</span>`;
+  }
+
+  function varTxGapHtml(o, h) {
+    if (!(o > 0) || !(h > 0)) return '—';
+    const d = o - h;
+    const pct = (Math.abs(d) / Math.max(o, h)) * 100;
+    const cls = Math.abs(d) / Math.max(o, h) <= VAR_TX_PAIR_OK_PCT ? '' : 'is-neg';
+    return `<span class="mono ${cls}">${varFmtSignedUsdExact(d)}</span><div class="var-tx-src">${pct.toFixed(1)}%</div>`;
+  }
+
+  function varTxLegCell(b, hedgeVenues) {
+    if (!(b && ((b.volume || 0) > 0 || (b.count || 0) > 0))) {
+      return '<span class="var-tx-src">—</span>';
+    }
+    const extra = hedgeVenues && hedgeVenues.size
+      ? [...hedgeVenues].map(varTxVenueLabel).join(' · ')
+      : '';
+    if (!(b.volume > 0)) {
+      const bits = [`${b.count}`, extra].filter(Boolean).join(' · ');
+      return `<div class="var-tx-leg">
+        <div>${varTxSigned(b.pnl)}</div>
+        <div class="var-tx-src">${varEsc(bits)}</div>
+      </div>`;
+    }
+    const side = varTxSideLabel(varTxSideFromBucket(b));
+    const avgPx = b.avgPx > 0 ? b.avgPx : (b.pxD ? b.pxN / b.pxD : 0);
+    const px = avgPx > 0 ? varFmtPosPx(avgPx) : '';
+    const bits = [
+      `${b.count}`,
+      px ? `px ${px}` : '',
+      extra,
+    ].filter(Boolean).join(' · ');
+    return `<div class="var-tx-leg">
+      <div><strong>${varEsc(side)}</strong> · <span class="mono">${varFmtCompactUsd(b.volume)}</span></div>
+      <div class="var-tx-src">${varEsc(bits)} · ${varTxSigned(b.pnl)}</div>
+    </div>`;
+  }
+
+  function varTxListBody(rows) {
+    return rows.map((r) => `<tr>
+      <td class="mono">${varEsc(varTxTimeLabel(r.ts))}</td>
+      <td>
+        <span class="var-epoch-mkt-asset" style="gap:6px">
+          ${varAssetLogoHtml(r.asset)}
+          <span class="mono">${varEsc(r.asset || '—')}</span>
+        </span>
+      </td>
+      <td><span class="var-farm-epoch-pill ${r.venue === 'xyz' ? 'is-xyz' : (r.venue === 'hl' ? 'is-hl' : 'is-omni')}">${varEsc(varTxVenueLabel(r.venue))}</span></td>
+      <td>${varEsc(varTxTypeLabel(r.type))}</td>
+      <td>${varEsc(varTxSideLabel(r.side))}</td>
+      <td class="text-right mono">${r.px > 0 ? varFmtPosPx(r.px) : '—'}</td>
+      <td class="text-right mono">${r.volume > 0 ? varFmtCompactUsd(r.volume) : '—'}</td>
+      <td class="text-right">${varTxSigned(r.pnl)}</td>
+    </tr>`).join('');
+  }
+
+  function varTxSplitRowHtml(labelHtml, g) {
+    return `<tr>
+      <td>${labelHtml}</td>
+      <td>${varTxLegCell(g.omni)}</td>
+      <td>${varTxLegCell(g.hedge, g.hedge.venues || new Set([...g.venues].filter(varTxIsHedgeVenue)))}</td>
+      <td class="text-right">${varTxGapHtml(g.omni.volume, g.hedge.volume)}</td>
+      <td class="text-right">${varTxSigned(g.pnl)}</td>
+      <td>${varTxStatusPill(g.status)}</td>
+    </tr>`;
+  }
+
+  function varTxSplitHead(firstCol) {
+    return `<thead><tr>
+      <th>${varEsc(firstCol)}</th>
+      <th>${varEsc(varT('var.txColVaria'))}</th>
+      <th>${varEsc(varT('var.txColHl'))}</th>
+      <th class="text-right">${varEsc(varT('var.txColGap'))}</th>
+      <th class="text-right">${varEsc(varT('var.txColPnlNet'))}</th>
+      <th>${varEsc(varT('var.txColStatus'))}</th>
+    </tr></thead>`;
+  }
+
+  function varTxRerender(scope) {
+    if (String(scope || '').startsWith('epoch:')) {
+      try { varRenderFarmEpochMini(); } catch (_) {}
+    } else {
+      try { varRenderLiveTxDetail(); } catch (_) {}
+    }
+  }
+
   function varTxDetailInnerHtml(rows, scope) {
-    const tab = _varTxDetailTab === 'hour' || _varTxDetailTab === 'list' ? _varTxDetailTab : 'asset';
+    const allowed = { pair: 1, asset: 1, hour: 1, list: 1 };
+    const tab = allowed[_varTxDetailTab] ? _varTxDetailTab : 'pair';
     const tabBtn = (id, label) => `<button type="button" class="var-points-inner-tab${tab === id ? ' is-on' : ''}" data-tx-tab="${id}" data-tx-scope="${varEsc(scope)}">${varEsc(label)}</button>`;
     const tabs = `<div class="var-tx-tabs" role="tablist">
+      ${tabBtn('pair', varT('var.txTabPair'))}
       ${tabBtn('asset', varT('var.txTabAsset'))}
       ${tabBtn('hour', varT('var.txTabHour'))}
       ${tabBtn('list', varT('var.txTabList'))}
@@ -9869,57 +10188,91 @@
       return `${tabs}<div class="var-tx-empty">${varEsc(varT('var.txEmpty'))}</div>`;
     }
 
+    if (tab === 'pair') {
+      const groups = varTxPairTrades(rows);
+      if (!groups.length) {
+        return `${tabs}<div class="var-tx-empty">${varEsc(varT('var.txPairEmpty'))}</div>`;
+      }
+      const limit = _varTxDetailLimit;
+      const shown = groups.slice(0, limit);
+      let ok = 0;
+      let warn = 0;
+      let solo = 0;
+      for (const g of groups) {
+        if (g.status === 'ok') ok += 1;
+        else if (g.status === 'omni' || g.status === 'hl') solo += 1;
+        else warn += 1;
+      }
+      const summary = `<p class="var-tx-summary">${varEsc(
+        varT('var.txPairSummary')
+          .replace('{ok}', String(ok))
+          .replace('{gap}', String(warn))
+          .replace('{solo}', String(solo))
+      )}</p>`;
+      const body = shown.map((g) => {
+        const open = _varTxPairOpen.has(g.id);
+        const time = Math.abs(g.t1 - g.t0) < 60 * 1000
+          ? varTxTimeLabelShort(g.t0)
+          : `${varTxTimeLabelShort(g.t0)} – ${varTxTimeLabelShort(g.t1)}`;
+        const kids = open
+          ? `<tr class="var-tx-pair-kids"><td colspan="4"><div class="var-tx-table-wrap"><table class="var-tx-table var-tx-table-mini"><thead><tr>
+              <th>${varEsc(varT('var.txColTime'))}</th>
+              <th>${varEsc(varT('var.txColAsset'))}</th>
+              <th>${varEsc(varT('var.txColSource'))}</th>
+              <th>${varEsc(varT('var.txColType'))}</th>
+              <th>${varEsc(varT('var.txColSide'))}</th>
+              <th class="text-right">${varEsc(varT('var.txColPx'))}</th>
+              <th class="text-right">${varEsc(varT('var.txColSize'))}</th>
+              <th class="text-right">${varEsc(varT('var.txColPnl'))}</th>
+            </tr></thead><tbody>${varTxListBody(g.rows)}</tbody></table></div></td></tr>`
+          : '';
+        return `<tr class="var-tx-pair-row${open ? ' is-open' : ''}">
+          <td>
+            ${varTxStatusPill(g.status)}
+            <div class="var-tx-src">${varT('var.txColPnlNet')} ${varTxSigned(g.netPnl)}</div>
+          </td>
+          <td>
+            <button type="button" class="var-tx-pair-toggle" data-tx-pair="${varEsc(g.id)}" data-tx-scope="${varEsc(scope)}">
+              <span class="var-tx-chev" aria-hidden="true">${open ? '▾' : '▸'}</span>
+              <span>
+                <span class="var-epoch-mkt-asset" style="gap:6px">
+                  ${varAssetLogoHtml(g.asset)}
+                  <span class="mono">${varEsc(g.asset || '—')}</span>
+                </span>
+                <div class="var-tx-src mono">${varEsc(time)}</div>
+              </span>
+            </button>
+          </td>
+          <td>${varTxLegCell(g.omni)}</td>
+          <td>
+            ${varTxLegCell(g.hedge, g.hedge.venues)}
+            ${(g.omni.volume > 0 && g.hedge.volume > 0) ? `<div class="var-tx-src">${varEsc(varT('var.txColGap'))} ${varTxGapHtml(g.omni.volume, g.hedge.volume)}</div>` : ''}
+          </td>
+        </tr>${kids}`;
+      }).join('');
+      const more = groups.length > shown.length
+        ? `<button type="button" class="btn btn-ghost text-xs var-tx-more" data-tx-more="${varEsc(scope)}">${varEsc(varT('var.txMore').replace('{n}', String(groups.length - shown.length)))}</button>`
+        : '';
+      return `${tabs}${summary}<div class="var-tx-table-wrap"><table class="var-tx-table var-tx-table-pair"><thead><tr>
+        <th>${varEsc(varT('var.txColStatus'))}</th>
+        <th>${varEsc(varT('var.txColAsset'))}</th>
+        <th>${varEsc(varT('var.txColVaria'))}</th>
+        <th>${varEsc(varT('var.txColHl'))}</th>
+      </tr></thead><tbody>${body}</tbody></table></div>${more}`;
+    }
+
     if (tab === 'hour') {
       const hours = varGroupTxsByHour(rows);
-      const body = hours.map((g) => `<tr>
-        <td class="mono">${varEsc(varTxHourLabel(g.hour))}</td>
-        <td class="text-right mono">${g.count}</td>
-        <td class="text-right mono">${g.volume > 0 ? varFmtCompactUsd(g.volume) : '—'}</td>
-        <td class="text-right">${varTxSigned(g.realized)}</td>
-        <td class="text-right">${varTxSigned(g.funding)}</td>
-        <td class="text-right">${varTxSigned(g.fees)}</td>
-        <td class="text-right">${varTxSigned(g.pnl)}</td>
-      </tr>`).join('');
-      return `${tabs}<div class="var-tx-table-wrap"><table class="var-tx-table"><thead><tr>
-        <th>${varEsc(varT('var.txColHour'))}</th>
-        <th class="text-right">${varEsc(varT('var.txColCount'))}</th>
-        <th class="text-right">${varEsc(varT('var.txColVol'))}</th>
-        <th class="text-right">${varEsc(varT('var.txColRealized'))}</th>
-        <th class="text-right">${varEsc(varT('var.txColFunding'))}</th>
-        <th class="text-right">${varEsc(varT('var.txColFees'))}</th>
-        <th class="text-right">${varEsc(varT('var.txColPnl'))}</th>
-      </tr></thead><tbody>${body}</tbody></table></div>`;
+      const body = hours.map((g) => varTxSplitRowHtml(
+        `<span class="mono">${varEsc(varTxHourLabel(g.hour))}</span>`,
+        g
+      )).join('');
+      return `${tabs}<div class="var-tx-table-wrap"><table class="var-tx-table var-tx-table-pair">${varTxSplitHead(varT('var.txColHour'))}<tbody>${body}</tbody></table></div>`;
     }
 
     if (tab === 'list') {
       const limit = _varTxDetailLimit;
       const shown = rows.slice(0, limit);
-      const typeLbl = (tp) => {
-        if (tp === 'funding') return varT('var.txTypeFunding');
-        if (tp === 'fee') return varT('var.txTypeFee');
-        if (tp === 'realized') return varT('var.txTypeRealized');
-        return varT('var.txTypeTrade');
-      };
-      const sideLbl = (side) => {
-        if (side === 'buy') return varT('var.txBuy');
-        if (side === 'sell') return varT('var.txSell');
-        return '—';
-      };
-      const body = shown.map((r) => `<tr>
-        <td class="mono">${varEsc(varTxTimeLabel(r.ts))}</td>
-        <td>
-          <span class="var-epoch-mkt-asset" style="gap:6px">
-            ${varAssetLogoHtml(r.asset)}
-            <span class="mono">${varEsc(r.asset || '—')}</span>
-          </span>
-        </td>
-        <td><span class="var-farm-epoch-pill ${r.venue === 'xyz' ? 'is-xyz' : (r.venue === 'hl' ? 'is-hl' : 'is-omni')}">${varEsc(varTxVenueLabel(r.venue))}</span></td>
-        <td>${varEsc(typeLbl(r.type))}</td>
-        <td>${varEsc(sideLbl(r.side))}</td>
-        <td class="text-right mono">${r.px > 0 ? varFmtPosPx(r.px) : '—'}</td>
-        <td class="text-right mono">${r.volume > 0 ? varFmtCompactUsd(r.volume) : '—'}</td>
-        <td class="text-right">${varTxSigned(r.pnl)}</td>
-      </tr>`).join('');
       const more = rows.length > shown.length
         ? `<button type="button" class="btn btn-ghost text-xs var-tx-more" data-tx-more="${varEsc(scope)}">${varEsc(varT('var.txMore').replace('{n}', String(rows.length - shown.length)))}</button>`
         : '';
@@ -9932,37 +10285,20 @@
         <th class="text-right">${varEsc(varT('var.txColPx'))}</th>
         <th class="text-right">${varEsc(varT('var.txColSize'))}</th>
         <th class="text-right">${varEsc(varT('var.txColPnl'))}</th>
-      </tr></thead><tbody>${body}</tbody></table></div>${more}`;
+      </tr></thead><tbody>${varTxListBody(shown)}</tbody></table></div>${more}`;
     }
 
     const assets = varGroupTxsByAsset(rows);
     const body = assets.map((g) => {
       const src = [...g.venues].map(varTxVenueLabel).join(' · ');
-      return `<tr>
-        <td>
-          <span class="var-epoch-mkt-asset" style="gap:6px">
-            ${varAssetLogoHtml(g.asset)}
-            <span class="mono">${varEsc(g.asset || '—')}</span>
-          </span>
-          <div class="var-tx-src">${varEsc(src)}</div>
-        </td>
-        <td class="text-right mono">${g.count}</td>
-        <td class="text-right mono">${g.volume > 0 ? varFmtCompactUsd(g.volume) : '—'}</td>
-        <td class="text-right">${varTxSigned(g.realized)}</td>
-        <td class="text-right">${varTxSigned(g.funding)}</td>
-        <td class="text-right">${varTxSigned(g.fees)}</td>
-        <td class="text-right">${varTxSigned(g.pnl)}</td>
-      </tr>`;
+      const label = `<span class="var-epoch-mkt-asset" style="gap:6px">
+          ${varAssetLogoHtml(g.asset)}
+          <span class="mono">${varEsc(g.asset || '—')}</span>
+        </span>
+        <div class="var-tx-src">${varEsc(src)}</div>`;
+      return varTxSplitRowHtml(label, g);
     }).join('');
-    return `${tabs}<div class="var-tx-table-wrap"><table class="var-tx-table"><thead><tr>
-      <th>${varEsc(varT('var.txColAsset'))}</th>
-      <th class="text-right">${varEsc(varT('var.txColCount'))}</th>
-      <th class="text-right">${varEsc(varT('var.txColVol'))}</th>
-      <th class="text-right">${varEsc(varT('var.txColRealized'))}</th>
-      <th class="text-right">${varEsc(varT('var.txColFunding'))}</th>
-      <th class="text-right">${varEsc(varT('var.txColFees'))}</th>
-      <th class="text-right">${varEsc(varT('var.txColPnl'))}</th>
-    </tr></thead><tbody>${body}</tbody></table></div>`;
+    return `${tabs}<div class="var-tx-table-wrap"><table class="var-tx-table var-tx-table-pair">${varTxSplitHead(varT('var.txColAsset'))}<tbody>${body}</tbody></table></div>`;
   }
 
   function varBindTxDetailUi(root) {
@@ -9973,13 +10309,19 @@
       if (tab) {
         e.preventDefault();
         e.stopPropagation();
-        _varTxDetailTab = tab.getAttribute('data-tx-tab') || 'asset';
-        const scope = tab.getAttribute('data-tx-scope') || '';
-        if (String(scope).startsWith('epoch:')) {
-          try { varRenderFarmEpochMini(); } catch (_) {}
-        } else {
-          try { varRenderLiveTxDetail(); } catch (_) {}
-        }
+        _varTxDetailTab = tab.getAttribute('data-tx-tab') || 'pair';
+        varTxRerender(tab.getAttribute('data-tx-scope') || '');
+        return;
+      }
+      const pair = e.target.closest('[data-tx-pair]');
+      if (pair) {
+        e.preventDefault();
+        e.stopPropagation();
+        const id = pair.getAttribute('data-tx-pair') || '';
+        if (!id) return;
+        if (_varTxPairOpen.has(id)) _varTxPairOpen.delete(id);
+        else _varTxPairOpen.add(id);
+        varTxRerender(pair.getAttribute('data-tx-scope') || '');
         return;
       }
       const more = e.target.closest('[data-tx-more]');
@@ -9987,12 +10329,7 @@
       e.preventDefault();
       e.stopPropagation();
       _varTxDetailLimit = Math.min(4000, _varTxDetailLimit + 250);
-      const scope = more.getAttribute('data-tx-more') || '';
-      if (String(scope).startsWith('epoch:')) {
-        try { varRenderFarmEpochMini(); } catch (_) {}
-      } else {
-        try { varRenderLiveTxDetail(); } catch (_) {}
-      }
+      varTxRerender(more.getAttribute('data-tx-more') || '');
     });
   }
 
@@ -11514,6 +11851,7 @@
   window.varSetImportDdOpen = varSetImportDdOpen;
   window.varSetDashPeriod = varSetDashPeriod;
   window.varSetLiveVolPeriod = varSetLiveVolPeriod;
+  window.varRenderLiveTxDetail = varRenderLiveTxDetail;
   window.varSyncHlHedgeFromImport = varSyncHlHedgeFromImport;
   window.varRenderHlHedgeImportUi = varRenderHlHedgeImportUi;
   window.varSetHlHedgeAddress = varSetHlHedgeAddress;
